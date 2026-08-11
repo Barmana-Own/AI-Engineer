@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,25 +17,41 @@ from app.routers.tasks import router as tasks_router
 initialize_database()
 
 
-async def _delayed_scheduler(stop_event: asyncio.Event) -> None:
-    """Let the HTTP server finish startup before the first autonomous scan."""
-    await asyncio.sleep(0.5)
-    await run_autonomy_scheduler(stop_event)
+def _start_scheduler_thread(stop_holder: dict[str, object]) -> threading.Thread:
+    """Run autonomous work off the HTTP event loop so SQLite/model work cannot starve APIs."""
+    def worker() -> None:
+        async def run() -> None:
+            loop = asyncio.get_running_loop()
+            stop_event = asyncio.Event()
+            stop_holder["stop"] = lambda: loop.call_soon_threadsafe(stop_event.set)
+            await asyncio.sleep(0.5)
+            await run_autonomy_scheduler(stop_event)
+
+        asyncio.run(run())
+
+    thread = threading.Thread(
+        target=worker,
+        name="autonomy-scheduler",
+        daemon=True,
+    )
+    thread.start()
+    return thread
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    stop_event = asyncio.Event()
-    scheduler_task = None
+    stop_holder: dict[str, object] = {}
+    scheduler_thread: threading.Thread | None = None
     if settings.autonomous_mode_enabled:
-        scheduler_task = asyncio.create_task(_delayed_scheduler(stop_event))
+        scheduler_thread = _start_scheduler_thread(stop_holder)
     try:
         yield
     finally:
-        stop_event.set()
-        if scheduler_task:
-            scheduler_task.cancel()
-            await asyncio.gather(scheduler_task, return_exceptions=True)
+        stop_callback = stop_holder.get("stop")
+        if callable(stop_callback):
+            stop_callback()
+        if scheduler_thread:
+            scheduler_thread.join(timeout=5)
 
 app = FastAPI(
     title=settings.app_name,
