@@ -423,7 +423,16 @@ def _term_occurs_positively(text: str, term: str) -> bool:
 
 
 def _task_requirements(instruction: str) -> dict[str, bool]:
-    lowered = instruction.casefold()
+    # Learned memories are evidence, not a new user request.  Do not let an
+    # old failure mentioning "fix" or "delete" silently turn a read-only role
+    # into a mutation task.
+    primary_instruction = re.split(
+        r"\n(?:LEARNED(?: PROJECT)? MEMORY):",
+        instruction,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+    lowered = primary_instruction.casefold()
 
     mutation_terms = (
         "add",
