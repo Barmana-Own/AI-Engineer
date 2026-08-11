@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from app.agent_service import run_agent_task
 from app.autonomy import run_autonomous_cycles
+from app.subagents import list_subagent_roles
 from app.db import (
     create_autonomy_run,
     create_task,
@@ -25,6 +26,12 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
+
+
+@router.get("/subagents")
+def subagents_list() -> list[dict[str, object]]:
+    """Expose the bounded specialist registry for the UI and monitor."""
+    return list_subagent_roles()
 
 
 @router.get("/tasks", response_model=list[AgentTaskResponse])

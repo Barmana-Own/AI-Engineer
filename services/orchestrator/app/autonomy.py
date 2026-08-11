@@ -23,6 +23,7 @@ from app.db import (
     update_autonomy_run,
 )
 from app.config import settings
+from app.subagents import build_role_instruction, configured_subagent_roles
 
 
 def build_cycle_instruction(
@@ -61,7 +62,7 @@ remain policy-controlled.
 
 
 async def run_autonomous_cycles(run_id: str) -> None:
-    """Run a finite sequence of self-improvement tasks and persist its progress."""
+    """Run a finite, sequential specialist pipeline and persist its progress."""
     from app.agent_service import run_agent_task
 
     run = get_autonomy_run(run_id)
@@ -80,38 +81,49 @@ async def run_autonomous_cycles(run_id: str) -> None:
     task_ids = list(run.get("task_ids") or [])
     update_autonomy_run(run_id, status="running", error=None)
 
+    roles = configured_subagent_roles(settings.autonomous_subagents)
+    roles = roles[: max(int(settings.autonomous_max_subagents), 1)]
+
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
-            memories = search_memories(run["project_id"], limit=6)
-            instruction = build_cycle_instruction(
-                str(run["goal"]),
-                cycle,
-                int(run["requested_cycles"]),
-                memories,
-            )
-            task = create_task(
-                project_id=run["project_id"],
-                instruction=instruction,
-                mode="autonomous",
-            )
-            task_ids.append(task["id"])
-            update_autonomy_run(
-                run_id,
-                task_ids=task_ids,
-                completed_cycles=cycle - 1,
-            )
-
-            await run_agent_task(task["id"])
-            finished = get_task(task["id"])
-            if not finished or finished["status"] != "completed":
+            for role in roles:
+                memories = search_memories(
+                    run["project_id"],
+                    query=f"{run['goal']} {role.key}",
+                    limit=6,
+                )
+                memory_text = json.dumps(memories[:6], ensure_ascii=False, indent=2)
+                instruction = build_role_instruction(
+                    role=role,
+                    goal=str(run["goal"]),
+                    cycle=cycle,
+                    total_cycles=int(run["requested_cycles"]),
+                    memory_text=memory_text,
+                )
+                task = create_task(
+                    project_id=run["project_id"],
+                    instruction=instruction,
+                    mode="autonomous",
+                )
+                task_ids.append(task["id"])
                 update_autonomy_run(
                     run_id,
                     task_ids=task_ids,
                     completed_cycles=cycle - 1,
-                    status="failed",
-                    error=(finished or {}).get("error") or "Autonomous cycle did not complete.",
                 )
-                return
+
+                await run_agent_task(task["id"])
+                finished = get_task(task["id"])
+                if not finished or finished["status"] != "completed":
+                    update_autonomy_run(
+                        run_id,
+                        task_ids=task_ids,
+                        completed_cycles=cycle - 1,
+                        status="failed",
+                        error=(finished or {}).get("error")
+                        or f"{role.key} sub-agent did not complete.",
+                    )
+                    return
 
             update_autonomy_run(
                 run_id,

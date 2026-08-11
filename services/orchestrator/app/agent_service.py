@@ -11,6 +11,7 @@ from urllib.parse import quote
 from app.clients import request_json
 from app.config import settings
 from app.db import get_project, get_task, search_memories, update_task
+from app.subagents import role_from_instruction
 
 TOOL_NAMES = {
     "list_files",
@@ -1390,6 +1391,8 @@ async def _model_next_action(
     profile = _environment_profile(results)
     missing_requirement = _completion_problem(requirements, results)
     already_read_paths = sorted(_successful_read_paths(results))
+    subagent_role = role_from_instruction(instruction) if autonomous else None
+    role_read_only = bool(subagent_role and subagent_role.read_only)
     # Memory is advisory context; it must never expand the files explicitly
     # authorized by the current autonomous goal.
     primary_instruction = instruction.split("LEARNED PROJECT MEMORY", 1)[0]
@@ -1402,7 +1405,7 @@ async def _model_next_action(
         for path in already_read_paths
         if PurePosixPath(path).name.casefold() in mentioned_names
     )
-    if autonomous and not mentioned_names:
+    if autonomous and not mentioned_names and not role_read_only:
         # A generic self-improvement cycle may not name its target in advance,
         # so it may mutate only files it has observed in this cycle. When the
         # goal names a file, keep that narrower target set.
@@ -1543,9 +1546,10 @@ Choose the next tool that implements the requested visible outcome. Do not make 
     feedback = ""
     last_error: Exception | None = None
     model_name = getattr(settings, "agent_model", "qwen2.5-coder:1.5b")
-    model_tool_names = sorted(
-        TOOL_NAMES - ({"write_file"} if allowed_mutation_paths else set())
-    )
+    excluded_tools = {"write_file"} if allowed_mutation_paths else set()
+    if role_read_only:
+        excluded_tools.update(MUTATION_TOOLS)
+    model_tool_names = sorted(TOOL_NAMES - excluded_tools)
     agent_action_tool = {
         "type": "function",
         "function": {

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     autonomous_interval_minutes: int = 60
     autonomous_cycles_per_run: int = 1
     autonomous_workspace: str = "taskflow-test"
+    autonomous_subagents: str = "scout,planner,implementer,verifier,reviewer"
+    autonomous_max_subagents: int = 5
 
     model_config = SettingsConfigDict(
         env_file=".env",
