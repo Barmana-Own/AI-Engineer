@@ -17,8 +17,8 @@ from app.routers.tasks import router as tasks_router
 initialize_database()
 
 
-def _start_scheduler_thread(stop_holder: dict[str, object]) -> threading.Thread:
-    """Run autonomous work off the HTTP event loop so SQLite/model work cannot starve APIs."""
+def _start_scheduler_thread(stop_holder: dict[str, object]) -> threading.Timer:
+    """Run autonomous work off the HTTP loop after the HTTP server is ready."""
     def worker() -> None:
         async def run() -> None:
             loop = asyncio.get_running_loop()
@@ -29,19 +29,17 @@ def _start_scheduler_thread(stop_holder: dict[str, object]) -> threading.Thread:
 
         asyncio.run(run())
 
-    thread = threading.Thread(
-        target=worker,
-        name="autonomy-scheduler",
-        daemon=True,
-    )
-    thread.start()
-    return thread
+    timer = threading.Timer(3.0, worker)
+    timer.name = "autonomy-scheduler"
+    timer.daemon = True
+    timer.start()
+    return timer
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     stop_holder: dict[str, object] = {}
-    scheduler_thread: threading.Thread | None = None
+    scheduler_thread: threading.Timer | None = None
     if settings.autonomous_mode_enabled:
         scheduler_thread = _start_scheduler_thread(stop_holder)
     try:
@@ -51,6 +49,7 @@ async def lifespan(_app: FastAPI):
         if callable(stop_callback):
             stop_callback()
         if scheduler_thread:
+            scheduler_thread.cancel()
             scheduler_thread.join(timeout=5)
 
 app = FastAPI(
