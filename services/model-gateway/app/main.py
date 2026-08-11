@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.cache import ModelCatalogCache
 from app.config import Settings, get_settings
@@ -76,6 +77,14 @@ def create_app(
             "Local-first gateway between AI Engineer agents and model providers."
         ),
         lifespan=lifespan,
+    )
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://127.0.0.1:5175", "http://localhost:5175"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     @application.middleware("http")

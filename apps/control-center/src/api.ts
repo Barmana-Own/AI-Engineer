@@ -90,7 +90,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 function get<T>(url: string): Promise<T> {
-  return parseResponse(fetch(url));
+  return fetch(url).then((response) => parseResponse<T>(response));
 }
 
 export function getHealth(): Promise<HealthResponse> {

@@ -116,7 +116,26 @@ if (-not (Port-Is-Open 5175)) {
     if (-not (Wait-Port 5175 60)) { throw "Control Center failed." }
 }
 
-Start-Process "http://127.0.0.1:5175"
+$desktopBrowser = @(
+    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+    "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if ($desktopBrowser) {
+    $desktopProfile = "$root\data\desktop-profile"
+    New-Item -ItemType Directory -Force -Path $desktopProfile | Out-Null
+    Start-Process `
+        -FilePath $desktopBrowser `
+        -ArgumentList @(
+            "--app=http://127.0.0.1:5175",
+            "--user-data-dir=$desktopProfile",
+            "--start-maximized"
+        )
+} else {
+    Start-Process "http://127.0.0.1:5175"
+}
 
 Write-Host ""
 Write-Host "AI ENGINEER IS RUNNING" -ForegroundColor Green

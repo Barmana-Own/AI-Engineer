@@ -1,5 +1,4 @@
 import asyncio
-import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -17,12 +16,18 @@ from app.routers.tasks import router as tasks_router
 initialize_database()
 
 
+async def _delayed_scheduler(stop_event: asyncio.Event) -> None:
+    """Let the HTTP server finish startup before the first autonomous scan."""
+    await asyncio.sleep(0.5)
+    await run_autonomy_scheduler(stop_event)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     stop_event = asyncio.Event()
     scheduler_task = None
     if settings.autonomous_mode_enabled:
-        scheduler_task = asyncio.create_task(run_autonomy_scheduler(stop_event))
+        scheduler_task = asyncio.create_task(_delayed_scheduler(stop_event))
     try:
         yield
     finally:
