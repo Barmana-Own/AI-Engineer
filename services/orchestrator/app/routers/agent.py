@@ -11,6 +11,7 @@ from app.db import (
     get_task,
     get_autonomy_run,
     list_tasks,
+    list_autonomy_runs,
     search_memories,
     update_task,
 )
@@ -165,6 +166,26 @@ def autonomy_run_get(run_id: str) -> AutonomyRunResponse:
             detail="Autonomy run not found.",
         )
     return AutonomyRunResponse(**run)
+
+
+@router.get(
+    "/autonomy/runs",
+    response_model=list[AutonomyRunResponse],
+)
+def autonomy_runs_list(
+    project_id: str | None = None,
+    limit: int = 20,
+) -> list[AutonomyRunResponse]:
+    """List recent runs so a supervisor can poll status without run IDs."""
+    if project_id and not get_project(project_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+    return [
+        AutonomyRunResponse(**run)
+        for run in list_autonomy_runs(project_id=project_id, limit=limit)
+    ]
 
 
 @router.get(

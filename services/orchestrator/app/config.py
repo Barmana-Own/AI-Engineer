@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     autonomous_mode_enabled: bool = False
     autonomous_interval_minutes: int = 60
     autonomous_cycles_per_run: int = 1
+    autonomous_workspace: str = "taskflow-test"
 
     model_config = SettingsConfigDict(
         env_file=".env",

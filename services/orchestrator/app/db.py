@@ -477,6 +477,51 @@ def get_autonomy_run(run_id: str) -> dict[str, Any] | None:
     }
 
 
+def list_autonomy_runs(
+    project_id: str | None = None,
+    *,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Return recent bounded self-improvement runs for monitoring clients."""
+    safe_limit = min(max(int(limit), 1), 100)
+    with connect() as database:
+        if project_id:
+            rows = database.execute(
+                """
+                SELECT * FROM autonomy_runs
+                WHERE project_id = ?
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (project_id, safe_limit),
+            ).fetchall()
+        else:
+            rows = database.execute(
+                """
+                SELECT * FROM autonomy_runs
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+
+    return [
+        {
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "goal": row["goal"],
+            "requested_cycles": row["requested_cycles"],
+            "completed_cycles": row["completed_cycles"],
+            "status": row["status"],
+            "task_ids": json.loads(row["task_ids_json"] or "[]"),
+            "error": row["error"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+        for row in rows
+    ]
+
+
 def update_autonomy_run(run_id: str, **changes: Any) -> dict[str, Any]:
     allowed = {"completed_cycles", "status", "task_ids", "error"}
     assignments: list[str] = []

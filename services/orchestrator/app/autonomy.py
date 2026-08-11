@@ -136,20 +136,52 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
 
 async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
-    """Wake periodically and start one bounded cycle for eligible projects."""
+    """Wake periodically for the configured workspace and reconcile stale workers."""
     interval_seconds = max(int(settings.autonomous_interval_minutes), 1) * 60
+    target_workspace = str(settings.autonomous_workspace or "").strip().casefold()
+    active_statuses = {"queued", "planning", "running", "awaiting_approval"}
+
     while not stop_event.is_set():
         for project in list_projects():
-            active = {
-                "queued",
-                "planning",
-                "running",
-                "awaiting_approval",
-            }
-            if any(
-                task.get("mode") == "autonomous" and task.get("status") in active
+            if target_workspace and project["workspace"].casefold() != target_workspace:
+                continue
+
+            project_tasks = list_tasks(project["id"])
+            active_tasks = [
+                task for task in project_tasks
+                if task.get("mode") == "autonomous"
+                and task.get("status") in active_statuses
+            ]
+            # A task left active by a dead worker must not block the next run.
+            for task in active_tasks:
+                update_task(
+                    task["id"],
+                    status="failed",
+                    error="Reconciled after restart before a new autonomous cycle.",
+                )
+
+            # Re-read after task reconciliation so the run that owned the stale
+            # task is closed before a fresh cycle is created.
+            open_runs = list_autonomy_runs(project["id"], limit=100)
+            active_ids = {
+                task["id"]
                 for task in list_tasks(project["id"])
-            ):
+                if task.get("mode") == "autonomous"
+                and task.get("status") in active_statuses
+            }
+            for run in open_runs:
+                if run["status"] not in {"queued", "running"}:
+                    continue
+                if active_ids.intersection(set(run.get("task_ids") or [])):
+                    continue
+                update_autonomy_run(
+                    run["id"],
+                    status="failed",
+                    error="Reconciled after restart: no active autonomous task was found.",
+                )
+
+            open_runs = list_autonomy_runs(project["id"], limit=100)
+            if any(run["status"] in {"queued", "running"} for run in open_runs):
                 continue
 
             run = create_autonomy_run(
