@@ -148,6 +148,19 @@ class ReadyResponse(BaseModel):
     checked_at: datetime
 
 
+class RuntimeModelsResponse(BaseModel):
+    """Effective model/provider routing settings with secrets omitted."""
+
+    provider: str
+    provider_configured: bool
+    default_model: str
+    fallback_models: list[str]
+    max_fallback_attempts: int
+    max_retries_per_model: int
+    fallback_on: list[str]
+    candidate_order: str
+
+
 class UsageModelSummary(BaseModel):
     model: str
     request_count: int

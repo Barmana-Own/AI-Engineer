@@ -14,7 +14,7 @@ from app.exceptions import GatewayError
 from app.providers.barmana import BarmanaProvider
 from app.providers.base import ModelProvider
 from app.router import ModelRouter
-from app.routes import chat, health, models, usage
+from app.routes import chat, health, models, runtime, usage
 from app.schemas import ErrorBody
 from app.usage import UsageStore
 
@@ -110,6 +110,7 @@ def create_app(
             "version": runtime_settings.app_version,
             "health": "/health",
             "models": "/v1/models",
+            "runtime_models": "/v1/runtime/models",
             "chat": "/v1/chat/completions",
             "usage": "/v1/usage/summary",
             "docs": "/docs",
@@ -117,6 +118,7 @@ def create_app(
 
     application.include_router(health.router)
     application.include_router(models.router)
+    application.include_router(runtime.router)
     application.include_router(chat.router)
     application.include_router(usage.router)
     return application
