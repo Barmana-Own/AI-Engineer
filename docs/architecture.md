@@ -97,6 +97,9 @@ services/orchestrator
 - درخواست تأیید عملیات حساس
 - توقف، ادامه و لغو Task
 - ثبت checkpoint و نتیجه
+- اجرای چرخه‌ی خودتکمیلِ محدود و قابل بازیابی
+- انتخاب بهبود بعدی بر اساس وضعیت واقعی Workspace و حافظه‌ی پروژه
+- جداکردن حالت `interactive` از حالت `autonomous`
 
 ### 3.5 Model Gateway
 
@@ -168,6 +171,16 @@ services/memory-service
 - Approval
 - Git Checkpoint
 
+در MVP، ذخیره‌سازی حافظه داخل SQLite Orchestrator انجام می‌شود تا سیستم بدون
+سرویس سنگین قابل اجرا باشد. قرارداد آن طوری طراحی شده است که بعداً به
+`services/memory-service` یا PostgreSQL منتقل شود.
+
+حافظه‌ی عملیاتی سه نوع داده را نگه می‌دارد:
+
+1. **Episodic Memory** — نتیجه‌ی هر Task، فایل‌های تغییرکرده، فرمان‌های اعتبارسنجی و خطاها.
+2. **Project Context** — واقعیت‌های کشف‌شده درباره‌ی Stack، ساختار و قراردادهای پروژه.
+3. **Failure Memory** — خطاهایی که نباید در چرخه‌ی بعدی تکرار شوند.
+
 ### 3.8 Shared Packages
 
 ```text
@@ -212,6 +225,55 @@ Orchestrator
 ```
 
 مدل هوش مصنوعی هیچ‌گاه مستقیماً به File System، Terminal یا API Key دسترسی ندارد.
+
+## 5.1 حلقه‌ی خودتکمیل و یادگیری
+
+```text
+Autonomy Supervisor
+  ↓
+Observe Workspace + Git + Tests
+  ↓
+Retrieve Project Memory
+  ↓
+Model selects one bounded improvement
+  ↓
+Read target → Checkpoint → Patch
+  ↓
+Validate / Diagnose / Repair once
+  ↓
+Persist outcome and failure memory
+  ↺ next bounded cycle
+```
+
+این حلقه به معنی تغییر آزاد و بی‌نهایت نیست. هر چرخه:
+
+- فقط یک بهبود منسجم را دنبال می‌کند؛
+- فقط فایل‌هایی را تغییر می‌دهد که همان چرخه واقعاً خوانده شده‌اند؛
+- پیش از Mutation checkpoint می‌سازد؛
+- حذف، نصب Dependency، Rollback، انتشار و تغییر سیستم‌عامل را خودکار نمی‌کند؛
+- سقف چرخه و سقف Step دارد و با شکست غیرقابل‌حل متوقف می‌شود؛
+- نتیجه و خطا را برای چرخه‌های بعدی در حافظه ثبت می‌کند.
+
+حالت‌های اجرا:
+
+| حالت | رفتار |
+| --- | --- |
+| `interactive` | تغییرات حساس در صف تأیید کاربر قرار می‌گیرند. |
+| `autonomous` | فقط Mutation فایل پس از Read و Checkpoint خودکار تأیید می‌شود؛ Terminal و عملیات حساس همچنان Policy دارند. |
+
+شروع چرخه از API زیر انجام می‌شود و می‌تواند برای چند چرخه‌ی محدود در پس‌زمینه
+ادامه پیدا کند:
+
+```text
+POST /v1/agent/projects/{project_id}/self-improve
+GET  /v1/agent/autonomy/runs/{run_id}
+GET  /v1/agent/projects/{project_id}/memory
+```
+
+برای بیدارشدن خودکار Supervisor، گزینه‌های `AUTONOMOUS_MODE_ENABLED`،
+`AUTONOMOUS_INTERVAL_MINUTES` و `AUTONOMOUS_CYCLES_PER_RUN` در فایل
+`services/orchestrator/.env` فعال می‌شوند. این گزینه به‌صورت پیش‌فرض خاموش است
+تا اجرای خودکار ناخواسته روی Workspace اتفاق نیفتد.
 
 ## 6. مدل امنیتی اولیه
 

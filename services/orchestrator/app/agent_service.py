@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from app.clients import request_json
 from app.config import settings
-from app.db import get_project, get_task, update_task
+from app.db import get_project, get_task, search_memories, update_task
 
 TOOL_NAMES = {
     "list_files",
@@ -1327,6 +1327,9 @@ async def _model_next_action(
     workspace: str,
     requirements: dict[str, bool],
     results: list[dict[str, Any]],
+    *,
+    project_id: str | None = None,
+    autonomous: bool = False,
 ) -> dict[str, Any]:
     observations = _observation_text(results)
     profile = _environment_profile(results)
@@ -1340,6 +1343,16 @@ async def _model_next_action(
         path
         for path in already_read_paths
         if PurePosixPath(path).name.casefold() in mentioned_names
+    )
+    if autonomous:
+        # A self-improvement cycle may not name its target in advance, but it
+        # may only mutate a file it has already observed in this cycle.
+        allowed_mutation_paths = already_read_paths
+
+    learned_memories = (
+        search_memories(project_id, query=instruction, limit=6)
+        if project_id
+        else []
     )
     successful_mutations = _successful_mutations(results)
 
@@ -1383,6 +1396,9 @@ You are not a consultant. Choose exactly ONE real tool call based on actual tool
 SELECTED PROJECT WORKSPACE:
 {workspace}
 
+EXECUTION MODE:
+{"AUTONOMOUS SELF-IMPROVEMENT (bounded, one coherent change)" if autonomous else "INTERACTIVE USER TASK"}
+
 USER REQUEST:
 {instruction}
 
@@ -1397,6 +1413,9 @@ ALREADY READ SUCCESSFULLY:
 
 ALLOWED MUTATION TARGETS FROM THE USER REQUEST:
 {json.dumps(allowed_mutation_paths, ensure_ascii=False)}
+
+LEARNED PROJECT MEMORY:
+{json.dumps(learned_memories, ensure_ascii=False, indent=2) if learned_memories else "No prior memory is available."}
 
 Return exactly one JSON object, without Markdown or prose:
 {{
@@ -1441,6 +1460,7 @@ STRICT EXECUTION RULES:
 13. Never propose a mutation whose old and new content are identical.
 14. CSS alone cannot create a requested UI element; when the request adds visible UI, update the relevant component/template markup before finish_task.
 15. Keep the tool call concise. Prefer one small exact replace_text or apply_patch edit; never use write_file to overwrite a file that was already read.
+16. In autonomous mode, mutate only a file listed in ALLOWED MUTATION TARGETS, make one coherent improvement, and never install dependencies, delete data, rollback Git, or publish.
 
 LATEST REAL TOOL RESULTS:
 {observations or "No tool result yet."}
@@ -1550,6 +1570,11 @@ Choose the next tool that implements the requested visible outcome. Do not make 
             step = _normalize_step_project_paths(workspace, step)
             tool = _tool_name(step)
             arguments = _arguments(step)
+
+            if tool in MUTATION_TOOLS and autonomous and not allowed_mutation_paths:
+                raise ValueError(
+                    "Autonomous mutation requires a successfully read target file first."
+                )
 
             if tool in MUTATION_TOOLS and allowed_mutation_paths:
                 target_path = _step_path(step) or ""
@@ -1956,6 +1981,8 @@ async def run_agent_task(task_id: str) -> None:
 
     instruction = str(task["instruction"])
     workspace = str(project["workspace"])
+    task_mode = str(task.get("mode") or "interactive")
+    autonomous = task_mode == "autonomous"
     requirements = _task_requirements(instruction)
     plan = list(task.get("plan") or [])
     results = list(task.get("results") or [])
@@ -1968,7 +1995,10 @@ async def run_agent_task(task_id: str) -> None:
         if pending:
             step_index = int(pending["step_index"])
             step = pending["step"]
-            if step_index not in approved_steps:
+            pending_tool = _tool_name(step)
+            if step_index not in approved_steps and not (
+                autonomous and pending_tool in MUTATION_TOOLS
+            ):
                 update_task(
                     task_id,
                     status="awaiting_approval",
@@ -2116,6 +2146,8 @@ async def run_agent_task(task_id: str) -> None:
                 workspace,
                 requirements,
                 results,
+                project_id=task["project_id"],
+                autonomous=autonomous,
             )
             tool = _tool_name(step)
 
@@ -2239,7 +2271,9 @@ async def run_agent_task(task_id: str) -> None:
 
             plan.append(step)
             step_index = len(plan) - 1
-            approved = step_index in approved_steps
+            approved = step_index in approved_steps or (
+                autonomous and tool in MUTATION_TOOLS
+            )
 
             try:
                 outcome = await _execute_step(workspace, step, approved=approved)

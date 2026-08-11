@@ -4,9 +4,11 @@
 
 ## وضعیت فعلی
 
-- مرحله فعال: **مرحله صفر — آماده‌سازی Workspace**
+- مرحله فعال: **هسته Orchestrator و حلقه خودتکمیل کنترل‌شده**
 - مسیر پروژه: `F:\AI-Engineer`
-- هنوز هیچ Framework یا Dependency سنگینی نصب نشده است.
+- Model Gateway، Local Agent و Desktop اولیه موجود هستند.
+- Orchestrator اکنون دو حالت `interactive` و `autonomous` دارد.
+- هر چرخه خودتکمیل قبل از تغییر Read و Git Checkpoint انجام می‌دهد، Validation اجرا می‌کند و نتیجه را در حافظه پروژه ثبت می‌کند.
 - مخزن Git محلی در ریشه پروژه نگهداری می‌شود.
 - API Key، رمزها و فایل‌های محرمانه نباید وارد Git شوند.
 
@@ -99,7 +101,29 @@ XAMPP در `D:\xampp` قرار دارد. فرمان‌های `php`، `composer` 
 
 ## ادامه کار
 
-پس از تأیید مرحله صفر، مرحله یک با ساخت Model Gateway و اتصال کنترل‌شده به API آغاز می‌شود. اطلاعات موردنیاز مرحله یک:
+برای شروع یک چرخه خودتکمیل محدود، پس از اجرای Orchestrator یک درخواست به این endpoint ارسال می‌شود:
+
+```http
+POST /v1/agent/projects/{project_id}/self-improve
+Content-Type: application/json
+
+{"goal":"Complete the highest-value safe improvement","cycles":1}
+```
+
+وضعیت چرخه و حافظه از این مسیرها قابل مشاهده است:
+
+```text
+GET /v1/agent/autonomy/runs/{run_id}
+GET /v1/agent/projects/{project_id}/memory
+```
+
+حالت خودکار فقط برای تغییرات فایلِ خوانده‌شده و پس از checkpoint فعال است؛ حذف، نصب، rollback، انتشار و تغییرات سیستم‌عامل همچنان نیازمند Policy/Approval هستند.
+
+برای اینکه Supervisor خودش به‌صورت دوره‌ای بیدار شود، مقادیر نمونه‌ی
+`services/orchestrator/.env.example` را در `.env` کپی و
+`AUTONOMOUS_MODE_ENABLED=true` را فعال کنید. این حالت به‌صورت پیش‌فرض خاموش است.
+
+ادامه توسعه شامل حافظه مستقل، Task Graph چندAgent، Cancellation/Resume و Browser Validation است. اطلاعات موردنیاز برای اتصال Provider خارجی:
 
 - API Base URL
 - روش احراز هویت و نام Header

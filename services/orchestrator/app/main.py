@@ -1,7 +1,11 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.autonomy import run_autonomy_scheduler
 from app.db import initialize_database
 from app.routers.agent import router as agent_router
 from app.routers.developer import router as developer_router
@@ -11,9 +15,25 @@ from app.routers.tasks import router as tasks_router
 
 initialize_database()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    stop_event = asyncio.Event()
+    scheduler_task = None
+    if settings.autonomous_mode_enabled:
+        scheduler_task = asyncio.create_task(run_autonomy_scheduler(stop_event))
+    try:
+        yield
+    finally:
+        stop_event.set()
+        if scheduler_task:
+            scheduler_task.cancel()
+            await asyncio.gather(scheduler_task, return_exceptions=True)
+
 app = FastAPI(
     title=settings.app_name,
-    version="0.5.0",
+    version="0.6.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -39,5 +59,5 @@ def root() -> dict:
     return {
         "message": "AI Engineer Orchestrator is running",
         "service": settings.app_name,
-        "version": "0.5.0",
+        "version": "0.6.0",
     }

@@ -39,6 +39,7 @@ def initialize_database() -> None:
                 id TEXT PRIMARY KEY,
                 project_id TEXT NOT NULL,
                 instruction TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'interactive',
                 status TEXT NOT NULL,
                 plan_json TEXT NOT NULL DEFAULT '[]',
                 current_step INTEGER NOT NULL DEFAULT 0,
@@ -57,8 +58,48 @@ def initialize_database() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_agent_tasks_status
                 ON agent_tasks(status);
+
+            CREATE TABLE IF NOT EXISTS agent_memories (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                task_id TEXT,
+                kind TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                detail_json TEXT NOT NULL DEFAULT '{}',
+                confidence REAL NOT NULL DEFAULT 0.5,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                use_count INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_agent_memories_project
+                ON agent_memories(project_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS autonomy_runs (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                goal TEXT NOT NULL,
+                requested_cycles INTEGER NOT NULL,
+                completed_cycles INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL,
+                task_ids_json TEXT NOT NULL DEFAULT '[]',
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
             """
         )
+
+        task_columns = {
+            str(row[1])
+            for row in database.execute("PRAGMA table_info(agent_tasks)").fetchall()
+        }
+        if "mode" not in task_columns:
+            database.execute(
+                "ALTER TABLE agent_tasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'interactive'"
+            )
 
 
 def _row_to_project(row: sqlite3.Row) -> dict[str, Any]:
@@ -76,6 +117,7 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "id": row["id"],
         "project_id": row["project_id"],
         "instruction": row["instruction"],
+        "mode": row["mode"] if "mode" in row.keys() else "interactive",
         "status": row["status"],
         "plan": json.loads(row["plan_json"] or "[]"),
         "current_step": row["current_step"],
@@ -129,7 +171,15 @@ def get_project(project_id: str) -> dict[str, Any] | None:
     return _row_to_project(row) if row else None
 
 
-def create_task(project_id: str, instruction: str) -> dict[str, Any]:
+def create_task(
+    project_id: str,
+    instruction: str,
+    *,
+    mode: str = "interactive",
+) -> dict[str, Any]:
+    if mode not in {"interactive", "autonomous"}:
+        raise ValueError(f"Unsupported task mode: {mode}")
+
     task_id = str(uuid4())
     now = utc_now()
 
@@ -137,12 +187,12 @@ def create_task(project_id: str, instruction: str) -> dict[str, Any]:
         database.execute(
             """
             INSERT INTO agent_tasks(
-                id, project_id, instruction, status,
+                id, project_id, instruction, mode, status,
                 created_at, updated_at
             )
-            VALUES (?, ?, ?, 'queued', ?, ?)
+            VALUES (?, ?, ?, ?, 'queued', ?, ?)
             """,
-            (task_id, project_id, instruction, now, now),
+            (task_id, project_id, instruction, mode, now, now),
         )
 
         row = database.execute(
@@ -239,7 +289,213 @@ def update_task(task_id: str, **changes: Any) -> dict[str, Any]:
             (task_id,),
         ).fetchone()
 
+        if row and row["status"] in {"completed", "failed", "cancelled"}:
+            _remember_terminal_task(database, row)
+
     if not row:
         raise KeyError(task_id)
 
     return _row_to_task(row)
+
+
+def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> None:
+    """Persist a compact episodic memory whenever a task reaches a terminal state."""
+    existing = database.execute(
+        "SELECT 1 FROM agent_memories WHERE task_id = ? LIMIT 1",
+        (row["id"],),
+    ).fetchone()
+    if existing:
+        return
+
+    status = str(row["status"])
+    summary = str(row["final_output"] or row["error"] or f"Task {status}.").strip()
+    try:
+        plan = json.loads(row["plan_json"] or "[]")
+        results = json.loads(row["results_json"] or "[]")
+    except json.JSONDecodeError:
+        plan, results = [], []
+
+    changed_files: list[str] = []
+    validations: list[str] = []
+    failures: list[str] = []
+    for item in results if isinstance(results, list) else []:
+        step = item.get("step") or {}
+        outcome = item.get("outcome") or {}
+        tool = str(outcome.get("tool") or step.get("tool") or "")
+        path = str((step.get("arguments") or {}).get("path") or "").strip()
+        if outcome.get("ok") and tool in {"write_file", "replace_text", "apply_patch"} and path:
+            if path not in changed_files:
+                changed_files.append(path)
+        if outcome.get("ok") and tool == "run_terminal":
+            command = str((step.get("arguments") or {}).get("command") or "").strip()
+            if command:
+                validations.append(command)
+        if not outcome.get("ok") and not outcome.get("approval_required"):
+            error = str(outcome.get("error") or "Tool failed.").strip()
+            if error and error not in failures:
+                failures.append(error)
+
+    detail = {
+        "instruction": str(row["instruction"]),
+        "mode": str(row["mode"] if "mode" in row.keys() else "interactive"),
+        "status": status,
+        "step_count": len(plan) if isinstance(plan, list) else 0,
+        "changed_files": changed_files[:30],
+        "validations": validations[-10:],
+        "failures": failures[-10:],
+    }
+    now = utc_now()
+    database.execute(
+        """
+        INSERT INTO agent_memories(
+            id, project_id, task_id, kind, summary, detail_json,
+            confidence, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid4()),
+            row["project_id"],
+            row["id"],
+            "success" if status == "completed" else status,
+            summary[:2000],
+            json.dumps(detail, ensure_ascii=False),
+            1.0 if status == "completed" else 0.35,
+            now,
+        ),
+    )
+
+
+def search_memories(
+    project_id: str,
+    query: str | None = None,
+    *,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    safe_limit = min(max(int(limit), 1), 50)
+    terms = [term.casefold() for term in (query or "").split() if len(term) > 2][:6]
+
+    with connect() as database:
+        if terms:
+            predicates = " OR ".join(
+                "(lower(summary) LIKE ? OR lower(detail_json) LIKE ?)"
+                for _ in terms
+            )
+            values: list[Any] = [project_id]
+            for term in terms:
+                pattern = f"%{term}%"
+                values.extend([pattern, pattern])
+            values.append(safe_limit)
+            rows = database.execute(
+                f"""
+                SELECT * FROM agent_memories
+                WHERE project_id = ? AND ({predicates})
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                values,
+            ).fetchall()
+        else:
+            rows = database.execute(
+                """
+                SELECT * FROM agent_memories
+                WHERE project_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (project_id, safe_limit),
+            ).fetchall()
+
+        if rows:
+            database.executemany(
+                """
+                UPDATE agent_memories
+                SET last_used_at = ?, use_count = use_count + 1
+                WHERE id = ?
+                """,
+                [(utc_now(), row["id"]) for row in rows],
+            )
+
+    memories: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            detail = json.loads(row["detail_json"] or "{}")
+        except json.JSONDecodeError:
+            detail = {}
+        memories.append({
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "task_id": row["task_id"],
+            "kind": row["kind"],
+            "summary": row["summary"],
+            "detail": detail,
+            "confidence": row["confidence"],
+            "created_at": row["created_at"],
+            "use_count": row["use_count"] + 1,
+        })
+    return memories
+
+
+def create_autonomy_run(
+    project_id: str,
+    goal: str,
+    requested_cycles: int,
+) -> dict[str, Any]:
+    run_id = str(uuid4())
+    now = utc_now()
+    with connect() as database:
+        database.execute(
+            """
+            INSERT INTO autonomy_runs(
+                id, project_id, goal, requested_cycles, status,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, 'queued', ?, ?)
+            """,
+            (run_id, project_id, goal, requested_cycles, now, now),
+        )
+    return get_autonomy_run(run_id)
+
+
+def get_autonomy_run(run_id: str) -> dict[str, Any] | None:
+    with connect() as database:
+        row = database.execute(
+            "SELECT * FROM autonomy_runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "project_id": row["project_id"],
+        "goal": row["goal"],
+        "requested_cycles": row["requested_cycles"],
+        "completed_cycles": row["completed_cycles"],
+        "status": row["status"],
+        "task_ids": json.loads(row["task_ids_json"] or "[]"),
+        "error": row["error"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def update_autonomy_run(run_id: str, **changes: Any) -> dict[str, Any]:
+    allowed = {"completed_cycles", "status", "task_ids", "error"}
+    assignments: list[str] = []
+    values: list[Any] = []
+    for key, value in changes.items():
+        if key not in allowed:
+            continue
+        column = "task_ids_json" if key == "task_ids" else key
+        if key == "task_ids":
+            value = json.dumps(value, ensure_ascii=False)
+        assignments.append(f"{column} = ?")
+        values.append(value)
+    if not assignments:
+        return get_autonomy_run(run_id)
+    assignments.append("updated_at = ?")
+    values.extend([utc_now(), run_id])
+    with connect() as database:
+        database.execute(
+            f"UPDATE autonomy_runs SET {', '.join(assignments)} WHERE id = ?",
+            values,
+        )
+    return get_autonomy_run(run_id)

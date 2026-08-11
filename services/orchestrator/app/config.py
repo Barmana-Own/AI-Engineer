@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     request_timeout_seconds: int = 300
     agent_model: str = "qwen2.5-coder:1.5b"
 
+    # Opt-in background self-improvement. The API endpoint can always start a
+    # bounded run explicitly; this switch lets the supervisor wake itself up.
+    autonomous_mode_enabled: bool = False
+    autonomous_interval_minutes: int = 60
+    autonomous_cycles_per_run: int = 1
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
