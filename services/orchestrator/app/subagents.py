@@ -36,7 +36,7 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
     ),
     SubagentRole(
         key="planner",
-        title="Change Planner",
+        title="Improvement Planner",
         objective="Use the inspected evidence to identify one small, high-value, low-risk improvement.",
         read_only=True,
     ),
@@ -56,7 +56,7 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
     ),
     SubagentRole(
         key="reviewer",
-        title="Change Reviewer",
+        title="Diff Reviewer",
         objective="Review the resulting diff and recorded validation evidence for scope and safety.",
         read_only=True,
     ),
@@ -113,7 +113,7 @@ def build_role_instruction(
     mutation_rule = (
         "Implement exactly one small file change after the normal read and Git checkpoint guards."
         if not role.read_only
-        else "This role is strictly read-only: do not write, patch, replace, delete, rollback, or publish anything."
+        else "This role is strictly observational: inspect files and report evidence without performing filesystem or repository operations."
     )
     validation_rule = (
         "Run the real project validation command before finishing."
@@ -134,7 +134,7 @@ OPERATING CONTRACT:
 - Keep the work narrow, evidence-based, and project-relative.
 - {mutation_rule}
 - {validation_rule}
-- Never install packages, access secrets, change the operating system, delete data,
+- Never install packages, access secrets, touch the operating system, or destroy data,
   rollback Git, or publish/deploy anything.
 - Finish only with real tool evidence and leave a concise result for the next role.
 
