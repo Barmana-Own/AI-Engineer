@@ -18,13 +18,14 @@ def connect() -> sqlite3.Connection:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH, timeout=30)
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA busy_timeout=5000")
     connection.execute("PRAGMA foreign_keys=ON")
     return connection
 
 
 def initialize_database() -> None:
     with connect() as database:
+        database.execute("PRAGMA journal_mode=WAL")
         database.executescript(
             """
             CREATE TABLE IF NOT EXISTS projects (
