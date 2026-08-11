@@ -1,0 +1,119 @@
+{
+    "generatedAt":  "2026-07-31T18:18:51.8038934+03:30",
+    "operatingSystem":  "Microsoft Windows NT 10.0.26200.0",
+    "nodeVersion":  "v22.15.0",
+    "npmVersion":  "10.9.2",
+    "routerRoot":  "F:\\AI-Engineer\\services\\provider-router",
+    "sourceArchive":  "F:\\AI-Engineer\\vendor\\freellmapi\\v0.6.6\\freellmapi-v0.6.6-source.zip",
+    "sourceArchiveSha256":  "9b5b2f12e65f372976aa60bbef42bcd1d8a65f5484c6cbde6a2d008a35b5a482",
+    "tests":  {
+                  "status":  "passed",
+                  "exitCode":  0,
+                  "durationSeconds":  131.91,
+                  "excludedFiles":  [
+                                        "server/src/__tests__/db/hardening.test.ts"
+                                    ],
+                  "excludedAssertions":  2,
+                  "exclusionReason":  "POSIX chmod mode-bit assertions are not portable to Windows NTFS ACLs."
+              },
+    "build":  {
+                  "status":  "passed",
+                  "exitCode":  0,
+                  "durationSeconds":  16.85
+              },
+    "validation":  {
+                       "status":  "passed",
+                       "exitCode":  0
+                   },
+    "aclAudit":  {
+                     "changed":  false,
+                     "environmentFile":  {
+                                             "path":  "F:\\AI-Engineer\\services\\provider-router\\.env",
+                                             "exists":  true,
+                                             "owner":  "DESKTOP-M685TCQ\\ASUS",
+                                             "inherited":  true,
+                                             "access":  [
+                                                            {
+                                                                "identity":  "BUILTIN\\Administrators",
+                                                                "rights":  "FullControl",
+                                                                "type":  "Allow",
+                                                                "inherited":  true
+                                                            },
+                                                            {
+                                                                "identity":  "NT AUTHORITY\\SYSTEM",
+                                                                "rights":  "FullControl",
+                                                                "type":  "Allow",
+                                                                "inherited":  true
+                                                            },
+                                                            {
+                                                                "identity":  "NT AUTHORITY\\Authenticated Users",
+                                                                "rights":  "Modify, Synchronize",
+                                                                "type":  "Allow",
+                                                                "inherited":  true
+                                                            },
+                                                            {
+                                                                "identity":  "BUILTIN\\Users",
+                                                                "rights":  "ReadAndExecute, Synchronize",
+                                                                "type":  "Allow",
+                                                                "inherited":  true
+                                                            }
+                                                        ]
+                                         },
+                     "dataDirectory":  {
+                                           "path":  "F:\\AI-Engineer\\data\\provider-router",
+                                           "exists":  true,
+                                           "owner":  "DESKTOP-M685TCQ\\ASUS",
+                                           "inherited":  true,
+                                           "access":  [
+                                                          {
+                                                              "identity":  "BUILTIN\\Administrators",
+                                                              "rights":  "FullControl",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "BUILTIN\\Administrators",
+                                                              "rights":  "268435456",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "NT AUTHORITY\\SYSTEM",
+                                                              "rights":  "FullControl",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "NT AUTHORITY\\SYSTEM",
+                                                              "rights":  "268435456",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "NT AUTHORITY\\Authenticated Users",
+                                                              "rights":  "Modify, Synchronize",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "NT AUTHORITY\\Authenticated Users",
+                                                              "rights":  "-536805376",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "BUILTIN\\Users",
+                                                              "rights":  "ReadAndExecute, Synchronize",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          },
+                                                          {
+                                                              "identity":  "BUILTIN\\Users",
+                                                              "rights":  "-1610612736",
+                                                              "type":  "Allow",
+                                                              "inherited":  true
+                                                          }
+                                                      ]
+                                       }
+                 }
+}

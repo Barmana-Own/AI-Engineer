@@ -1,0 +1,360 @@
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from fastapi import HTTPException, status
+
+from app.services.files import (
+    assert_no_symlink_escape,
+    resolve_workspace_path,
+    to_relative_path,
+)
+
+
+def _git_executable() -> str:
+    executable = shutil.which("git.exe") or shutil.which("git")
+
+    if not executable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Git is not installed or not available in PATH.",
+        )
+
+    return executable
+
+
+def _project_root(project_path: str) -> Path:
+    root = resolve_workspace_path(project_path, must_exist=True)
+    assert_no_symlink_escape(root)
+
+    if not root.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project path must be a directory.",
+        )
+
+    return root
+
+
+def _git_environment(root: Path) -> dict[str, str]:
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "GIT_TERMINAL_PROMPT": "0",
+            "GCM_INTERACTIVE": "Never",
+            "GIT_ASKPASS": "echo",
+            "SSH_ASKPASS": "echo",
+            "GIT_PAGER": "cat",
+            "GIT_EDITOR": "true",
+            "GIT_EXTERNAL_DIFF": "",
+            "NO_COLOR": "1",
+            # Never inherit F:/AI-Engineer/.git or another parent repository.
+            "GIT_CEILING_DIRECTORIES": str(root.parent),
+        }
+    )
+    return environment
+
+
+def _run_git(
+    root: Path,
+    args: list[str],
+    *,
+    check: bool = True,
+    timeout: int = 90,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        completed = subprocess.run(
+            [_git_executable(), *args],
+            cwd=str(root),
+            env=_git_environment(root),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            shell=False,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail={
+                "message": "Git command timed out.",
+                "args": args,
+                "timeout_seconds": timeout,
+            },
+        ) from exc
+
+    if check and completed.returncode != 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Git command failed.",
+                "args": args,
+                "exit_code": completed.returncode,
+                "stdout": completed.stdout,
+                "stderr": completed.stderr,
+            },
+        )
+
+    return completed
+
+
+def _ensure_repository(root: Path) -> None:
+    # A project must own its repository. A parent repository is never accepted.
+    project_git = root / ".git"
+
+    if not project_git.exists():
+        _run_git(root, ["init"], timeout=30)
+
+    top_level = _run_git(
+        root,
+        ["rev-parse", "--show-toplevel"],
+        timeout=15,
+    )
+
+    discovered = Path(top_level.stdout.strip()).resolve()
+
+    if discovered != root:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Project Git isolation failed.",
+                "expected": str(root),
+                "discovered": str(discovered),
+            },
+        )
+
+    hooks_dir = project_git / "ai-engineer-hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    local_settings = (
+        ("user.name", "AI Engineer"),
+        ("user.email", "ai-engineer@local"),
+        ("commit.gpgsign", "false"),
+        ("tag.gpgsign", "false"),
+        ("core.hooksPath", str(hooks_dir)),
+        ("credential.interactive", "never"),
+        ("core.fsmonitor", "false"),
+        ("diff.external", ""),
+    )
+
+    for key, value in local_settings:
+        _run_git(
+            root,
+            ["config", "--local", key, value],
+            timeout=15,
+        )
+
+    for name in ("index.lock", "HEAD.lock", "config.lock"):
+        lock = project_git / name
+
+        if lock.exists():
+            try:
+                lock.unlink()
+            except OSError:
+                pass
+
+
+def git_status(project_path: str) -> dict[str, Any]:
+    root = _project_root(project_path)
+    _ensure_repository(root)
+
+    branch = _run_git(
+        root,
+        ["branch", "--show-current"],
+        check=False,
+        timeout=15,
+    )
+    result = _run_git(
+        root,
+        ["status", "--porcelain=v1", "--untracked-files=all"],
+        timeout=30,
+    )
+
+    changes = [
+        line
+        for line in result.stdout.splitlines()
+        if line.strip()
+    ]
+
+    return {
+        "project_path": to_relative_path(root),
+        "repository_root": str(root),
+        "branch": branch.stdout.strip() or "detached",
+        "clean": not changes,
+        "changes": changes,
+    }
+
+
+def git_checkpoint(
+    project_path: str,
+    message: str,
+    include_untracked: bool,
+) -> dict[str, Any]:
+    root = _project_root(project_path)
+    _ensure_repository(root)
+
+    _run_git(
+        root,
+        ["add", "-A" if include_untracked else "-u"],
+        timeout=120,
+    )
+
+    staged = _run_git(
+        root,
+        ["diff", "--cached", "--quiet"],
+        check=False,
+        timeout=30,
+    )
+    head = _run_git(
+        root,
+        ["rev-parse", "HEAD"],
+        check=False,
+        timeout=15,
+    )
+
+    if staged.returncode == 0:
+        return {
+            "project_path": to_relative_path(root),
+            "repository_root": str(root),
+            "created": False,
+            "commit": head.stdout.strip() if head.returncode == 0 else None,
+            "message": "No changes to checkpoint.",
+        }
+
+    _run_git(
+        root,
+        [
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--no-verify",
+            "--no-gpg-sign",
+            "-m",
+            message,
+        ],
+        timeout=120,
+    )
+
+    commit = _run_git(
+        root,
+        ["rev-parse", "HEAD"],
+        timeout=15,
+    ).stdout.strip()
+
+    return {
+        "project_path": to_relative_path(root),
+        "repository_root": str(root),
+        "created": True,
+        "commit": commit,
+        "message": message,
+    }
+
+
+def git_diff(
+    project_path: str,
+    staged: bool,
+    base: str | None,
+) -> dict[str, Any]:
+    root = _project_root(project_path)
+    _ensure_repository(root)
+
+    args = [
+        "-c",
+        "diff.external=",
+        "--no-pager",
+        "diff",
+        "--no-ext-diff",
+        "--text",
+        "--no-renames",
+    ]
+
+    if staged:
+        args.append("--cached")
+
+    if base:
+        args.append(base)
+
+    args.extend(["--", "."])
+    result = _run_git(root, args, timeout=90)
+
+    return {
+        "project_path": to_relative_path(root),
+        "repository_root": str(root),
+        "staged": staged,
+        "base": base,
+        "diff": result.stdout,
+    }
+
+
+def git_rollback(
+    project_path: str,
+    commit: str,
+    approved: bool,
+) -> dict[str, Any]:
+    if not approved:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Explicit approval is required for rollback.",
+        )
+
+    if not re.fullmatch(r"[0-9a-fA-F]{4,40}", commit):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid Git commit identifier.",
+        )
+
+    root = _project_root(project_path)
+    _ensure_repository(root)
+
+    verify = _run_git(
+        root,
+        ["rev-parse", "--verify", f"{commit}^{{commit}}"],
+        check=False,
+        timeout=15,
+    )
+
+    if verify.returncode != 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Commit was not found.",
+        )
+
+    previous = _run_git(
+        root,
+        ["rev-parse", "HEAD"],
+        check=False,
+        timeout=15,
+    )
+
+    _run_git(
+        root,
+        ["reset", "--hard", commit],
+        timeout=90,
+    )
+
+    current = _run_git(
+        root,
+        ["rev-parse", "HEAD"],
+        timeout=15,
+    ).stdout.strip()
+
+    return {
+        "project_path": to_relative_path(root),
+        "repository_root": str(root),
+        "previous_commit": (
+            previous.stdout.strip()
+            if previous.returncode == 0
+            else None
+        ),
+        "current_commit": current,
+        "untracked_files_preserved": True,
+    }

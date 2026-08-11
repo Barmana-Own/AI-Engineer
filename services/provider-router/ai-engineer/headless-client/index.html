@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Engineer Provider Hub</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Segoe UI, Tahoma, Arial, sans-serif;
+      background: #0b0f17;
+      color: #e8edf5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 20% 20%, #182033 0, transparent 34%),
+        radial-gradient(circle at 80% 70%, #17253a 0, transparent 30%),
+        #0b0f17;
+    }
+    main {
+      width: min(720px, 100%);
+      padding: 36px;
+      border: 1px solid #263247;
+      border-radius: 22px;
+      background: rgba(15, 21, 33, .94);
+      box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #12271f;
+      color: #82e6b1;
+      font-size: 14px;
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #42d392;
+      box-shadow: 0 0 16px #42d392;
+    }
+    h1 { margin: 22px 0 10px; font-size: 32px; }
+    p { color: #aab6ca; line-height: 1.8; }
+    code {
+      direction: ltr;
+      display: block;
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #090d14;
+      color: #b8c7de;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="status"><span class="dot"></span> سرویس فعال است</div>
+    <h1>AI Engineer Provider Hub</h1>
+    <p>هسته مدیریت Providerها و مسیریابی مدل‌ها به‌صورت Local و Headless اجرا شده است.</p>
+    <code>OpenAI-compatible API: http://127.0.0.1:8020/v1</code>
+  </main>
+</body>
+</html>
