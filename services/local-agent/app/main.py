@@ -34,5 +34,6 @@ def capabilities() -> dict:
         "service": settings.app_name,
         "workspace_guarded": True,
         "mutation_requires_checkpoint": True,
+        "checkpoint_scope": "project",
         "read_only_tools": ["files", "terminal_preview", "health"],
     }
