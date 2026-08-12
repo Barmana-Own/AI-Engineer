@@ -383,7 +383,40 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     completed_cycles=cycle - 1,
                 )
 
-                await run_agent_task(task["id"])
+                task_timeout = max(
+                    int(getattr(settings, "autonomous_task_timeout_seconds", 360)),
+                    60,
+                )
+                try:
+                    await asyncio.wait_for(
+                        run_agent_task(task["id"]),
+                        timeout=task_timeout,
+                    )
+                except asyncio.TimeoutError:
+                    timeout_error = (
+                        f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds."
+                    )
+                    update_task(
+                        task["id"],
+                        status="failed",
+                        error=timeout_error,
+                    )
+                    update_subagent_handoff(
+                        handoff_id,
+                        status="failed",
+                        summary=timeout_error,
+                        blockers=[timeout_error],
+                        next_action="Retry from the next scheduled cycle after stale-state reconciliation.",
+                        confidence=0.0,
+                    )
+                    update_autonomy_run(
+                        run_id,
+                        task_ids=task_ids,
+                        completed_cycles=cycle - 1,
+                        status="failed",
+                        error=timeout_error,
+                    )
+                    return
                 finished = get_task(task["id"])
                 if not finished or finished["status"] != "completed":
                     payload = _handoff_payload(finished or {"error": "Task disappeared."})
