@@ -907,10 +907,24 @@ def _deterministic_autonomous_recovery_step(
 
     if _successful_mutations(results):
         if requirements.get("validation") and not _successful_validations(results):
+            changed_paths = {
+                path.replace("\\", "/").casefold()
+                for _index, path, _outcome in _successful_mutations(results)
+                if path
+            }
+            validation_command = "npm run build --prefix apps/desktop"
+            if any(path.endswith("services/local-agent/app/main.py") for path in changed_paths):
+                validation_command = "python -m compileall -q services/local-agent/app"
+            elif any(path.startswith("services/model-gateway/") for path in changed_paths):
+                validation_command = "python -m pytest -q services/model-gateway/tests"
+            elif any(path.startswith("services/orchestrator/") for path in changed_paths):
+                validation_command = "python -m unittest discover -s services/orchestrator/tests -q"
+            elif any(path.startswith("apps/control-center/") for path in changed_paths):
+                validation_command = "npm run build --prefix apps/control-center"
             return _make_step(
                 "run_terminal",
                 {
-                    "command": "npm run build --prefix apps/desktop",
+                    "command": validation_command,
                     "cwd": ".",
                     "shell": "powershell",
                     "timeout_seconds": 300,
@@ -918,11 +932,36 @@ def _deterministic_autonomous_recovery_step(
                 reason="Run the deterministic desktop build after the autonomous mutation.",
                 expected_result="A successful desktop build with exit code 0.",
                 requires_approval=False,
-                description="Validating the desktop application",
+                description=f"Running {validation_command}",
             )
         return None
 
     read_paths = _successful_read_paths(results)
+    for _index, step, outcome in _successful_records(results, {"read_file"}):
+        result = outcome.get("result") or {}
+        path = str(result.get("path") or _step_path(step) or "").replace("\\", "/")
+        content = str(result.get("content") or "")
+        if not path.casefold().endswith("services/local-agent/app/main.py"):
+            continue
+        marker = '@app.get("/capabilities")'
+        if marker in content or '@app.get("/")' not in content:
+            continue
+        start = content.find('@app.get("/")')
+        end = content.find("\n\n", start)
+        if start < 0:
+            continue
+        if end < 0:
+            end = len(content.rstrip("\n"))
+        old = content[start:end]
+        new = old + '''\n\n\n@app.get("/capabilities")\ndef capabilities() -> dict:\n    return {\n        "service": settings.app_name,\n        "workspace_guarded": True,\n        "mutation_requires_checkpoint": True,\n        "read_only_tools": ["files", "terminal_preview", "health"],\n    }'''
+        return _make_step(
+            "replace_text",
+            {"path": path, "old": old, "new": new, "replace_all": False},
+            reason="Expose the local agent safety boundary for supervisor health and specialist handoffs.",
+            expected_result="A project-local capabilities endpoint describing guarded execution.",
+            requires_approval=True,
+            description=f"Adding guarded capabilities metadata to {path}",
+        )
     for path in ("README.md", "docs/active-models.md"):
         if path not in read_paths:
             continue
@@ -1840,7 +1879,12 @@ Choose the next tool that implements the requested visible outcome. Do not make 
         },
     }
 
-    for attempt in range(MAX_MODEL_RETRIES):
+    attempt_limit = 2 if autonomous else MAX_MODEL_RETRIES
+    model_timeout = min(
+        max(int(getattr(settings, "autonomous_model_timeout_seconds", 90)), 15),
+        300,
+    ) if autonomous else 300
+    for attempt in range(attempt_limit):
         retry_text = ""
         content = ""
         if feedback:
@@ -1868,7 +1912,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
                         {"role": "user", "content": prompt + retry_text},
                     ],
                     "temperature": 0,
-                    "max_tokens": 1400,
+                    "max_tokens": 700 if autonomous else 1400,
                     "tools": [agent_action_tool],
                     "tool_choice": {
                         "type": "function",
@@ -1878,7 +1922,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
                     "task_id": task_id,
                     "agent_id": "desktop-codex-v04",
                 },
-                timeout_seconds=300,
+                timeout_seconds=model_timeout,
             )
             message = response["choices"][0].get("message") or {}
             tool_calls = message.get("tool_calls") or []
@@ -2006,7 +2050,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
     ) if autonomous else None
     if recovery:
         return recovery
-    raise RuntimeError(f"Model failed to produce a valid tool call after {MAX_MODEL_RETRIES} attempts: {feedback or last_error}")
+    raise RuntimeError(f"Model failed to produce a valid tool call after {attempt_limit} attempts: {feedback or last_error}")
 
 
 async def _append_step_result(

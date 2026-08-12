@@ -4,7 +4,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import db
-from app.agent_service import _apply_subagent_requirements, _unwrap_model_action
+from app.agent_service import (
+    _apply_subagent_requirements,
+    _deterministic_autonomous_recovery_step,
+    _unwrap_model_action,
+)
 from app.subagents import (
     HANDOFF_SCHEMA_VERSION,
     SECTION_ROLE_KEYS,
@@ -72,6 +76,40 @@ class SubagentRegistryTests(unittest.TestCase):
         })
         self.assertEqual(action["tool"], "apply_patch")
         self.assertEqual(action["arguments"]["edits"][0]["path"], "x.py")
+
+    def test_local_agent_recovery_produces_a_guarded_capabilities_patch(self):
+        content = '''from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+def root() -> dict:
+    return {"service": "Local Agent"}
+'''
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "services/local-agent/app/main.py"}},
+                "outcome": {
+                    "tool": "read_file",
+                    "ok": True,
+                    "result": {"path": "services/local-agent/app/main.py", "content": content},
+                },
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-123",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn("capabilities", step["arguments"]["new"])
 
     def test_handoff_is_versioned_and_bounded(self):
         handoff = build_handoff(
