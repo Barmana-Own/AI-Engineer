@@ -371,6 +371,8 @@ def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> N
             instruction_text = instruction_text.split(marker, 1)[0].rstrip()
             break
 
+    validations = list(dict.fromkeys(validations))
+    failures = list(dict.fromkeys(failures))
     detail = {
         "instruction": instruction_text[:4_000],
         "mode": str(row["mode"] if "mode" in row.keys() else "interactive"),
