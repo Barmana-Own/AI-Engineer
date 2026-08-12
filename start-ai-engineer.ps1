@@ -116,26 +116,21 @@ if (-not (Port-Is-Open 5175)) {
     if (-not (Wait-Port 5175 60)) { throw "Control Center failed." }
 }
 
-$desktopBrowser = @(
-    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-    "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
-    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-    "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
-) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-
-if ($desktopBrowser) {
-    $desktopProfile = "$root\data\desktop-profile"
-    New-Item -ItemType Directory -Force -Path $desktopProfile | Out-Null
-    Start-Process `
-        -FilePath $desktopBrowser `
-        -ArgumentList @(
-            "--app=http://127.0.0.1:5175",
-            "--user-data-dir=$desktopProfile",
-            "--start-maximized"
-        )
-} else {
-    Start-Process "http://127.0.0.1:5175"
+$desktopRoot = "$root\apps\desktop"
+$desktopEntry = "$desktopRoot\dist\index.html"
+if (-not (Test-Path $desktopEntry)) {
+    npm.cmd run build --prefix $desktopRoot
+    if ($LASTEXITCODE -ne 0) { throw "Desktop build failed." }
 }
+
+# The supported surface is the packaged Electron control center.  The web UI
+# remains available on port 5175 for diagnostics, but startup no longer
+# silently falls back to opening a browser tab.
+Start-Process `
+    -FilePath "npm.cmd" `
+    -ArgumentList @("--prefix", $desktopRoot, "start") `
+    -WorkingDirectory $desktopRoot `
+    -WindowStyle Hidden
 
 Write-Host ""
 Write-Host "AI ENGINEER IS RUNNING" -ForegroundColor Green

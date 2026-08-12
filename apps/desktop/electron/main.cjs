@@ -10,6 +10,7 @@ const { spawn } = require("node:child_process");
 
 const PROJECT_ROOT = "F:\\AI-Engineer";
 const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, "workspaces");
+const SELF_WORKSPACE_NAME = "ai-engineer";
 
 const SERVICE_BASES = {
   orchestrator: "http://127.0.0.1:8012",
@@ -22,6 +23,10 @@ let mainWindow = null;
 function safeWorkspace(workspace) {
   if (typeof workspace !== "string" || !workspace.trim()) {
     throw new Error("Workspace is required.");
+  }
+
+  if (workspace.trim().toLowerCase() === SELF_WORKSPACE_NAME) {
+    return PROJECT_ROOT;
   }
 
   const resolved = path.resolve(WORKSPACE_ROOT, workspace);

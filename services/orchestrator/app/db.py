@@ -336,8 +336,14 @@ def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> N
             if error and error not in failures:
                 failures.append(error)
 
+    instruction_text = str(row["instruction"])
+    for marker in ("LEARNED PROJECT MEMORY", "LEARNED MEMORY"):
+        if marker in instruction_text:
+            instruction_text = instruction_text.split(marker, 1)[0].rstrip()
+            break
+
     detail = {
-        "instruction": str(row["instruction"]),
+        "instruction": instruction_text[:4_000],
         "mode": str(row["mode"] if "mode" in row.keys() else "interactive"),
         "status": status,
         "step_count": len(plan) if isinstance(plan, list) else 0,
@@ -422,6 +428,13 @@ def search_memories(
             detail = json.loads(row["detail_json"] or "{}")
         except json.JSONDecodeError:
             detail = {}
+        if isinstance(detail, dict):
+            if "instruction" in detail:
+                detail["instruction"] = str(detail["instruction"])[:1_200]
+            for key in ("changed_files", "validations", "failures"):
+                value = detail.get(key)
+                if isinstance(value, list):
+                    detail[key] = [str(item)[:500] for item in value[:20]]
         memories.append({
             "id": row["id"],
             "project_id": row["project_id"],

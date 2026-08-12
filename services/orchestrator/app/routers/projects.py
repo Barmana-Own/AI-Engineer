@@ -11,6 +11,8 @@ from app.schemas import ProjectCreateRequest, ProjectResponse
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
 WORKSPACE_ROOT = Path("F:/AI-Engineer/workspaces").resolve()
+SELF_WORKSPACE_NAME = "ai-engineer"
+SELF_WORKSPACE_ROOT = Path("F:/AI-Engineer").resolve()
 
 
 def slugify(value: str) -> str:
@@ -21,7 +23,16 @@ def slugify(value: str) -> str:
 
 
 def normalize_workspace(value: str) -> str:
-    supplied = Path(value.replace("\\", "/"))
+    supplied_text = value.replace("\\", "/").strip().strip("/")
+    if supplied_text.casefold() == SELF_WORKSPACE_NAME:
+        if not SELF_WORKSPACE_ROOT.is_dir():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The AI Engineer repository is not available.",
+            )
+        return SELF_WORKSPACE_NAME
+
+    supplied = Path(supplied_text)
 
     if supplied.is_absolute():
         raise HTTPException(

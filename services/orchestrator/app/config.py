@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     autonomous_mode_enabled: bool = False
     autonomous_interval_minutes: int = 5
     autonomous_cycles_per_run: int = 1
-    autonomous_workspace: str = "taskflow-test"
+    autonomous_workspace: str = "ai-engineer"
     autonomous_subagents: str = "scout,planner,implementer,verifier,reviewer"
     autonomous_max_subagents: int = 5
 

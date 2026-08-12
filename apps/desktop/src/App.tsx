@@ -883,7 +883,9 @@ export default function App() {
               <h1>{selectedProject?.name || "AI Engineer"}</h1>
               <p>
                 {selectedProject
-                  ? `F:\\AI-Engineer\\workspaces\\${selectedProject.workspace}`
+                  ? selectedProject.workspace.toLowerCase() === "ai-engineer"
+                    ? "F:\\AI-Engineer"
+                    : `F:\\AI-Engineer\\workspaces\\${selectedProject.workspace}`
                   : "یک پروژه انتخاب کن"}
               </p>
             </div>

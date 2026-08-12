@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8011
     workspace_root: str = "F:/AI-Engineer/workspaces"
+    # The platform can supervise its own repository through a named alias.
+    # The alias is resolved explicitly and never by accepting arbitrary
+    # absolute paths from a client.
+    self_workspace_name: str = "ai-engineer"
+    self_workspace_root: str = "F:/AI-Engineer"
 
     command_timeout_seconds: int = 60
     max_command_timeout_seconds: int = 300
@@ -29,6 +34,10 @@ class Settings(BaseSettings):
         path = Path(self.workspace_root).expanduser().resolve()
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    @property
+    def self_workspace_path(self) -> Path:
+        return Path(self.self_workspace_root).expanduser().resolve()
 
 
 settings = Settings()

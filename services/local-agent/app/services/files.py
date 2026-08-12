@@ -3,10 +3,30 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
+from pathlib import PurePosixPath
 
 from fastapi import HTTPException, status
 
 from app.config import settings
+
+
+def _allowed_roots() -> tuple[Path, ...]:
+    roots: list[Path] = [settings.workspace_path]
+    self_root = settings.self_workspace_path
+    if self_root not in roots:
+        roots.append(self_root)
+    return tuple(roots)
+
+
+def _relative_to_allowed_root(path: Path) -> tuple[Path, Path] | None:
+    resolved = path.resolve(strict=False)
+    for root in _allowed_roots():
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        return root, resolved
+    return None
 
 
 def resolve_workspace_path(relative_path: str, *, must_exist: bool = False) -> Path:
@@ -15,25 +35,27 @@ def resolve_workspace_path(relative_path: str, *, must_exist: bool = False) -> P
     if raw in {"", "."}:
         candidate = settings.workspace_path
     else:
-        supplied = Path(raw)
+        supplied = PurePosixPath(raw)
 
-        if supplied.is_absolute():
+        if supplied.is_absolute() or ":" in supplied.parts[0]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Only workspace-relative paths are allowed.",
             )
 
-        candidate = (settings.workspace_path / supplied).resolve(strict=False)
+        alias = settings.self_workspace_name.strip().strip("/").casefold()
+        first = supplied.parts[0].casefold() if supplied.parts else ""
+        if alias and first == alias:
+            candidate = settings.self_workspace_path.joinpath(*supplied.parts[1:])
+        else:
+            candidate = settings.workspace_path.joinpath(*supplied.parts)
 
-    workspace = settings.workspace_path
-
-    try:
-        candidate.relative_to(workspace)
-    except ValueError as exc:
+    candidate = candidate.resolve(strict=False)
+    if _relative_to_allowed_root(candidate) is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Path escapes the configured workspace.",
-        ) from exc
+            detail="Path escapes the configured workspace roots.",
+        )
 
     if must_exist and not candidate.exists():
         raise HTTPException(
@@ -45,22 +67,34 @@ def resolve_workspace_path(relative_path: str, *, must_exist: bool = False) -> P
 
 
 def to_relative_path(path: Path) -> str:
-    relative = path.relative_to(settings.workspace_path)
+    allowed = _relative_to_allowed_root(path)
+    if allowed is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Path is outside the configured workspace roots.",
+        )
+
+    root, resolved = allowed
+    relative = resolved.relative_to(root)
     value = relative.as_posix()
+    if root == settings.self_workspace_path:
+        alias = settings.self_workspace_name.strip().strip("/")
+        return alias if value == "." else f"{alias}/{value}"
     return "." if value == "." else value
 
 
 def assert_no_symlink_escape(path: Path) -> None:
-    workspace = settings.workspace_path
-    current = workspace
-
-    try:
-        relative_parts = path.relative_to(workspace).parts
-    except ValueError as exc:
+    allowed = _relative_to_allowed_root(path)
+    if allowed is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Path escapes the configured workspace.",
-        ) from exc
+            detail="Path escapes the configured workspace roots.",
+        )
+
+    root, resolved_path = allowed
+    current = root
+    relative_parts = resolved_path.relative_to(root).parts
+    allowed_roots = _allowed_roots()
 
     for part in relative_parts:
         current = current / part
@@ -68,13 +102,14 @@ def assert_no_symlink_escape(path: Path) -> None:
         if current.exists() and current.is_symlink():
             resolved = current.resolve()
 
-            try:
-                resolved.relative_to(workspace)
-            except ValueError as exc:
+            if not any(
+                resolved == allowed_root or resolved.is_relative_to(allowed_root)
+                for allowed_root in allowed_roots
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Symlink points outside the configured workspace.",
-                ) from exc
+                    detail="Symlink points outside the configured workspace roots.",
+                )
 
 
 def atomic_write_text(path: Path, content: str) -> None:
