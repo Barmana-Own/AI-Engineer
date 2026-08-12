@@ -1018,6 +1018,22 @@ def _deterministic_autonomous_recovery_step(
         result = outcome.get("result") or {}
         path = str(result.get("path") or _step_path(step) or "").replace("\\", "/")
         content = str(result.get("content") or "")
+        if path.casefold().endswith("services/orchestrator/app/autonomy.py"):
+            marker = '                if run["status"] not in {"queued", "running"}:'
+            if marker in content:
+                return _make_step(
+                    "replace_text",
+                    {
+                        "path": path,
+                        "old": marker,
+                        "new": '                if run["status"] not in {"queued", "planning", "running"}:',
+                        "replace_all": False,
+                    },
+                    reason="Treat persisted planning runs as open during restart reconciliation.",
+                    expected_result="A supervisor run in planning status cannot be duplicated after a restart.",
+                    requires_approval=True,
+                    description=f"Hardening planning-run reconciliation in {path}",
+                )
         if path.casefold().endswith("services/orchestrator/app/db.py"):
             marker = '        "validations": validations[-10:],'
             dedupe_marker = "    validations = list(dict.fromkeys(validations))"

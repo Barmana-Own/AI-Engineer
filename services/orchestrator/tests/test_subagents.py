@@ -107,6 +107,29 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(step["tool"], "read_file")
         self.assertEqual(step["arguments"]["path"], "services/local-agent/app/main.py")
 
+    def test_supervisor_resume_recovery_includes_planning_runs(self):
+        content = '                if run["status"] not in {"queued", "running"}:\n'
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/autonomy.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "services/orchestrator/app/autonomy.py", "content": content},
+            },
+        }, {
+            "step": {"tool": "git_checkpoint", "arguments": {}},
+            "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-supervisor-resume",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/orchestrator/app/autonomy.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn('"queued", "planning", "running"', step["arguments"]["new"])
     def test_role_contract_recovery_adds_reviewer_handoff(self):
         content = '        capabilities=("read", "diff", "evidence"),\n'
         results = [{
