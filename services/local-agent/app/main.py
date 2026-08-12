@@ -26,3 +26,13 @@ def root() -> dict:
         "service": settings.app_name,
         "version": "0.5.0",
     }
+
+
+@app.get("/capabilities")
+def capabilities() -> dict:
+    return {
+        "service": settings.app_name,
+        "workspace_guarded": True,
+        "mutation_requires_checkpoint": True,
+        "read_only_tools": ["files", "terminal_preview", "health"],
+    }

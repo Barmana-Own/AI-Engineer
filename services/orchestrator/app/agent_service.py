@@ -2182,6 +2182,21 @@ async def _append_default_validation(
     profile = _environment_profile(results)
     command = str(profile.get("validation_command") or "").strip()
     if not command:
+        read_paths = {
+            path.replace("\\", "/").casefold()
+            for path in _successful_read_paths(results)
+        }
+        if any(path.startswith("services/local-agent/") for path in read_paths):
+            command = "python -m compileall -q services/local-agent/app"
+        elif any(path.startswith("services/model-gateway/") for path in read_paths):
+            command = "python -m pytest -q services/model-gateway/tests"
+        elif any(path.startswith("services/orchestrator/") for path in read_paths):
+            command = "python -m unittest discover -s services/orchestrator/tests -q"
+        elif any(path.startswith("apps/control-center/") for path in read_paths):
+            command = "npm run build --prefix apps/control-center"
+        elif any(path.startswith("apps/desktop/") for path in read_paths):
+            command = "npm run build --prefix apps/desktop"
+    if not command:
         return False
 
     validation_step = _make_step(
