@@ -1852,12 +1852,6 @@ async def _model_next_action(
         # goal names a file, keep that narrower target set.
         allowed_mutation_paths = already_read_paths
 
-    learned_memories = (
-        search_memories(project_id, query=instruction, limit=6)
-        if project_id
-        else []
-    )
-    learned_memory_text = _bounded_learned_memory(learned_memories)
     successful_mutations = _successful_mutations(results)
     known_repair = _autonomous_known_repair(instruction, results) if autonomous else None
     if known_repair:
@@ -1877,6 +1871,15 @@ async def _model_next_action(
         )
         if fast_recovery:
             return fast_recovery
+
+    # Memory is advisory and can be slow while another worker is checkpointing.
+    # Never make deterministic recovery wait on that optional context.
+    learned_memories = (
+        search_memories(project_id, query=instruction, limit=6)
+        if project_id
+        else []
+    )
+    learned_memory_text = _bounded_learned_memory(learned_memories)
 
     # Small local models occasionally copy the illustrative read_file path
     # from the schema (for example client/src/App.tsx) even when it is not in
