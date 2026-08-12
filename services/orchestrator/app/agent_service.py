@@ -847,6 +847,20 @@ def _deterministic_autonomous_recovery_step(
         )
 
     if _successful_mutations(results):
+        if requirements.get("validation") and not _successful_validations(results):
+            return _make_step(
+                "run_terminal",
+                {
+                    "command": "npm run build --prefix apps/desktop",
+                    "cwd": ".",
+                    "shell": "powershell",
+                    "timeout_seconds": 300,
+                },
+                reason="Run the deterministic desktop build after the autonomous mutation.",
+                expected_result="A successful desktop build with exit code 0.",
+                requires_approval=False,
+                description="Validating the desktop application",
+            )
         return None
 
     read_paths = _successful_read_paths(results)
