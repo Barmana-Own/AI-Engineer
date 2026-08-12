@@ -66,6 +66,19 @@ function Provider-Hub-Ready {
     $key = Get-ProviderHubKey
     if ([string]::IsNullOrWhiteSpace($key)) { return $false }
     try {
+        # A model catalogue alone is not enough: the embedded proxy can still
+        # be rate-limited or have no usable upstream.  Keep Ollama as the
+        # deterministic local fallback until the proxy reports a healthy pool.
+        $providerRaw = & curl.exe -fsS `
+            -H "Authorization: Bearer $key" `
+            "http://127.0.0.1:8020/v1/providers" 2>$null
+        $providerPayload = ($providerRaw -join "`n") | ConvertFrom-Json
+        $providers = @($providerPayload.providers)
+        if ($providers.Count -eq 0) { return $false }
+        $unusable = @("rate_limited", "unavailable", "error", "disabled")
+        if ($providers | Where-Object { $unusable -contains ([string]$_.status).ToLowerInvariant() }) {
+            return $false
+        }
         $raw = & curl.exe -fsS `
             -H "Authorization: Bearer $key" `
             "http://127.0.0.1:8020/v1/models" 2>$null
