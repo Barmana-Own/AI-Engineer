@@ -882,16 +882,20 @@ def _deterministic_autonomous_recovery_step(
                 old = status_line
                 new = status_prefix + task_id[:8]
             else:
-                old = "## Autonomous development"
-                if old not in content:
-                    old = "# AI Engineer" if "# AI Engineer" in content else content.splitlines()[0]
-                    new = old + "\n\n## Autonomous development"
+                description = (
+                    "This repository is maintained by a bounded five-minute supervisor "
+                    "with checkpointed sub-agent inspection, implementation, and verification."
+                )
+                if description in content:
+                    old = description
+                    new = description
                 else:
-                    new = old + (
-                        "\n\n"
-                        "This repository is maintained by a bounded five-minute supervisor "
-                        "with checkpointed sub-agent inspection, implementation, and verification."
-                    )
+                    old = "## Autonomous development"
+                    if old not in content:
+                        old = "# AI Engineer" if "# AI Engineer" in content else content.splitlines()[0]
+                        new = old + "\n\n## Autonomous development"
+                    else:
+                        new = old + "\n\n" + description
                 new += "\n\n" + status_prefix + task_id[:8]
             return _make_step(
                 "replace_text",
