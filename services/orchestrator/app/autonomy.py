@@ -82,6 +82,7 @@ def _push_verified_checkpoint() -> dict[str, object]:
             "GIT_ASKPASS": "echo",
             "GIT_EDITOR": "true",
             "GIT_PAGER": "cat",
+            "GIT_OPTIONAL_LOCKS": "0",
             "NO_COLOR": "1",
         }
     )
