@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -35,6 +36,7 @@ from app.subagents import SUBAGENT_ROLES, build_role_instruction, configured_sub
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -476,7 +478,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
         )
 
 
-async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
+async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
     """Wake periodically for the configured workspace and reconcile stale workers."""
     interval_seconds = max(int(settings.autonomous_interval_minutes), 1) * 60
     target_workspace = str(settings.autonomous_workspace or "").strip().casefold()
@@ -563,3 +565,19 @@ async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
             await asyncio.wait_for(stop_event.wait(), timeout=interval_seconds)
         except asyncio.TimeoutError:
             continue
+
+
+async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
+    """Keep the supervisor alive if one database/provider iteration fails."""
+    while not stop_event.is_set():
+        try:
+            await _run_autonomy_scheduler_loop(stop_event)
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Autonomous supervisor iteration failed; retrying.")
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                continue
