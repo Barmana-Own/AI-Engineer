@@ -871,14 +871,28 @@ def _deterministic_autonomous_recovery_step(
             result = outcome.get("result") or {}
             current_path = str(result.get("path") or _step_path(step) or "")
             content = str(result.get("content") or "")
-            if current_path != path or not content or "## Autonomous development" in content:
+            if current_path != path or not content:
                 continue
-            old = "# AI Engineer" if "# AI Engineer" in content else content.splitlines()[0]
-            new = old + (
-                "\n\n## Autonomous development\n\n"
-                "This repository is maintained by a bounded five-minute supervisor "
-                "with checkpointed sub-agent inspection, implementation, and verification."
+            status_prefix = "- Last bounded cycle checkpoint: "
+            status_line = next(
+                (line for line in content.splitlines() if line.startswith(status_prefix)),
+                None,
             )
+            if status_line:
+                old = status_line
+                new = status_prefix + task_id[:8]
+            else:
+                old = "## Autonomous development"
+                if old not in content:
+                    old = "# AI Engineer" if "# AI Engineer" in content else content.splitlines()[0]
+                    new = old + "\n\n## Autonomous development"
+                else:
+                    new = old + (
+                        "\n\n"
+                        "This repository is maintained by a bounded five-minute supervisor "
+                        "with checkpointed sub-agent inspection, implementation, and verification."
+                    )
+                new += "\n\n" + status_prefix + task_id[:8]
             return _make_step(
                 "replace_text",
                 {"path": path, "old": old, "new": new, "replace_all": False},
