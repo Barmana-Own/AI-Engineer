@@ -1011,6 +1011,25 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
                     requires_approval=True,
                     description=f"Adding compact autonomy status to {path}",
                 )
+        if path.casefold().endswith("services/model-gateway/app/router.py"):
+            marker = "        if normalized and normalized not in seen:"
+            dedupe_marker = "        key = normalized.casefold()"
+            if marker in content and dedupe_marker not in content:
+                old = marker + "\n            candidates.append(normalized)\n            seen.add(normalized)"
+                new = (
+                    "        key = normalized.casefold()\n"
+                    "        if normalized and key not in seen:\n"
+                    "            candidates.append(normalized)\n"
+                    "            seen.add(key)"
+                )
+                return _make_step(
+                    "replace_text",
+                    {"path": path, "old": old, "new": new, "replace_all": False},
+                    reason="Make provider candidate deduplication case-insensitive while preserving request order.",
+                    expected_result="Model candidates are tried once even when aliases differ only by case.",
+                    requires_approval=True,
+                    description=f"Hardening model candidate routing in {path}",
+                )
         if not path.casefold().endswith("services/local-agent/app/main.py"):
             continue
         marker = '@app.get("/capabilities")'
