@@ -154,6 +154,29 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn('"handoff"', step["arguments"]["new"])
 
+    def test_supervisor_resume_recovery_includes_open_runs(self):
+        content = '            if any(run["status"] in {"queued", "running"} for run in open_runs):\n'
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/autonomy.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "services/orchestrator/app/autonomy.py", "content": content},
+            },
+        }, {
+            "step": {"tool": "git_checkpoint", "arguments": {}} ,
+            "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-supervisor-open-runs",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/orchestrator/app/autonomy.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn('"planning", "running", "awaiting_approval"', step["arguments"]["new"])
     def test_read_only_verifier_recovery_runs_validation(self):
         results = [{
             "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/autonomy.py"}},

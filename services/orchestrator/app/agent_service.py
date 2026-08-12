@@ -1063,6 +1063,22 @@ def _deterministic_autonomous_recovery_step(
                     requires_approval=True,
                     description=f"Hardening planning-run reconciliation in {path}",
                 )
+        if path.casefold().endswith("services/orchestrator/app/autonomy.py"):
+            marker = '            if any(run["status"] in {"queued", "running"} for run in open_runs):'
+            if marker in content:
+                return _make_step(
+                    "replace_text",
+                    {
+                        "path": path,
+                        "old": marker,
+                        "new": '            if any(run["status"] in {"queued", "planning", "running", "awaiting_approval"} for run in open_runs):',
+                        "replace_all": False,
+                    },
+                    reason="Treat planning and approval runs as open during restart reconciliation.",
+                    expected_result="The supervisor will not create a duplicate run while a persisted planning or approval run remains open.",
+                    requires_approval=True,
+                    description=f"Hardening open-run reconciliation in {path}",
+                )
         if path.casefold().endswith("services/orchestrator/app/db.py"):
             marker = '        "validations": validations[-10:],'
             dedupe_marker = "    validations = list(dict.fromkeys(validations))"
