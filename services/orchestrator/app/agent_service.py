@@ -959,6 +959,53 @@ def _deterministic_autonomous_recovery_step(
                     requires_approval=True,
                     description=f"Compacting repeated memory evidence in {path}",
                 )
+        if path.casefold().endswith("services/orchestrator/app/routers/agent.py"):
+            marker = "def autonomy_run_status("
+            anchor = '@router.get(\n    "/autonomy/runs/{run_id}/subagents",'
+            if marker not in content and anchor in content:
+                old = anchor
+                new = '''@router.get(
+    "/autonomy/runs/{run_id}/status",
+)
+def autonomy_run_status(run_id: str) -> dict[str, object]:
+    """Return compact run/task status for the supervisor and UI."""
+    run = get_autonomy_run(run_id)
+    if not run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Autonomy run not found.",
+        )
+
+    task_status_counts: dict[str, int] = {}
+    for task_id in run.get("task_ids") or []:
+        task = get_task(str(task_id))
+        if not task:
+            continue
+        task_status = str(task.get("status") or "unknown")
+        task_status_counts[task_status] = task_status_counts.get(task_status, 0) + 1
+
+    return {
+        "id": run["id"],
+        "project_id": run["project_id"],
+        "status": run["status"],
+        "requested_cycles": run["requested_cycles"],
+        "completed_cycles": run["completed_cycles"],
+        "task_count": len(run.get("task_ids") or []),
+        "task_status_counts": task_status_counts,
+        "error": run.get("error"),
+        "updated_at": run["updated_at"],
+    }
+
+
+''' + anchor
+                return _make_step(
+                    "replace_text",
+                    {"path": path, "old": old, "new": new, "replace_all": False},
+                    reason="Expose compact per-run task status for restart-safe monitoring.",
+                    expected_result="The orchestrator exposes bounded run status without returning full task payloads.",
+                    requires_approval=True,
+                    description=f"Adding compact autonomy status to {path}",
+                )
         if not path.casefold().endswith("services/local-agent/app/main.py"):
             continue
         marker = '@app.get("/capabilities")'
