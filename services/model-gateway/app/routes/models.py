@@ -27,7 +27,7 @@ async def list_models(
 
     try:
         provider_models = await provider.list_models()
-        return await cache.set(provider_models)
+        return await cache.set(provider_models, source=provider.name)
     except GatewayError:
         stale = await cache.get_stale()
         if stale is not None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -131,6 +132,13 @@ class Settings(BaseSettings):
             base_url = str(value.get("base_url") or "").strip().rstrip("/")
             if not base_url or not name:
                 continue
+            auth_mode = str(value.get("auth_mode") or "bearer").strip().casefold()
+            if auth_mode not in {"bearer", "x-api-key", "api-key"}:
+                auth_mode = "bearer"
+            api_key = value.get("api_key")
+            api_key_env = str(value.get("api_key_env") or "").strip()
+            if not api_key and api_key_env:
+                api_key = os.getenv(api_key_env)
             fallback = value.get("fallback_models") or ()
             if isinstance(fallback, str):
                 fallback = tuple(item.strip() for item in fallback.split(",") if item.strip())
@@ -142,8 +150,8 @@ class Settings(BaseSettings):
                 ProviderProfile(
                     name=str(name).strip().casefold(),
                     base_url=base_url,
-                    api_key=(str(value.get("api_key")).strip() if value.get("api_key") else None),
-                    auth_mode=str(value.get("auth_mode") or "bearer"),
+                    api_key=(str(api_key).strip() if api_key else None),
+                    auth_mode=auth_mode,
                     models_path=str(value.get("models_path") or "/models"),
                     chat_path=str(value.get("chat_path") or "/chat/completions"),
                     default_model=(str(value.get("default_model")).strip() if value.get("default_model") else None),

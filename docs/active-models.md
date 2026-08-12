@@ -9,7 +9,7 @@ running gateway exposes the effective values at `GET /v1/runtime/models`.
 | Component | Current model/provider | Role |
 | --- | --- | --- |
 | Orchestrator | `AGENT_MODEL` (default `qwen2.5-coder:1.5b`) | Chooses structured tool calls for coding tasks. Requests are sent to the model gateway. |
-| Model Gateway (`:8010`) | Barmana provider (`https://api.codemain.ir/v2/api`) | OpenAI-compatible chat boundary, model catalog cache, retries, fallback routing, and usage accounting. |
+| Model Gateway (`:8010`) | Barmana plus optional OpenAI-compatible provider pool | OpenAI-compatible chat boundary, model catalog cache, retries, cross-provider fallback routing, and usage accounting. |
 | Local Agent (`:8011`) | No language model | Executes the orchestrator's approved file, terminal, process, and Git actions inside an allowed workspace. |
 | Provider Router | Optional standalone FreeLLMAPI service | Has its own provider catalog and fallback features, but is not the provider used by the Python model gateway unless explicitly wired in. |
 
@@ -31,6 +31,15 @@ attempted models in its `gateway` metadata; usage is recorded in
 The runtime endpoint reports this effective configuration without returning API
 keys. `GET /v1/models` remains the endpoint for the provider's live model
 catalog (with a short local cache).
+
+## Optional provider profiles
+
+The gateway can add OpenAI-compatible providers without importing vendor SDKs.
+Set `PROVIDER_PROFILES_JSON` in the local, ignored `.env` and reference secrets
+with `api_key_env`. Qualified model names route to the selected provider:
+`openrouter/openai/gpt-4o-mini`, `gemini/gemini-2.5-flash`, or
+`openai/gpt-4o-mini`. Unqualified names continue to use the local Barmana/Ollama
+default. Profiles are skipped when their environment key is absent.
 
 ## Current defaults
 
