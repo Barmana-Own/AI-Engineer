@@ -18,6 +18,12 @@ existing path guards, Git checkpoint, diff, validation, retry, and memory logic
 remain shared. A role is not an unrestricted background process: it is a
 bounded task with a clear permission contract.
 
+Each wake-up also selects one item from the persisted autonomous backlog. The
+selected `TARGET FILE` and `VALIDATION COMMAND` are included in every role's
+instruction, and every specialist reads that target before reporting. This
+prevents a small local model from repeatedly treating `README.md` as the whole
+project and gives the implementer a concrete source file to improve.
+
 Configure the pipeline with:
 
 ```text

@@ -2366,11 +2366,10 @@ async def run_agent_task(task_id: str) -> None:
         if not plan and not results:
             update_task(task_id, status="planning", error=None)
             await _initial_inspection(instruction, workspace, plan, results)
-            # Backlog-driven implementers must inspect the declared source
-            # target, not only the workspace README, before the model chooses
-            # a patch. This is the bridge from generic supervision to real
-            # code maintenance while retaining the normal read guard.
-            if autonomous and subagent_role and subagent_role.key == "implementer":
+            # Every backlog specialist inspects the declared source target,
+            # not only the workspace README. The implementer then receives the
+            # same concrete evidence before choosing a patch.
+            if autonomous and subagent_role:
                 read_paths = _successful_read_paths(results)
                 for target in _autonomous_target_paths(instruction):
                     if target in read_paths:
