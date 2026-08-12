@@ -25,6 +25,29 @@ def _default_usage_db_path() -> Path:
     return _project_root() / "data" / "model-gateway" / "usage.sqlite3"
 
 
+def _dotenv_secret(name: str) -> str | None:
+    """Read one optional secret from the process or the local ignored .env."""
+    value = os.getenv(name)
+    if value:
+        return value.strip().strip('"').strip("'") or None
+
+    candidates = (Path.cwd() / ".env", _project_root() / "services" / "model-gateway" / ".env")
+    for path in candidates:
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                    continue
+                key, raw = stripped.split("=", 1)
+                if key.strip() != name:
+                    continue
+                secret = raw.strip().strip('"').strip("'")
+                return secret or None
+        except OSError:
+            continue
+    return None
+
+
 class Settings(BaseSettings):
     """Runtime settings loaded from environment variables or a local .env file."""
 
@@ -138,7 +161,7 @@ class Settings(BaseSettings):
             api_key = value.get("api_key")
             api_key_env = str(value.get("api_key_env") or "").strip()
             if not api_key and api_key_env:
-                api_key = os.getenv(api_key_env)
+                api_key = _dotenv_secret(api_key_env)
             fallback = value.get("fallback_models") or ()
             if isinstance(fallback, str):
                 fallback = tuple(item.strip() for item in fallback.split(",") if item.strip())
