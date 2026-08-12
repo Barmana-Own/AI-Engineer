@@ -1765,7 +1765,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
 
     feedback = ""
     last_error: Exception | None = None
-    model_name = getattr(settings, "agent_model", "qwen2.5-coder:1.5b")
+    model_name = getattr(settings, "agent_model", "qwen2.5-coder:3b")
     excluded_tools = {"write_file"} if allowed_mutation_paths else set()
     if role_read_only:
         excluded_tools.update(MUTATION_TOOLS)

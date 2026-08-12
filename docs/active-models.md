@@ -8,7 +8,7 @@ running gateway exposes the effective values at `GET /v1/runtime/models`.
 
 | Component | Current model/provider | Role |
 | --- | --- | --- |
-| Orchestrator | `AGENT_MODEL` (default `qwen2.5-coder:1.5b`) | Chooses structured tool calls for coding tasks. Requests are sent to the model gateway. |
+| Orchestrator | `AGENT_MODEL` (default `qwen2.5-coder:3b`) | Chooses structured tool calls for coding tasks. Requests are sent to the model gateway. |
 | Model Gateway (`:8010`) | Barmana plus optional OpenAI-compatible provider pool | OpenAI-compatible chat boundary, model catalog cache, retries, cross-provider fallback routing, and usage accounting. |
 | Local Agent (`:8011`) | No language model | Executes the orchestrator's approved file, terminal, process, and Git actions inside an allowed workspace. |
 | Provider Router | Optional standalone FreeLLMAPI service | Has its own provider catalog and fallback features, but is not the provider used by the Python model gateway unless explicitly wired in. |
@@ -44,7 +44,7 @@ default. Profiles are skipped when their environment key is absent.
 ## Current defaults
 
 ```text
-AGENT_MODEL=qwen2.5-coder:1.5b
+AGENT_MODEL=qwen2.5-coder:3b
 DEFAULT_MODEL=mistral-small-latest
 FALLBACK_MODELS=mistral-medium-latest,auto,codestral-latest
 MAX_FALLBACK_ATTEMPTS=3

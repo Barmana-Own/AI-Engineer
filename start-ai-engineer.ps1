@@ -50,7 +50,7 @@ if (-not (Port-Is-Open 8010)) {
         BARMANA_AUTH_MODE = "bearer"
         BARMANA_MODELS_PATH = "/models"
         BARMANA_CHAT_PATH = "/chat/completions"
-        DEFAULT_MODEL = "qwen2.5-coder:1.5b"
+        DEFAULT_MODEL = "qwen2.5-coder:3b"
         FALLBACK_MODELS = ""
         MAX_FALLBACK_ATTEMPTS = "1"
         READ_TIMEOUT_SECONDS = "300"
