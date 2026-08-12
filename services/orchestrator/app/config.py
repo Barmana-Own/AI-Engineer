@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     autonomous_subagents: str = "scout,planner,implementer,verifier,reviewer"
     autonomous_max_subagents: int = 5
     autonomous_task_timeout_seconds: int = 360
-    autonomous_model_timeout_seconds: int = 90
+    autonomous_model_timeout_seconds: int = 180
 
     model_config = SettingsConfigDict(
         env_file=".env",
