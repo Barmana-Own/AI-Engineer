@@ -87,7 +87,6 @@ class ModelRouter:
                 ProviderUnavailableError,
                 ProviderRateLimitError,
                 ProviderModelUnavailableError,
-    ProviderModelUnavailableError,
             ) as exc:
                 last_error = exc
                 continue

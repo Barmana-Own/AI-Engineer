@@ -70,7 +70,7 @@ async def chat_completion(
             choices=provider_response.choices,
             usage=provider_response.usage,
             gateway=RoutingMetadata(
-                provider="barmana",
+                provider=getattr(request.app.state.provider, "name", "unknown"),
                 requested_model=requested_model,
                 selected_model=selected_model,
                 attempted_models=attempted_models,

@@ -62,6 +62,7 @@ def test_chat_endpoint_and_usage_summary(test_settings):
     assert response.status_code == 200
     body = response.json()
     assert body["choices"][0]["message"]["content"] == "OK"
+    assert body["gateway"]["provider"] == "fake"
     assert body["gateway"]["selected_model"] == "auto"
     assert body["gateway"]["request_id"]
 
