@@ -941,6 +941,24 @@ def _deterministic_autonomous_recovery_step(
         result = outcome.get("result") or {}
         path = str(result.get("path") or _step_path(step) or "").replace("\\", "/")
         content = str(result.get("content") or "")
+        if path.casefold().endswith("services/orchestrator/app/db.py"):
+            marker = '        "validations": validations[-10:],'
+            dedupe_marker = "    validations = list(dict.fromkeys(validations))"
+            if marker in content and dedupe_marker not in content:
+                old = marker
+                new = (
+                    "    validations = list(dict.fromkeys(validations))\n"
+                    "    failures = list(dict.fromkeys(failures))\n"
+                    + marker
+                )
+                return _make_step(
+                    "replace_text",
+                    {"path": path, "old": old, "new": new, "replace_all": False},
+                    reason="Deduplicate repeated validation and failure evidence before persisting bounded memory.",
+                    expected_result="Episodic memory keeps unique validation and failure facts within its existing bounds.",
+                    requires_approval=True,
+                    description=f"Compacting repeated memory evidence in {path}",
+                )
         if not path.casefold().endswith("services/local-agent/app/main.py"):
             continue
         marker = '@app.get("/capabilities")'
