@@ -11,8 +11,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.db import (
     create_autonomy_run,
@@ -37,6 +40,89 @@ from app.subagents import SUBAGENT_ROLES, build_role_instruction, configured_sub
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
 logger = logging.getLogger(__name__)
+
+EXPECTED_GITHUB_REMOTE = "https://github.com/Barmana-Own/AI-Engineer.git"
+
+
+def _normalise_git_remote(value: str) -> str:
+    """Compare HTTPS and SSH spellings without ever logging credentials."""
+    remote = value.strip().rstrip("/")
+    if remote.startswith("git@github.com:"):
+        remote = "https://github.com/" + remote.split(":", 1)[1]
+    if remote.endswith(".git"):
+        remote = remote[:-4]
+    return remote.casefold()
+
+
+def _push_verified_checkpoint() -> dict[str, object]:
+    """Push only a clean main-branch checkpoint to the owned GitHub remote.
+
+    This runs after a complete autonomous cycle.  It is deliberately separate
+    from the agent tool policy: agents can checkpoint locally, while the
+    supervisor is the only component allowed to publish a verified result.
+    """
+    if not bool(getattr(settings, "autonomous_auto_push", False)):
+        return {"pushed": False, "reason": "disabled"}
+
+    root = Path(
+        str(getattr(settings, "autonomous_repo_root", "") or os.getenv("AI_ENGINEER_REPO_ROOT", "F:\\AI-Engineer"))
+    ).expanduser()
+    try:
+        root = root.resolve()
+    except OSError:
+        return {"pushed": False, "reason": "repository root could not be resolved"}
+    if not root.is_dir() or not (root / ".git").exists():
+        return {"pushed": False, "reason": "repository root is unavailable"}
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "GIT_TERMINAL_PROMPT": "0",
+            "GCM_INTERACTIVE": "Never",
+            "GIT_ASKPASS": "echo",
+            "GIT_EDITOR": "true",
+            "GIT_PAGER": "cat",
+            "NO_COLOR": "1",
+        }
+    )
+
+    def git(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *args],
+            cwd=str(root),
+            env=env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            shell=False,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+    remote = git("config", "--get", "remote.origin.url")
+    configured_remote = str(getattr(settings, "autonomous_git_remote", EXPECTED_GITHUB_REMOTE))
+    if remote.returncode != 0 or _normalise_git_remote(remote.stdout) != _normalise_git_remote(configured_remote):
+        return {"pushed": False, "reason": "origin is not the configured GitHub repository"}
+
+    branch = git("branch", "--show-current")
+    if branch.returncode != 0 or branch.stdout.strip().casefold() != "main":
+        return {"pushed": False, "reason": "repository is not on main"}
+
+    status = git("status", "--porcelain", "--untracked-files=all")
+    if status.returncode != 0 or status.stdout.strip():
+        return {"pushed": False, "reason": "working tree is not clean"}
+
+    head = git("rev-parse", "HEAD")
+    if head.returncode != 0 or not head.stdout.strip():
+        return {"pushed": False, "reason": "no checkpoint commit exists"}
+
+    pushed = git("push", "--porcelain", "origin", "HEAD:main", timeout=120)
+    if pushed.returncode != 0:
+        return {"pushed": False, "reason": "GitHub push failed", "exit_code": pushed.returncode}
+    return {"pushed": True, "commit": head.stdout.strip()[:40]}
 
 
 @dataclass(frozen=True)
@@ -469,6 +555,17 @@ async def run_autonomous_cycles(run_id: str) -> None:
             status="completed",
             error=None,
         )
+        push_result = await asyncio.to_thread(_push_verified_checkpoint)
+        if push_result.get("pushed"):
+            logger.info(
+                "Autonomous checkpoint pushed to GitHub: %s",
+                push_result.get("commit", "unknown"),
+            )
+        elif push_result.get("reason") not in {"disabled", "working tree is not clean"}:
+            logger.warning(
+                "Autonomous checkpoint was not pushed: %s",
+                push_result.get("reason", "unknown reason"),
+            )
     except Exception as exc:
         update_autonomy_run(
             run_id,

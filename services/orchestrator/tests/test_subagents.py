@@ -1,12 +1,13 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app import db
 from app.agent_service import (
     _apply_subagent_requirements,
     _deterministic_autonomous_recovery_step,
+    _read_file,
     _unwrap_model_action,
 )
 from app.subagents import (
@@ -158,6 +159,17 @@ def root() -> dict:
         self.assertEqual(handoff["section"], "model-gateway")
         self.assertEqual(handoff["changed_files"], ["services/model-gateway/app/router.py"])
         self.assertEqual(handoff["confidence"], 1.0)
+
+
+class AgentReadGuardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_workspace_alias_read_is_normalized_to_listing(self):
+        listing = {"path": ".", "entries": [{"name": "README.md", "type": "file"}]}
+        with patch("app.agent_service._list_files", new=AsyncMock(return_value=listing)) as mocked:
+            result = await _read_file("ai-engineer", "ai-engineer")
+
+        self.assertTrue(result["directory"])
+        self.assertEqual(result["content"], "")
+        mocked.assert_awaited_once_with("ai-engineer", ".")
 
 
 class SubagentHandoffDbTests(unittest.TestCase):

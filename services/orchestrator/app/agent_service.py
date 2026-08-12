@@ -1266,6 +1266,20 @@ async def _list_files(workspace: str, relative: str) -> dict[str, Any]:
 
 
 async def _read_file(workspace: str, relative: str) -> dict[str, Any]:
+    # A model can echo the workspace alias (for example ``ai-engineer``)
+    # when it means "inspect the project root".  The Local Agent correctly
+    # rejects directory paths on /files/read, so normalize that intent to a
+    # listing instead of surfacing a red tool failure in the desktop activity.
+    normalized = _strip_workspace(_safe_relative(workspace, allow_dot=False), relative)
+    if _safe_relative(normalized) == ".":
+        listing = await _list_files(workspace, ".")
+        return {
+            **listing,
+            "content": "",
+            "directory": True,
+            "size": 0,
+        }
+
     path = _project_path(workspace, relative)
     result = await request_json(
         "GET",

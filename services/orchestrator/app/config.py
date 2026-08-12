@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     autonomous_max_subagents: int = 5
     autonomous_task_timeout_seconds: int = 360
     autonomous_model_timeout_seconds: int = 180
+    # Push only clean, verified checkpoints to the configured GitHub remote.
+    # The supervisor never publishes an uncommitted or foreign-repository tree.
+    autonomous_auto_push: bool = True
+    autonomous_repo_root: str = r"F:\AI-Engineer"
+    autonomous_git_remote: str = "https://github.com/Barmana-Own/AI-Engineer.git"
 
     model_config = SettingsConfigDict(
         env_file=".env",
