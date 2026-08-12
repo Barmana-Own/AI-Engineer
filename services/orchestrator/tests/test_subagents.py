@@ -114,6 +114,35 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn('"handoff"', step["arguments"]["new"])
 
+    def test_validation_recovery_uses_service_virtualenv(self):
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/subagents.py"}},
+                "outcome": {"tool": "read_file", "ok": True, "result": {
+                    "path": "services/orchestrator/app/subagents.py", "content": "current"
+                }},
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+            {
+                "step": {"tool": "replace_text", "arguments": {"path": "services/orchestrator/app/subagents.py"}},
+                "outcome": {"tool": "replace_text", "ok": True, "result": {
+                    "path": "services/orchestrator/app/subagents.py"
+                }},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-validation",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/orchestrator/app/subagents.py"],
+        )
+        self.assertEqual(step["tool"], "run_terminal")
+        self.assertIn(".venv\\Scripts\\python.exe", step["arguments"]["command"])
+
     def test_read_only_summary_fallback_starts_at_explicit_target(self):
         step = _deterministic_autonomous_recovery_step(
             "task-read-only-summary",

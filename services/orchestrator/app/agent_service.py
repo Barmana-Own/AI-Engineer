@@ -949,13 +949,13 @@ def _deterministic_autonomous_recovery_step(
             validation_command = "npm run build"
             validation_cwd = "apps/desktop"
             if any(path.endswith("services/local-agent/app/main.py") for path in changed_paths):
-                validation_command = "python -m compileall -q app"
+                validation_command = ".\\.venv\\Scripts\\python.exe -m compileall -q app"
                 validation_cwd = "services/local-agent"
             elif any(path.startswith("services/model-gateway/") for path in changed_paths):
-                validation_command = "python -m pytest -q tests"
+                validation_command = ".\\.venv\\Scripts\\python.exe -m pytest -q tests"
                 validation_cwd = "services/model-gateway"
             elif any(path.startswith("services/orchestrator/") for path in changed_paths):
-                validation_command = "python -m unittest discover -s tests -q"
+                validation_command = ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -q"
                 validation_cwd = "services/orchestrator"
             elif any(path.startswith("apps/control-center/") for path in changed_paths):
                 validation_command = "npm run build"
