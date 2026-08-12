@@ -75,7 +75,7 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
         objective="Review the resulting diff and recorded validation evidence for scope and safety.",
         read_only=True,
         section="quality",
-        capabilities=("read", "diff", "evidence"),
+        capabilities=("read", "diff", "evidence", "handoff"),
     ),
     SubagentRole(
         key="monitor",
