@@ -77,6 +77,8 @@ workspaces/*
 # Backups
 backups/*
 !backups/.gitkeep
+.backups/*
+!.backups/.gitkeep
 *.backup-*
 *.backup-*/
 *.bak

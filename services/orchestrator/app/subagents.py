@@ -207,7 +207,9 @@ HANDOFF_SCHEMA_VERSION = "1.0"
 def get_subagent_role(key: str) -> SubagentRole:
     normalized = (key or "").strip().casefold()
     normalized = _ROLE_ALIASES.get(normalized, normalized)
-    return _ROLE_BY_KEY.get(normalized, _ROLE_BY_KEY["implementer"])
+    # Unknown markers are observational by default. A malformed model output
+    # must never silently acquire the writer role.
+    return _ROLE_BY_KEY.get(normalized, _ROLE_BY_KEY["inspector"])
 
 
 def configured_subagent_roles(value: str | None) -> list[SubagentRole]:
@@ -219,6 +221,9 @@ def configured_subagent_roles(value: str | None) -> list[SubagentRole]:
 
     roles: list[SubagentRole] = []
     for key in requested:
+        canonical = _ROLE_ALIASES.get(key, key)
+        if canonical not in _ROLE_BY_KEY:
+            continue
         role = get_subagent_role(key)
         if role.key not in {item.key for item in roles}:
             roles.append(role)

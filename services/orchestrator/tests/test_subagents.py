@@ -10,6 +10,7 @@ from app.subagents import (
     SECTION_ROLE_KEYS,
     build_handoff,
     build_role_instruction,
+    configured_subagent_roles,
     get_subagent_role,
     list_section_subagents,
 )
@@ -39,6 +40,11 @@ class SubagentRegistryTests(unittest.TestCase):
 
     def test_alias_and_validation_contract(self):
         self.assertEqual(get_subagent_role("scout").key, "inspector")
+        self.assertEqual(get_subagent_role("unknown-model-role").key, "inspector")
+        self.assertEqual(
+            [role.key for role in configured_subagent_roles("unknown-model-role,planner")],
+            ["planner"],
+        )
         verifier = get_subagent_role("verifier")
         instruction = build_role_instruction(
             role=verifier,
