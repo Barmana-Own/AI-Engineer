@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from app.db import (
@@ -31,6 +32,79 @@ from app.subagents import build_role_instruction, configured_subagent_roles
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
+
+
+@dataclass(frozen=True)
+class AutonomousBacklogItem:
+    """One concrete, project-relative improvement the supervisor can pursue."""
+
+    key: str
+    target: str
+    goal: str
+    validation: str
+
+
+# The supervisor must have an actionable queue instead of asking a small local
+# model to rediscover the same generic README edit on every wake-up.  Targets
+# are deliberately limited to the orchestrator's own source and its tests.
+AUTONOMOUS_BACKLOG: tuple[AutonomousBacklogItem, ...] = (
+    AutonomousBacklogItem(
+        key="supervisor-resume",
+        target="services/orchestrator/app/autonomy.py",
+        goal="Improve restart-safe supervisor resume and stale-run reconciliation without changing the public API.",
+        validation="python -m compileall -q services/orchestrator/app",
+    ),
+    AutonomousBacklogItem(
+        key="task-observability",
+        target="services/orchestrator/app/routers/agent.py",
+        goal="Improve autonomous task and run observability while preserving existing response contracts.",
+        validation="python -m compileall -q services/orchestrator/app",
+    ),
+    AutonomousBacklogItem(
+        key="memory-safety",
+        target="services/orchestrator/app/db.py",
+        goal="Improve bounded autonomous memory persistence or compaction without changing stored secrets.",
+        validation="python -m compileall -q services/orchestrator/app",
+    ),
+    AutonomousBacklogItem(
+        key="role-contracts",
+        target="services/orchestrator/app/subagents.py",
+        goal="Improve specialist role contracts or status reporting so later agents can act on concrete evidence.",
+        validation="python -m compileall -q services/orchestrator/app",
+    ),
+)
+
+
+def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
+    """Select a rotating concrete item, preferring work not recently changed."""
+    memories = search_memories(project_id, limit=80)
+    changed_files: set[str] = set()
+    for memory in memories:
+        detail = memory.get("detail")
+        if not isinstance(detail, dict):
+            continue
+        for path in detail.get("changed_files") or []:
+            changed_files.add(str(path).replace("\\", "/").casefold())
+
+    untouched = [
+        item for item in AUTONOMOUS_BACKLOG
+        if item.target.casefold() not in changed_files
+    ]
+    candidates = untouched or list(AUTONOMOUS_BACKLOG)
+    # A persisted memory count gives the queue a deterministic cursor across
+    # process restarts without adding another database migration.
+    cursor = len(memories) % len(candidates)
+    return candidates[cursor]
+
+
+def build_backlog_goal(item: AutonomousBacklogItem) -> str:
+    """Render an explicit target/validation contract for all sub-agents."""
+    return (
+        f"BACKLOG_KEY: {item.key}\n"
+        f"TARGET FILE: {item.target}\n"
+        f"VALIDATION COMMAND: {item.validation}\n"
+        f"Implement one small, evidence-based code change. {item.goal}"
+    )
 
 
 def _bounded_memory_text(memories: list[dict[str, object]]) -> str:
@@ -269,9 +343,10 @@ async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
             if any(run["status"] in {"queued", "running"} for run in open_runs):
                 continue
 
+            backlog_item = select_autonomous_backlog_item(project["id"])
             run = create_autonomy_run(
                 project_id=project["id"],
-                goal="Inspect the project and complete the highest-value safe improvement.",
+                goal=build_backlog_goal(backlog_item),
                 requested_cycles=max(int(settings.autonomous_cycles_per_run), 1),
             )
             await run_autonomous_cycles(run["id"])

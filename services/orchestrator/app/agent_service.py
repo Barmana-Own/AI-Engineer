@@ -813,6 +813,19 @@ def _inspection_fallback_paths(results: list[dict[str, Any]]) -> list[str]:
     return candidates[:8]
 
 
+def _autonomous_target_paths(instruction: str) -> list[str]:
+    """Extract explicit backlog targets while ignoring validation commands."""
+    paths: list[str] = []
+    for path in _mentioned_paths(instruction):
+        normalized = path.replace("\\", "/").strip("./")
+        lowered = normalized.casefold()
+        if not lowered.startswith(("services/", "apps/", "packages/", "docs/")):
+            continue
+        if normalized not in paths:
+            paths.append(normalized)
+    return paths[:4]
+
+
 def _deterministic_autonomous_recovery_step(
     task_id: str,
     results: list[dict[str, Any]],
@@ -2353,6 +2366,31 @@ async def run_agent_task(task_id: str) -> None:
         if not plan and not results:
             update_task(task_id, status="planning", error=None)
             await _initial_inspection(instruction, workspace, plan, results)
+            # Backlog-driven implementers must inspect the declared source
+            # target, not only the workspace README, before the model chooses
+            # a patch. This is the bridge from generic supervision to real
+            # code maintenance while retaining the normal read guard.
+            if autonomous and subagent_role and subagent_role.key == "implementer":
+                read_paths = _successful_read_paths(results)
+                for target in _autonomous_target_paths(instruction):
+                    if target in read_paths:
+                        continue
+                    target_step = _make_step(
+                        "read_file",
+                        {"path": target},
+                        reason="Read the explicit autonomous backlog target before planning a code change.",
+                        expected_result="Current content from the declared source target.",
+                        requires_approval=False,
+                        description=f"Reading backlog target {target}",
+                    )
+                    await _append_step_result(
+                        workspace,
+                        plan,
+                        results,
+                        target_step,
+                        approved=True,
+                    )
+                    break
             update_task(
                 task_id,
                 status="running",
