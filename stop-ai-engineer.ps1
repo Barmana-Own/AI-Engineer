@@ -5,7 +5,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$ports = 5175, 8012, 8011, 8010, 11434
+$ports = 5175, 8012, 8011, 8010, 8020, 11434
 
 foreach ($port in $ports) {
     $connection = Get-NetTCPConnection `

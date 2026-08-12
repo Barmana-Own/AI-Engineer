@@ -26,7 +26,78 @@ function Wait-Port([int]$Port, [int]$Seconds = 60) {
     return $false
 }
 
-if (-not (Port-Is-Open 11434)) {
+function Get-ProviderHubKey {
+    $python = Get-Command python -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $python) { return $null }
+
+    $dbPath = "$root\data\provider-router\freellmapi.db"
+    if (-not (Test-Path -LiteralPath $dbPath)) { return $null }
+
+    $query = @'
+import sqlite3
+import sys
+
+try:
+    connection = sqlite3.connect(sys.argv[1])
+    row = connection.execute(
+        "SELECT value FROM settings WHERE key='unified_api_key'"
+    ).fetchone()
+    if row and isinstance(row[0], str):
+        print(row[0])
+finally:
+    try:
+        connection.close()
+    except Exception:
+        pass
+'@
+
+    try {
+        $key = ($query | & $python.Source - $dbPath 2>$null).Trim()
+        if ($key -match '^freellmapi-[A-Za-z0-9_-]+$') { return $key }
+    }
+    catch {
+    }
+    return $null
+}
+
+function Provider-Hub-Ready {
+    if (-not (Port-Is-Open 8020)) { return $false }
+    $key = Get-ProviderHubKey
+    if ([string]::IsNullOrWhiteSpace($key)) { return $false }
+    try {
+        $raw = & curl.exe -fsS `
+            -H "Authorization: Bearer $key" `
+            "http://127.0.0.1:8020/v1/models" 2>$null
+        $payload = ($raw -join "`n") | ConvertFrom-Json
+        return @($payload.data).Count -gt 0
+    }
+    catch {
+        return $false
+    }
+}
+
+function Ensure-Provider-Hub {
+    $routerRoot = "$root\services\provider-router"
+    $serverEntry = "$routerRoot\server\dist\index.js"
+    if (-not (Test-Path -LiteralPath $serverEntry)) { return $false }
+
+    if (-not (Port-Is-Open 8020)) {
+        Start-Process `
+            -FilePath "node.exe" `
+            -ArgumentList "dist/index.js" `
+            -WorkingDirectory "$routerRoot\server" `
+            -WindowStyle Hidden
+
+        if (-not (Wait-Port 8020 45)) { return $false }
+    }
+
+    return (Provider-Hub-Ready)
+}
+
+$providerHubReady = Ensure-Provider-Hub
+
+if (-not $providerHubReady -and -not (Port-Is-Open 11434)) {
     $ollama = @(
         "$root\tools\Ollama\ollama.exe",
         "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe"
@@ -44,17 +115,33 @@ if (-not (Port-Is-Open 8010)) {
     $gatewayPython = "$gatewayRoot\.venv\Scripts\python.exe"
 
     $old = @{}
-    $vars = @{
-        BARMANA_BASE_URL = "http://127.0.0.1:11434/v1"
-        BARMANA_API_KEY = "ollama"
-        BARMANA_AUTH_MODE = "bearer"
-        BARMANA_MODELS_PATH = "/models"
-        BARMANA_CHAT_PATH = "/chat/completions"
-        DEFAULT_MODEL = "qwen2.5-coder:3b"
-        FALLBACK_MODELS = ""
-        MAX_FALLBACK_ATTEMPTS = "1"
-        READ_TIMEOUT_SECONDS = "300"
-        NO_PROXY = "localhost,127.0.0.1,::1"
+    $vars = if ($providerHubReady) {
+        $providerHubKey = Get-ProviderHubKey
+        @{
+            BARMANA_BASE_URL = "http://127.0.0.1:8020/v1"
+            BARMANA_API_KEY = $providerHubKey
+            BARMANA_AUTH_MODE = "bearer"
+            BARMANA_MODELS_PATH = "/models"
+            BARMANA_CHAT_PATH = "/chat/completions"
+            DEFAULT_MODEL = "auto"
+            FALLBACK_MODELS = ""
+            MAX_FALLBACK_ATTEMPTS = "1"
+            READ_TIMEOUT_SECONDS = "300"
+            NO_PROXY = "localhost,127.0.0.1,::1"
+        }
+    } else {
+        @{
+            BARMANA_BASE_URL = "http://127.0.0.1:11434/v1"
+            BARMANA_API_KEY = "ollama"
+            BARMANA_AUTH_MODE = "bearer"
+            BARMANA_MODELS_PATH = "/models"
+            BARMANA_CHAT_PATH = "/chat/completions"
+            DEFAULT_MODEL = "qwen2.5-coder:3b"
+            FALLBACK_MODELS = ""
+            MAX_FALLBACK_ATTEMPTS = "1"
+            READ_TIMEOUT_SECONDS = "300"
+            NO_PROXY = "localhost,127.0.0.1,::1"
+        }
     }
 
     try {
@@ -138,4 +225,7 @@ Write-Host "UI:           http://127.0.0.1:5175"
 Write-Host "Orchestrator: http://127.0.0.1:8012"
 Write-Host "Local Agent:  http://127.0.0.1:8011"
 Write-Host "Gateway:      http://127.0.0.1:8010"
+if ($providerHubReady) {
+    Write-Host "Provider Hub: http://127.0.0.1:8020 (Codex Responses + OpenAI-compatible proxy)"
+}
 Write-Host "Ollama:       http://127.0.0.1:11434"
