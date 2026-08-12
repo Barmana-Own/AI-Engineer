@@ -90,6 +90,35 @@ def initialize_database() -> None:
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY(project_id) REFERENCES projects(id)
             );
+
+            CREATE TABLE IF NOT EXISTS subagent_handoffs (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                task_id TEXT,
+                role TEXT NOT NULL,
+                section TEXT NOT NULL,
+                schema_version TEXT NOT NULL DEFAULT '1.0',
+                status TEXT NOT NULL,
+                summary TEXT NOT NULL DEFAULT '',
+                evidence_json TEXT NOT NULL DEFAULT '[]',
+                changed_files_json TEXT NOT NULL DEFAULT '[]',
+                validations_json TEXT NOT NULL DEFAULT '[]',
+                blockers_json TEXT NOT NULL DEFAULT '[]',
+                next_action TEXT,
+                confidence REAL NOT NULL DEFAULT 0,
+                previous_handoff_ids_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_run
+                ON subagent_handoffs(run_id, created_at ASC);
+
+            CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_project
+                ON subagent_handoffs(project_id, updated_at DESC);
             """
         )
 
@@ -558,3 +587,162 @@ def update_autonomy_run(run_id: str, **changes: Any) -> dict[str, Any]:
             values,
         )
     return get_autonomy_run(run_id)
+
+
+def _json_list(value: object) -> list[Any]:
+    try:
+        parsed = json.loads(str(value or "[]"))
+    except json.JSONDecodeError:
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def _row_to_subagent_handoff(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "run_id": row["run_id"],
+        "project_id": row["project_id"],
+        "task_id": row["task_id"],
+        "role": row["role"],
+        "section": row["section"],
+        "schema_version": row["schema_version"],
+        "status": row["status"],
+        "summary": row["summary"],
+        "evidence": _json_list(row["evidence_json"]),
+        "changed_files": _json_list(row["changed_files_json"]),
+        "validations": _json_list(row["validations_json"]),
+        "blockers": _json_list(row["blockers_json"]),
+        "next_action": row["next_action"],
+        "confidence": float(row["confidence"] or 0),
+        "previous_handoff_ids": _json_list(row["previous_handoff_ids_json"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def create_subagent_handoff(
+    *,
+    run_id: str,
+    project_id: str,
+    role: str,
+    section: str,
+    status: str = "queued",
+    summary: str = "",
+    task_id: str | None = None,
+    schema_version: str = "1.0",
+    evidence: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    changed_files: list[str] | tuple[str, ...] = (),
+    validations: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    blockers: list[str] | tuple[str, ...] = (),
+    next_action: str | None = None,
+    confidence: float = 0.0,
+    previous_handoff_ids: list[str] | tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Persist one versioned specialist result on the run blackboard."""
+    handoff_id = str(uuid4())
+    now = utc_now()
+    with connect() as database:
+        database.execute(
+            """
+            INSERT INTO subagent_handoffs(
+                id, run_id, project_id, task_id, role, section, schema_version,
+                status, summary, evidence_json, changed_files_json,
+                validations_json, blockers_json, next_action, confidence,
+                previous_handoff_ids_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                handoff_id,
+                run_id,
+                project_id,
+                task_id,
+                str(role),
+                str(section),
+                str(schema_version or "1.0"),
+                str(status or "queued"),
+                str(summary or "")[:4_000],
+                json.dumps(list(evidence)[:20], ensure_ascii=False),
+                json.dumps([str(item) for item in list(changed_files)[:50]], ensure_ascii=False),
+                json.dumps(list(validations)[:20], ensure_ascii=False),
+                json.dumps([str(item) for item in list(blockers)[:20]], ensure_ascii=False),
+                str(next_action)[:1_000] if next_action else None,
+                max(0.0, min(float(confidence), 1.0)),
+                json.dumps([str(item) for item in list(previous_handoff_ids)[:20]], ensure_ascii=False),
+                now,
+                now,
+            ),
+        )
+    return get_subagent_handoff(handoff_id)
+
+
+def get_subagent_handoff(handoff_id: str) -> dict[str, Any] | None:
+    with connect() as database:
+        row = database.execute(
+            "SELECT * FROM subagent_handoffs WHERE id = ?",
+            (handoff_id,),
+        ).fetchone()
+    return _row_to_subagent_handoff(row) if row else None
+
+
+def list_subagent_handoffs(
+    run_id: str,
+    *,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    safe_limit = min(max(int(limit), 1), 200)
+    with connect() as database:
+        rows = database.execute(
+            """
+            SELECT * FROM subagent_handoffs
+            WHERE run_id = ?
+            ORDER BY created_at ASC
+            LIMIT ?
+            """,
+            (run_id, safe_limit),
+        ).fetchall()
+    return [_row_to_subagent_handoff(row) for row in rows]
+
+
+def update_subagent_handoff(handoff_id: str, **changes: Any) -> dict[str, Any] | None:
+    allowed = {
+        "task_id", "status", "summary", "evidence", "changed_files",
+        "validations", "blockers", "next_action", "confidence",
+        "previous_handoff_ids",
+    }
+    assignments: list[str] = []
+    values: list[Any] = []
+    json_columns = {
+        "evidence": "evidence_json",
+        "changed_files": "changed_files_json",
+        "validations": "validations_json",
+        "blockers": "blockers_json",
+        "previous_handoff_ids": "previous_handoff_ids_json",
+    }
+    for key, value in changes.items():
+        if key not in allowed:
+            continue
+        column = json_columns.get(key, key)
+        if key in json_columns:
+            if key in {"changed_files", "blockers", "previous_handoff_ids"}:
+                value = [str(item) for item in list(value or [])[:50]]
+            else:
+                value = list(value or [])[:20]
+            value = json.dumps(value, ensure_ascii=False)
+        elif key == "summary":
+            value = str(value or "")[:4_000]
+        elif key == "next_action":
+            value = str(value)[:1_000] if value else None
+        elif key == "confidence":
+            value = max(0.0, min(float(value), 1.0))
+        assignments.append(f"{column} = ?")
+        values.append(value)
+    if not assignments:
+        return get_subagent_handoff(handoff_id)
+    assignments.append("updated_at = ?")
+    values.extend([utc_now(), handoff_id])
+    with connect() as database:
+        database.execute(
+            f"UPDATE subagent_handoffs SET {', '.join(assignments)} WHERE id = ?",
+            values,
+        )
+    return get_subagent_handoff(handoff_id)

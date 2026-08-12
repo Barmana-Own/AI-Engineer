@@ -55,6 +55,29 @@ export type SubagentRole = {
   objective: string;
   read_only: boolean;
   validation_required: boolean;
+  section: string;
+  capabilities: string[];
+};
+
+export type SubagentHandoff = {
+  id: string;
+  run_id: string;
+  project_id: string;
+  task_id: string | null;
+  role: string;
+  section: string;
+  schema_version: string;
+  status: string;
+  summary: string;
+  evidence: Array<Record<string, unknown>>;
+  changed_files: string[];
+  validations: Array<Record<string, unknown>>;
+  blockers: string[];
+  next_action: string | null;
+  confidence: number;
+  previous_handoff_ids: string[];
+  created_at: string;
+  updated_at: string;
 };
 
 export type RuntimeModels = {
@@ -103,6 +126,10 @@ export function getRuntimeModels(): Promise<RuntimeModels> {
 
 export function listSubagents(): Promise<SubagentRole[]> {
   return get(`${ORCHESTRATOR_URL}/v1/agent/subagents`);
+}
+
+export function listSectionSubagents(): Promise<SubagentRole[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/subagents/sections`);
 }
 
 export function listProjects(): Promise<Project[]> {
@@ -161,6 +188,10 @@ export function listAutonomyRuns(projectId: string): Promise<AutonomyRun[]> {
   return get(
     `${ORCHESTRATOR_URL}/v1/agent/autonomy/runs?project_id=${encodeURIComponent(projectId)}&limit=12`,
   );
+}
+
+export function listRunSubagents(runId: string): Promise<SubagentHandoff[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/subagents?limit=100`);
 }
 
 export async function approveAgentTask(

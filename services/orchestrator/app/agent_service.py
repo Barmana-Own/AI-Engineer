@@ -293,6 +293,37 @@ def _unwrap_model_action(raw: dict[str, Any]) -> dict[str, Any]:
     if raw.get("tool") or raw.get("action"):
         return raw
 
+    # Qwen-compatible gateways occasionally wrap the selected function in a
+    # tool_call object instead of returning the public agent_action envelope.
+    # Accept only unambiguous known tools; policy and argument validation still
+    # run through _normalize_tool_call afterwards.
+    nested_call = raw.get("tool_call")
+    if isinstance(nested_call, dict):
+        nested_name = str(
+            nested_call.get("name")
+            or nested_call.get("tool")
+            or nested_call.get("action")
+            or ""
+        ).strip()
+        nested_arguments = nested_call.get("arguments")
+        if nested_arguments is None:
+            nested_arguments = nested_call.get("args")
+        if nested_name in TOOL_NAMES:
+            return {
+                "tool": nested_name,
+                "arguments": nested_arguments if isinstance(nested_arguments, dict) else {},
+                "reason": str(raw.get("reason") or nested_call.get("reason") or ""),
+                "expected_result": str(raw.get("expected_result") or ""),
+            }
+        for candidate_name, candidate_arguments in nested_call.items():
+            if str(candidate_name) in TOOL_NAMES:
+                return {
+                    "tool": str(candidate_name),
+                    "arguments": candidate_arguments if isinstance(candidate_arguments, dict) else {},
+                    "reason": str(raw.get("reason") or ""),
+                    "expected_result": str(raw.get("expected_result") or ""),
+                }
+
     name = str(raw.get("name") or "").strip()
     arguments = raw.get("arguments")
     if name == "agent_action" and isinstance(arguments, dict):
@@ -521,6 +552,21 @@ def _task_requirements(instruction: str) -> dict[str, bool]:
         "diff": mutation,
         "validation": mutation or explicit_validation,
     }
+
+
+def _apply_subagent_requirements(
+    requirements: dict[str, bool],
+    subagent_role: Any,
+) -> dict[str, bool]:
+    """Apply role capabilities without erasing read-only validation evidence."""
+    resolved = dict(requirements)
+    if subagent_role and getattr(subagent_role, "read_only", False):
+        resolved.update(
+            mutation=False,
+            diff=False,
+            validation=bool(getattr(subagent_role, "validation_required", False)),
+        )
+    return resolved
 
 
 def _mentioned_paths(instruction: str) -> list[str]:
@@ -2285,11 +2331,12 @@ async def run_agent_task(task_id: str) -> None:
     autonomous = task_mode == "autonomous"
     requirements = _task_requirements(instruction)
     subagent_role = role_from_instruction(instruction) if autonomous else None
-    if autonomous and subagent_role and subagent_role.read_only:
+    if autonomous and subagent_role:
         # Role policy is stronger than keyword detection: titles such as
         # "Change Planner" must not turn an observational task into a
-        # mutation/validation request.
-        requirements.update(mutation=False, diff=False, validation=False)
+        # mutation request. Validation is intentionally retained for verifier
+        # and test specialists: read-only means no writes, not no evidence.
+        requirements = _apply_subagent_requirements(requirements, subagent_role)
     plan = list(task.get("plan") or [])
     results = list(task.get("results") or [])
     approved_steps = set(task.get("approved_steps") or [])

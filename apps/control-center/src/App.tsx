@@ -8,7 +8,9 @@ import {
   getRuntimeModels,
   listAgentTasks,
   listAutonomyRuns,
+  listRunSubagents,
   listProjects,
+  listSectionSubagents,
   listSubagents,
   startSelfImprove,
   type AgentTask,
@@ -16,6 +18,7 @@ import {
   type HealthResponse,
   type Project,
   type RuntimeModels,
+  type SubagentHandoff,
   type SubagentRole,
 } from "./api";
 import "./styles.css";
@@ -35,10 +38,12 @@ function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [models, setModels] = useState<RuntimeModels | null>(null);
   const [roles, setRoles] = useState<SubagentRole[]>([]);
+  const [sectionRoles, setSectionRoles] = useState<SubagentRole[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [tasks, setTasks] = useState<AgentTask[]>([]);
   const [runs, setRuns] = useState<AutonomyRun[]>([]);
+  const [handoffs, setHandoffs] = useState<SubagentHandoff[]>([]);
   const [activeTask, setActiveTask] = useState<AgentTask | null>(null);
   const [projectName, setProjectName] = useState("");
   const [projectWorkspace, setProjectWorkspace] = useState("");
@@ -58,6 +63,7 @@ function App() {
     if (!projectId) {
       setTasks([]);
       setRuns([]);
+      setHandoffs([]);
       return;
     }
 
@@ -67,20 +73,32 @@ function App() {
     ]);
     setTasks(nextTasks);
     setRuns(nextRuns);
+    const latestRun = nextRuns[0];
+    if (!latestRun) {
+      setHandoffs([]);
+      return;
+    }
+    try {
+      setHandoffs(await listRunSubagents(latestRun.id));
+    } catch {
+      setHandoffs([]);
+    }
   }, []);
 
   const refreshAll = useCallback(async () => {
-    const [healthResult, modelsResult, rolesResult, projectsResult] =
+    const [healthResult, modelsResult, rolesResult, sectionRolesResult, projectsResult] =
       await Promise.allSettled([
         getHealth(),
         getRuntimeModels(),
         listSubagents(),
+        listSectionSubagents(),
         listProjects(),
       ]);
 
     if (healthResult.status === "fulfilled") setHealth(healthResult.value);
     if (modelsResult.status === "fulfilled") setModels(modelsResult.value);
     if (rolesResult.status === "fulfilled") setRoles(rolesResult.value);
+    if (sectionRolesResult.status === "fulfilled") setSectionRoles(sectionRolesResult.value);
     if (projectsResult.status === "fulfilled") {
       const nextProjects = projectsResult.value;
       setProjects(nextProjects);
@@ -288,8 +306,12 @@ function App() {
 
         <aside className="right-column">
           <section className="panel subagent-panel">
-            <div className="panel-heading"><div><p className="panel-label">SUB-AGENT FACTORY</p><h2>Specialists</h2></div><span className="count-pill">{roles.length}</span></div>
+            <div className="panel-heading"><div><p className="panel-label">SUB-AGENT FACTORY</p><h2>Section specialists</h2></div><span className="count-pill">{sectionRoles.length || roles.length}</span></div>
             <div className="role-list">{roles.map((role) => <div className="role-item" key={role.key}><span className={`role-icon ${role.read_only ? "observe" : "build"}`}>{role.read_only ? "◌" : "✎"}</span><div><strong>{role.title}</strong><small>{role.objective}</small></div><em>{role.read_only ? "read" : "write"}</em></div>)}</div>
+          </section>
+          <section className="panel subagent-panel">
+            <div className="panel-heading"><div><p className="panel-label">SECTION OWNERS</p><h2>Domain handoffs</h2></div><span className="count-pill">{handoffs.length}</span></div>
+            <div className="run-list">{handoffs.slice(-8).reverse().map((handoff) => <div className="run-item" key={handoff.id}><span className={`run-state state-${handoff.status}`} /><div className="run-main"><strong>{handoff.section} · {handoff.role}</strong><small>{handoff.summary || "No summary"}</small></div><span className={`badge status-${handoff.status}`}>{handoff.status}</span></div>)}{handoffs.length === 0 ? <p className="muted">No specialist handoffs recorded yet.</p> : null}</div>
           </section>
           <section className="panel model-panel">
             <div className="panel-heading"><div><p className="panel-label">MODEL ROUTING</p><h2>AI stack</h2></div><span className="online-label">{models?.provider_configured ? "ready" : "offline"}</span></div>

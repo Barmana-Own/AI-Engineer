@@ -97,6 +97,27 @@ class AutonomyRunResponse(BaseModel):
     updated_at: str
 
 
+class SubagentHandoffResponse(BaseModel):
+    id: str
+    run_id: str
+    project_id: str
+    task_id: str | None
+    role: str
+    section: str
+    schema_version: str
+    status: str
+    summary: str
+    evidence: list[dict[str, Any]]
+    changed_files: list[str]
+    validations: list[dict[str, Any]]
+    blockers: list[str]
+    next_action: str | None
+    confidence: float
+    previous_handoff_ids: list[str]
+    created_at: str
+    updated_at: str
+
+
 class MemoryResponse(BaseModel):
     id: str
     project_id: str

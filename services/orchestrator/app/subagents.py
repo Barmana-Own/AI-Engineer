@@ -19,6 +19,8 @@ class SubagentRole:
     objective: str
     read_only: bool
     validation_required: bool = False
+    section: str = "core"
+    capabilities: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -27,6 +29,8 @@ class SubagentRole:
             "objective": self.objective,
             "read_only": self.read_only,
             "validation_required": self.validation_required,
+            "section": self.section,
+            "capabilities": list(self.capabilities),
         }
 
 
@@ -36,12 +40,16 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
         title="Project Inspector",
         objective="Inspect the project and collect concrete evidence about its current structure.",
         read_only=True,
+        section="core",
+        capabilities=("read", "evidence"),
     ),
     SubagentRole(
         key="planner",
         title="Change Planner",
         objective="Use the inspected evidence to identify one small, high-value, low-risk improvement.",
         read_only=True,
+        section="core",
+        capabilities=("read", "plan"),
     ),
     SubagentRole(
         key="implementer",
@@ -49,6 +57,8 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
         objective="Apply exactly one coherent improvement to an already-read target file.",
         read_only=False,
         validation_required=True,
+        section="implementation",
+        capabilities=("read", "write", "checkpoint", "validate"),
     ),
     SubagentRole(
         key="verifier",
@@ -56,24 +66,142 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
         objective="Run the project validation command and confirm the implementation remains healthy.",
         read_only=True,
         validation_required=True,
+        section="tests",
+        capabilities=("read", "validate", "evidence"),
     ),
     SubagentRole(
         key="reviewer",
         title="Change Reviewer",
         objective="Review the resulting diff and recorded validation evidence for scope and safety.",
         read_only=True,
+        section="quality",
+        capabilities=("read", "diff", "evidence"),
     ),
     SubagentRole(
         key="monitor",
         title="Autonomy Monitor",
         objective="Track bounded sub-agent progress, reconcile stale tasks, and report pipeline health.",
         read_only=True,
+        section="supervisor",
+        capabilities=("read", "monitor", "reconcile"),
+    ),
+    # Domain specialists give every product section a stable owner.  They are
+    # logical sub-agents executed by the same policy-enforcing worker; this
+    # keeps the local deployment lightweight while making handoffs explicit.
+    SubagentRole(
+        key="requirements",
+        title="Requirements Analyst",
+        objective="Extract acceptance criteria, constraints, and observable success signals from the goal and current evidence.",
+        read_only=True,
+        section="product",
+        capabilities=("read", "requirements", "handoff"),
+    ),
+    SubagentRole(
+        key="architect",
+        title="Architecture Analyst",
+        objective="Map dependencies and contracts, then propose the smallest safe change boundary for the selected section.",
+        read_only=True,
+        section="architecture",
+        capabilities=("read", "impact", "plan", "handoff"),
+    ),
+    SubagentRole(
+        key="orchestrator",
+        title="Orchestrator Specialist",
+        objective="Inspect the supervisor, task state, memory, and API flow for restart-safe coordination improvements.",
+        read_only=True,
+        section="orchestrator",
+        capabilities=("read", "state", "api", "handoff"),
+    ),
+    SubagentRole(
+        key="gateway",
+        title="Model Gateway Specialist",
+        objective="Inspect provider routing, fallback behavior, and model health without exposing credentials or changing providers implicitly.",
+        read_only=True,
+        section="model-gateway",
+        capabilities=("read", "routing", "health", "handoff"),
+    ),
+    SubagentRole(
+        key="local_agent",
+        title="Local Agent Specialist",
+        objective="Inspect filesystem, terminal, Git, and process policy boundaries for safe local execution.",
+        read_only=True,
+        section="local-agent",
+        capabilities=("read", "policy", "security", "handoff"),
+    ),
+    SubagentRole(
+        key="ui",
+        title="Control Center Specialist",
+        objective="Inspect the control-center API client and dashboard contracts so specialist progress is observable.",
+        read_only=True,
+        section="control-center",
+        capabilities=("read", "ui", "api", "handoff"),
+    ),
+    SubagentRole(
+        key="desktop",
+        title="Desktop Specialist",
+        objective="Inspect the desktop shell, startup, and service health integration for a reliable local app experience.",
+        read_only=True,
+        section="desktop",
+        capabilities=("read", "desktop", "health", "handoff"),
+    ),
+    SubagentRole(
+        key="tests",
+        title="Test Specialist",
+        objective="Inspect test coverage and execute the narrowest meaningful validation for the selected change.",
+        read_only=True,
+        validation_required=True,
+        section="tests",
+        capabilities=("read", "validate", "coverage", "handoff"),
+    ),
+    SubagentRole(
+        key="security",
+        title="Security Reviewer",
+        objective="Review paths, secrets, commands, permissions, and diffs for policy or data-loss risks.",
+        read_only=True,
+        section="security",
+        capabilities=("read", "security", "diff", "handoff"),
+    ),
+    SubagentRole(
+        key="docs",
+        title="Documentation Specialist",
+        objective="Inspect documentation contracts and identify concise updates needed to keep operation and recovery instructions accurate.",
+        read_only=True,
+        section="docs",
+        capabilities=("read", "docs", "handoff"),
+    ),
+    SubagentRole(
+        key="debugger",
+        title="Bounded Debugger",
+        objective="Use a concrete failed validation as evidence for at most one narrowly scoped repair, then hand it back for verification.",
+        read_only=False,
+        validation_required=True,
+        section="recovery",
+        capabilities=("read", "write", "checkpoint", "validate", "retry"),
+    ),
+    SubagentRole(
+        key="integration",
+        title="Integration and Release Analyst",
+        objective="Inspect build and health contracts across services; publishing, deployment, and commits remain approval-gated.",
+        read_only=True,
+        validation_required=True,
+        section="integration",
+        capabilities=("read", "validate", "health", "handoff"),
     ),
 )
 
 _ROLE_BY_KEY = {role.key: role for role in SUBAGENT_ROLES}
-_ROLE_ALIASES = {"scout": "inspector"}
+_ROLE_ALIASES = {"scout": "inspector", "local-agent": "local_agent", "test-verifier": "tests"}
 ROLE_KEYS: tuple[str, ...] = tuple(role.key for role in SUBAGENT_ROLES)
+_DOMAIN_ROLE_KEYS = {
+    "requirements", "architect", "orchestrator", "gateway", "local_agent",
+    "ui", "desktop", "tests", "security", "docs", "debugger", "integration",
+}
+SECTION_ROLE_KEYS: dict[str, str] = {
+    role.section: role.key
+    for role in SUBAGENT_ROLES
+    if role.key in _DOMAIN_ROLE_KEYS
+}
+HANDOFF_SCHEMA_VERSION = "1.0"
 
 
 def get_subagent_role(key: str) -> SubagentRole:
@@ -205,20 +333,113 @@ def build_status_report(
     }
 
 
+@dataclass(frozen=True)
+class SubagentHandoff:
+    """Versioned blackboard record passed from one specialist to the next."""
+
+    run_id: str
+    project_id: str
+    role: str
+    section: str
+    status: str
+    summary: str = ""
+    task_id: str | None = None
+    evidence: tuple[dict[str, object], ...] = ()
+    changed_files: tuple[str, ...] = ()
+    validations: tuple[dict[str, object], ...] = ()
+    blockers: tuple[str, ...] = ()
+    next_action: str | None = None
+    confidence: float = 0.0
+    previous_handoff_ids: tuple[str, ...] = ()
+    created_at: str | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": HANDOFF_SCHEMA_VERSION,
+            "run_id": self.run_id,
+            "project_id": self.project_id,
+            "task_id": self.task_id,
+            "role": self.role,
+            "section": self.section,
+            "status": self.status,
+            "summary": self.summary,
+            "evidence": [dict(item) for item in self.evidence],
+            "changed_files": list(self.changed_files),
+            "validations": [dict(item) for item in self.validations],
+            "blockers": list(self.blockers),
+            "next_action": self.next_action,
+            "confidence": max(0.0, min(float(self.confidence), 1.0)),
+            "previous_handoff_ids": list(self.previous_handoff_ids),
+            "created_at": self.created_at or datetime.now(timezone.utc).isoformat(),
+        }
+
+
+def build_handoff(
+    *,
+    run_id: str,
+    project_id: str,
+    role: SubagentRole | str,
+    status: str,
+    summary: str = "",
+    task_id: str | None = None,
+    evidence: list[dict[str, object]] | tuple[dict[str, object], ...] = (),
+    changed_files: list[str] | tuple[str, ...] = (),
+    validations: list[dict[str, object]] | tuple[dict[str, object], ...] = (),
+    blockers: list[str] | tuple[str, ...] = (),
+    next_action: str | None = None,
+    confidence: float = 0.0,
+    previous_handoff_ids: list[str] | tuple[str, ...] = (),
+    created_at: str | None = None,
+) -> dict[str, object]:
+    """Normalize a specialist result before it is persisted to the blackboard."""
+    resolved = role if isinstance(role, SubagentRole) else get_subagent_role(role)
+    return SubagentHandoff(
+        run_id=str(run_id),
+        project_id=str(project_id),
+        role=resolved.key,
+        section=resolved.section,
+        status=(status or "unknown").strip().casefold(),
+        summary=str(summary or "").strip()[:4_000],
+        task_id=task_id,
+        evidence=tuple(dict(item) for item in evidence[:20]),
+        changed_files=tuple(str(item).replace("\\", "/") for item in changed_files[:50]),
+        validations=tuple(dict(item) for item in validations[:20]),
+        blockers=tuple(str(item).strip() for item in blockers if str(item).strip())[:20],
+        next_action=str(next_action).strip()[:1_000] if next_action else None,
+        confidence=confidence,
+        previous_handoff_ids=tuple(str(item) for item in previous_handoff_ids[:20]),
+        created_at=created_at,
+    ).as_dict()
+
+
 def list_subagent_roles() -> list[dict[str, object]]:
     return [role.as_dict() for role in SUBAGENT_ROLES]
 
 
+def list_section_subagents() -> list[dict[str, object]]:
+    """Return one stable specialist owner for each product section."""
+    return [
+        role.as_dict()
+        for role in SUBAGENT_ROLES
+        if role.key in _DOMAIN_ROLE_KEYS
+    ]
+
+
 __all__ = [
     "ROLE_KEYS",
+    "SECTION_ROLE_KEYS",
     "SUBAGENT_ROLES",
+    "HANDOFF_SCHEMA_VERSION",
+    "SubagentHandoff",
     "SubagentRole",
+    "build_handoff",
     "build_role_instruction",
     "build_role_prompt",
     "build_status_report",
     "configured_subagent_roles",
     "get_subagent_role",
     "list_subagent_roles",
+    "list_section_subagents",
     "role_from_instruction",
     "role_marker",
 ]

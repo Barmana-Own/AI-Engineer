@@ -17,18 +17,21 @@ from app.db import (
     create_autonomy_run,
     create_project,
     create_task,
+    create_subagent_handoff,
     get_autonomy_run,
     get_project,
+    get_subagent_handoff,
     get_task,
     list_autonomy_runs,
     list_projects,
     list_tasks,
+    update_subagent_handoff,
     search_memories,
     update_task,
     update_autonomy_run,
 )
 from app.config import settings
-from app.subagents import build_role_instruction, configured_subagent_roles
+from app.subagents import SUBAGENT_ROLES, build_role_instruction, configured_subagent_roles
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
@@ -42,6 +45,7 @@ class AutonomousBacklogItem:
     target: str
     goal: str
     validation: str
+    section: str = "orchestrator"
 
 
 # The supervisor must have an actionable queue instead of asking a small local
@@ -53,24 +57,63 @@ AUTONOMOUS_BACKLOG: tuple[AutonomousBacklogItem, ...] = (
         target="services/orchestrator/app/autonomy.py",
         goal="Improve restart-safe supervisor resume and stale-run reconciliation without changing the public API.",
         validation="python -m compileall -q services/orchestrator/app",
+        section="orchestrator",
     ),
     AutonomousBacklogItem(
         key="task-observability",
         target="services/orchestrator/app/routers/agent.py",
         goal="Improve autonomous task and run observability while preserving existing response contracts.",
         validation="python -m compileall -q services/orchestrator/app",
+        section="orchestrator",
     ),
     AutonomousBacklogItem(
         key="memory-safety",
         target="services/orchestrator/app/db.py",
         goal="Improve bounded autonomous memory persistence or compaction without changing stored secrets.",
         validation="python -m compileall -q services/orchestrator/app",
+        section="orchestrator",
     ),
     AutonomousBacklogItem(
         key="role-contracts",
         target="services/orchestrator/app/subagents.py",
         goal="Improve specialist role contracts or status reporting so later agents can act on concrete evidence.",
         validation="python -m compileall -q services/orchestrator/app",
+        section="architecture",
+    ),
+    AutonomousBacklogItem(
+        key="gateway-routing",
+        target="services/model-gateway/app/router.py",
+        goal="Inspect provider routing and runtime model health, then make one safe contract-preserving improvement.",
+        validation="python -m pytest -q services/model-gateway/tests",
+        section="model-gateway",
+    ),
+    AutonomousBacklogItem(
+        key="local-agent-policy",
+        target="services/local-agent/app/main.py",
+        goal="Inspect local execution boundaries and improve one safe filesystem, terminal, or process policy contract.",
+        validation="python -m compileall -q services/local-agent/app",
+        section="local-agent",
+    ),
+    AutonomousBacklogItem(
+        key="control-center-observability",
+        target="apps/control-center/src/api.ts",
+        goal="Improve typed polling or specialist observability in the control center without changing the backend contract unexpectedly.",
+        validation="npm run build",
+        section="control-center",
+    ),
+    AutonomousBacklogItem(
+        key="desktop-health",
+        target="apps/desktop/src/App.tsx",
+        goal="Improve desktop service health visibility while preserving the local app startup contract.",
+        validation="npm run build",
+        section="desktop",
+    ),
+    AutonomousBacklogItem(
+        key="test-coverage",
+        target="services/orchestrator/tests/test_autonomous_backlog.py",
+        goal="Add a focused regression test for the specialist handoff or autonomous scheduler contract.",
+        validation="python -m unittest discover -s services/orchestrator/tests -q",
+        section="tests",
     ),
 )
 
@@ -101,10 +144,84 @@ def build_backlog_goal(item: AutonomousBacklogItem) -> str:
     """Render an explicit target/validation contract for all sub-agents."""
     return (
         f"BACKLOG_KEY: {item.key}\n"
+        f"SECTION: {item.section}\n"
         f"TARGET FILE: {item.target}\n"
         f"VALIDATION COMMAND: {item.validation}\n"
         f"Implement one small, evidence-based code change. {item.goal}"
     )
+
+
+def _handoff_payload(task: dict[str, object]) -> dict[str, object]:
+    """Extract bounded, tool-backed evidence for the next specialist."""
+    changed_files: list[str] = []
+    validations: list[dict[str, object]] = []
+    evidence: list[dict[str, object]] = []
+    failures: list[str] = []
+    results = task.get("results") or []
+    for item in results if isinstance(results, list) else []:
+        if not isinstance(item, dict):
+            continue
+        step = item.get("step") or {}
+        outcome = item.get("outcome") or {}
+        if not isinstance(step, dict) or not isinstance(outcome, dict):
+            continue
+        tool = str(outcome.get("tool") or step.get("tool") or "")
+        arguments = step.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            arguments = {}
+        path = str(arguments.get("path") or "").replace("\\", "/").strip()
+        if outcome.get("ok") and tool in {"write_file", "replace_text", "apply_patch"} and path:
+            if path not in changed_files:
+                changed_files.append(path)
+        if outcome.get("ok") and tool == "run_terminal":
+            command = str(arguments.get("command") or "").strip()
+            if command:
+                validations.append({
+                    "command": command[:1_000],
+                    "ok": True,
+                    "step_index": item.get("step_index"),
+                })
+        if outcome.get("ok"):
+            observation = str(outcome.get("result") or outcome.get("action") or tool).strip()
+            if observation:
+                evidence.append({
+                    "tool": tool,
+                    "step_index": item.get("step_index"),
+                    "observation": observation[:1_000],
+                })
+        elif not outcome.get("approval_required"):
+            error = str(outcome.get("error") or "Tool failed.").strip()
+            if error and error not in failures:
+                failures.append(error[:1_000])
+    if task.get("error"):
+        failures.append(str(task["error"])[:1_000])
+    return {
+        "changed_files": changed_files[:50],
+        "validations": validations[-20:],
+        "evidence": evidence[-20:],
+        "blockers": failures[-20:],
+    }
+
+
+def _bounded_handoff_text(handoff_ids: list[str]) -> str:
+    """Render the immediate blackboard context for the next specialist."""
+    records: list[dict[str, object]] = []
+    for handoff_id in handoff_ids[-6:]:
+        record = get_subagent_handoff(handoff_id)
+        if not record:
+            continue
+        records.append({
+            "role": record["role"],
+            "section": record["section"],
+            "status": record["status"],
+            "summary": str(record.get("summary") or "")[:600],
+            "changed_files": list(record.get("changed_files") or [])[:20],
+            "validations": list(record.get("validations") or [])[:10],
+            "blockers": list(record.get("blockers") or [])[:10],
+        })
+    if not records:
+        return ""
+    return json.dumps(records, ensure_ascii=False, indent=2)[:MAX_MEMORY_CONTEXT_CHARS]
 
 
 def _bounded_memory_text(memories: list[dict[str, object]]) -> str:
@@ -203,7 +320,25 @@ async def run_autonomous_cycles(run_id: str) -> None:
     update_autonomy_run(run_id, status="running", error=None)
 
     roles = configured_subagent_roles(settings.autonomous_subagents)
+    section_value = ""
+    for line in str(run.get("goal") or "").splitlines():
+        if line.strip().casefold().startswith("section:"):
+            section_value = line.split(":", 1)[1].strip().casefold()
+            break
+    generic_role_keys = {"inspector", "planner", "implementer", "verifier", "reviewer", "monitor"}
+    section_role = next(
+        (
+            role
+            for role in SUBAGENT_ROLES
+            if role.key not in generic_role_keys
+            and role.section.casefold() == section_value
+        ),
+        None,
+    )
+    if section_role and section_role.key not in {role.key for role in roles}:
+        roles = [section_role, *roles]
     roles = roles[: max(int(settings.autonomous_max_subagents), 1)]
+    previous_handoff_ids: list[str] = []
 
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
@@ -214,6 +349,9 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     limit=6,
                 )
                 memory_text = _bounded_memory_text(memories)
+                handoff_text = _bounded_handoff_text(previous_handoff_ids)
+                if handoff_text:
+                    memory_text = f"{memory_text}\n\nIMMEDIATE SPECIALIST HANDOFFS:\n{handoff_text}"
                 instruction = build_role_instruction(
                     role=role,
                     goal=str(run["goal"]),
@@ -227,6 +365,18 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     mode="autonomous",
                 )
                 task_ids.append(task["id"])
+                handoff = create_subagent_handoff(
+                    run_id=run_id,
+                    project_id=run["project_id"],
+                    task_id=task["id"],
+                    role=role.key,
+                    section=role.section,
+                    status="running",
+                    summary=f"{role.title} started for cycle {cycle}.",
+                    previous_handoff_ids=previous_handoff_ids,
+                )
+                handoff_id = handoff["id"]
+                previous_handoff_ids.append(handoff_id)
                 update_autonomy_run(
                     run_id,
                     task_ids=task_ids,
@@ -236,6 +386,18 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 await run_agent_task(task["id"])
                 finished = get_task(task["id"])
                 if not finished or finished["status"] != "completed":
+                    payload = _handoff_payload(finished or {"error": "Task disappeared."})
+                    update_subagent_handoff(
+                        handoff_id,
+                        status="failed",
+                        summary=str((finished or {}).get("error") or f"{role.key} sub-agent did not complete.")[:4_000],
+                        evidence=payload["evidence"],
+                        changed_files=payload["changed_files"],
+                        validations=payload["validations"],
+                        blockers=payload["blockers"],
+                        next_action="Reconcile the failure before starting another writer.",
+                        confidence=0.15,
+                    )
                     update_autonomy_run(
                         run_id,
                         task_ids=task_ids,
@@ -245,6 +407,19 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         or f"{role.key} sub-agent did not complete.",
                     )
                     return
+
+                payload = _handoff_payload(finished)
+                update_subagent_handoff(
+                    handoff_id,
+                    status="completed",
+                    summary=str(finished.get("final_output") or f"{role.title} completed.")[:4_000],
+                    evidence=payload["evidence"],
+                    changed_files=payload["changed_files"],
+                    validations=payload["validations"],
+                    blockers=payload["blockers"],
+                    next_action="Use this evidence as the input contract for the next specialist.",
+                    confidence=0.85 if payload["blockers"] == [] else 0.55,
+                )
 
             update_autonomy_run(
                 run_id,

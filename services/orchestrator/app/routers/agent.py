@@ -4,7 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from app.agent_service import run_agent_task
 from app.autonomy import run_autonomous_cycles
-from app.subagents import list_subagent_roles
+from app.subagents import list_section_subagents, list_subagent_roles
 from app.db import (
     create_autonomy_run,
     create_task,
@@ -13,6 +13,7 @@ from app.db import (
     get_autonomy_run,
     list_tasks,
     list_autonomy_runs,
+    list_subagent_handoffs,
     search_memories,
     update_task,
 )
@@ -23,6 +24,7 @@ from app.schemas import (
     AutonomyRunResponse,
     MemoryResponse,
     SelfImproveRequest,
+    SubagentHandoffResponse,
 )
 
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
@@ -32,6 +34,12 @@ router = APIRouter(prefix="/v1/agent", tags=["agent"])
 def subagents_list() -> list[dict[str, object]]:
     """Expose the bounded specialist registry for the UI and monitor."""
     return list_subagent_roles()
+
+
+@router.get("/subagents/sections")
+def section_subagents_list() -> list[dict[str, object]]:
+    """Expose one specialist owner for every product section."""
+    return list_section_subagents()
 
 
 @router.get("/tasks", response_model=list[AgentTaskResponse])
@@ -192,6 +200,26 @@ def autonomy_runs_list(
     return [
         AutonomyRunResponse(**run)
         for run in list_autonomy_runs(project_id=project_id, limit=limit)
+    ]
+
+
+@router.get(
+    "/autonomy/runs/{run_id}/subagents",
+    response_model=list[SubagentHandoffResponse],
+)
+def autonomy_run_subagents(
+    run_id: str,
+    limit: int = 100,
+) -> list[SubagentHandoffResponse]:
+    """Return the ordered blackboard handoffs produced by a specialist run."""
+    if not get_autonomy_run(run_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Autonomy run not found.",
+        )
+    return [
+        SubagentHandoffResponse(**handoff)
+        for handoff in list_subagent_handoffs(run_id, limit=limit)
     ]
 
 
