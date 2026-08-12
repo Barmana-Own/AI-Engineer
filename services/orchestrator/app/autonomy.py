@@ -54,8 +54,45 @@ def _normalise_git_remote(value: str) -> str:
     return remote.casefold()
 
 
-def _push_verified_checkpoint() -> dict[str, object]:
-    """Push only a clean main-branch checkpoint to the owned GitHub remote.
+def _task_changed_paths(task_ids: list[str]) -> set[str]:
+    """Collect mutation paths produced by this run, excluding model prose."""
+    paths: set[str] = set()
+    mutation_tools = {"write_file", "replace_text", "apply_patch"}
+    for task_id in task_ids:
+        task = get_task(task_id)
+        if not task:
+            continue
+        for record in task.get("results") or []:
+            step = record.get("step") or {}
+            outcome = record.get("outcome") or {}
+            tool = str(outcome.get("tool") or step.get("tool") or "").casefold()
+            if not outcome.get("ok") or tool not in mutation_tools:
+                continue
+            result = outcome.get("result") or {}
+            raw_path = str(result.get("path") or "").replace("\\", "/").strip("/")
+            if raw_path and not raw_path.startswith(("/", "./")) and ":" not in raw_path:
+                paths.add(raw_path.casefold())
+    return paths
+
+
+def _working_tree_paths(status_text: str) -> set[str]:
+    """Extract paths from porcelain output without exposing file contents."""
+    paths: set[str] = set()
+    for line in status_text.splitlines():
+        value = line[3:] if len(line) >= 4 else line
+        if " -> " in value:
+            value = value.rsplit(" -> ", 1)[-1]
+        value = value.strip().replace("\\", "/").strip("/")
+        if value:
+            paths.add(value.casefold())
+    return paths
+
+
+def _push_verified_checkpoint(
+    allowed_paths: set[str] | None = None,
+    run_id: str | None = None,
+) -> dict[str, object]:
+    """Commit and push only verified paths to the owned GitHub remote.
 
     This runs after a complete autonomous cycle.  It is deliberately separate
     from the agent tool policy: agents can checkpoint locally, while the
@@ -113,8 +150,30 @@ def _push_verified_checkpoint() -> dict[str, object]:
         return {"pushed": False, "reason": "repository is not on main"}
 
     status = git("status", "--porcelain", "--untracked-files=all")
-    if status.returncode != 0 or status.stdout.strip():
+    if status.returncode != 0:
+        return {"pushed": False, "reason": "could not inspect working tree"}
+    changed_paths = _working_tree_paths(status.stdout)
+    allowed = {str(path).replace("\\", "/").strip("/").casefold() for path in (allowed_paths or set())}
+    if changed_paths and not allowed:
         return {"pushed": False, "reason": "working tree is not clean"}
+    if changed_paths - allowed:
+        return {"pushed": False, "reason": "working tree includes paths outside this cycle"}
+
+    if changed_paths:
+        staged = git("add", "--", *sorted(changed_paths))
+        if staged.returncode != 0:
+            return {"pushed": False, "reason": "could not stage verified autonomous changes"}
+        message = f"AI Engineer verified autonomous cycle {(run_id or 'checkpoint')[:8]}"
+        committed = git(
+            "commit",
+            "--no-verify",
+            "--no-gpg-sign",
+            "-m",
+            message,
+            timeout=120,
+        )
+        if committed.returncode != 0:
+            return {"pushed": False, "reason": "could not commit verified autonomous changes"}
 
     head = git("rev-parse", "HEAD")
     if head.returncode != 0 or not head.stdout.strip():
@@ -556,7 +615,11 @@ async def run_autonomous_cycles(run_id: str) -> None:
             status="completed",
             error=None,
         )
-        push_result = await asyncio.to_thread(_push_verified_checkpoint)
+        push_result = await asyncio.to_thread(
+            _push_verified_checkpoint,
+            _task_changed_paths(task_ids),
+            run_id,
+        )
         if push_result.get("pushed"):
             logger.info(
                 "Autonomous checkpoint pushed to GitHub: %s",
