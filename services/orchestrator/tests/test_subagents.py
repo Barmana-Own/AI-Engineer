@@ -7,6 +7,7 @@ from app import db
 from app.agent_service import (
     _apply_subagent_requirements,
     _deterministic_autonomous_recovery_step,
+    _normalize_autonomous_validation_step,
     _read_file,
     _unwrap_model_action,
 )
@@ -77,6 +78,22 @@ class SubagentRegistryTests(unittest.TestCase):
         })
         self.assertEqual(action["tool"], "apply_patch")
         self.assertEqual(action["arguments"]["edits"][0]["path"], "x.py")
+
+    def test_model_validation_command_uses_service_virtualenv(self):
+        step = {
+            "tool": "run_terminal",
+            "arguments": {
+                "command": "python -m unittest discover -s tests -q",
+                "cwd": "services/orchestrator",
+            },
+        }
+        normalized = _normalize_autonomous_validation_step(step, autonomous=True)
+        self.assertEqual(
+            normalized["arguments"]["command"],
+            ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -q",
+        )
+        unchanged = _normalize_autonomous_validation_step(step, autonomous=False)
+        self.assertEqual(unchanged["arguments"]["command"], normalized["arguments"]["command"])
 
     def test_model_summary_fallback_starts_at_explicit_target(self):
         step = _deterministic_autonomous_recovery_step(

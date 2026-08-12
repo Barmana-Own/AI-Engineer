@@ -421,6 +421,44 @@ def _normalize_step_project_paths(
     return step
 
 
+_PYTHON_SERVICE_CWDS = {
+    "services/orchestrator": ".\\.venv\\Scripts\\python.exe",
+    "services/model-gateway": ".\\.venv\\Scripts\\python.exe",
+    "services/local-agent": ".\\.venv\\Scripts\\python.exe",
+}
+
+
+def _normalize_autonomous_validation_step(
+    step: dict[str, Any],
+    *,
+    autonomous: bool,
+) -> dict[str, Any]:
+    """Keep model-generated Python validation inside the service virtualenv."""
+    if not autonomous or _tool_name(step) != "run_terminal":
+        return step
+
+    arguments = dict(_arguments(step))
+    command = str(arguments.get("command") or "").strip()
+    if not command:
+        return step
+    try:
+        cwd = _safe_relative(str(arguments.get("cwd") or "."))
+    except ValueError:
+        return step
+    python_executable = _PYTHON_SERVICE_CWDS.get(cwd.casefold())
+    if not python_executable:
+        return step
+
+    match = re.match(r"^(?:python|python\.exe|py|py\.exe)\s+-m\s+", command, re.IGNORECASE)
+    if not match or ".venv\\scripts\\python.exe" in command.casefold():
+        return step
+
+    arguments["command"] = f"{python_executable} -m {command[match.end():]}"
+    step["arguments"] = arguments
+    step["args"] = arguments
+    return step
+
+
 
 _NEGATION_PREFIXES = (
     "do not",
@@ -2139,6 +2177,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
                 content = str(message.get("content") or "")
                 step = _normalize_tool_call(_unwrap_model_action(_extract_json(content)))
             step = _normalize_step_project_paths(workspace, step)
+            step = _normalize_autonomous_validation_step(step, autonomous=autonomous)
             tool = _tool_name(step)
             arguments = _arguments(step)
 

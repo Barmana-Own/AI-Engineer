@@ -374,6 +374,7 @@ def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> N
     validations = list(dict.fromkeys(validations))
     failures = list(dict.fromkeys(failures))
     detail = {
+        "schema_version": "1.1",
         "instruction": instruction_text[:4_000],
         "mode": str(row["mode"] if "mode" in row.keys() else "interactive"),
         "status": status,
