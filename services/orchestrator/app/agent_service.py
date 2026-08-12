@@ -1601,7 +1601,7 @@ async def _model_next_action(
             requirements,
             role_read_only,
         )
-        if fast_recovery and fast_recovery["tool"] in {"git_checkpoint", "replace_text"}:
+        if fast_recovery and fast_recovery["tool"] in {"git_checkpoint", "replace_text", "run_terminal"}:
             return fast_recovery
 
     # Small local models occasionally copy the illustrative read_file path
