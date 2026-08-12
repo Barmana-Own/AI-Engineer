@@ -877,8 +877,16 @@ def _deterministic_autonomous_recovery_step(
     results: list[dict[str, Any]],
     requirements: dict[str, bool],
     role_read_only: bool,
+    target_paths: list[str] | None = None,
 ) -> dict[str, Any] | None:
     """Keep a bounded cycle progressing when a small model emits non-tool JSON."""
+    explicit_targets = [
+        str(path).replace("\\", "/").strip("/")
+        for path in (target_paths or [])
+        if str(path).strip()
+    ]
+    successful_read_paths = _successful_read_paths(results)
+
     if role_read_only and _successful_records(results, {"read_file"}):
         return _make_step(
             "finish_task",
@@ -888,6 +896,32 @@ def _deterministic_autonomous_recovery_step(
             requires_approval=False,
             description="Completing read-only sub-agent",
         )
+
+    # Small local models sometimes answer with a prose/summary JSON object
+    # instead of the requested tool call. Start the bounded pipeline from the
+    # explicit backlog target rather than spending the whole task on retries.
+    if not _successful_records(results, {"read_file"}):
+        candidates = explicit_targets or _inspection_fallback_paths(results)
+        for path in candidates:
+            if path in successful_read_paths or _duplicate_read_attempt(results, path):
+                continue
+            return _make_step(
+                "read_file",
+                {"path": path},
+                reason="Recover from a non-tool model response using the explicit autonomous target.",
+                expected_result="Current content from the bounded project target.",
+                requires_approval=False,
+                description=f"Reading autonomous target {path}",
+            )
+        if not _successful_records(results, {"list_files"}):
+            return _make_step(
+                "list_files",
+                {"path": "."},
+                reason="Recover from a non-tool model response by inspecting the project root.",
+                expected_result="A real project file listing for deterministic recovery.",
+                requires_approval=False,
+                description="Inspecting project root for recovery",
+            )
 
     if not requirements.get("mutation"):
         return None
@@ -1823,8 +1857,9 @@ async def _model_next_action(
             results,
             requirements,
             role_read_only,
+            _autonomous_target_paths(instruction),
         )
-        if fast_recovery and fast_recovery["tool"] in {"git_checkpoint", "replace_text", "run_terminal"}:
+        if fast_recovery:
             return fast_recovery
 
     # Small local models occasionally copy the illustrative read_file path
@@ -2172,6 +2207,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
         results,
         requirements,
         role_read_only,
+        _autonomous_target_paths(instruction),
     ) if autonomous else None
     if recovery:
         return recovery

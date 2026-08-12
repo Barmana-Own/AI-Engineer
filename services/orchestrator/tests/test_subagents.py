@@ -78,6 +78,30 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(action["tool"], "apply_patch")
         self.assertEqual(action["arguments"]["edits"][0]["path"], "x.py")
 
+    def test_model_summary_fallback_starts_at_explicit_target(self):
+        step = _deterministic_autonomous_recovery_step(
+            "task-summary",
+            [],
+            {"mutation": True, "validation": True},
+            False,
+            ["services/local-agent/app/main.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "read_file")
+        self.assertEqual(step["arguments"]["path"], "services/local-agent/app/main.py")
+
+    def test_read_only_summary_fallback_starts_at_explicit_target(self):
+        step = _deterministic_autonomous_recovery_step(
+            "task-read-only-summary",
+            [],
+            {"mutation": False, "validation": False},
+            True,
+            ["services/orchestrator/app/subagents.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "read_file")
+        self.assertEqual(step["arguments"]["path"], "services/orchestrator/app/subagents.py")
+
     def test_local_agent_recovery_produces_a_guarded_capabilities_patch(self):
         content = '''from fastapi import FastAPI
 
