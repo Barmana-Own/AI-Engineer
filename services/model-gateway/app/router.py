@@ -44,9 +44,10 @@ class ModelRouter:
 
         for candidate in raw_candidates:
             normalized = candidate.strip()
-            if normalized and normalized not in seen:
+            key = normalized.casefold()
+            if normalized and key not in seen:
                 candidates.append(normalized)
-                seen.add(normalized)
+                seen.add(key)
 
         return candidates[: self._settings.max_fallback_attempts]
 
