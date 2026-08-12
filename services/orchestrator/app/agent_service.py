@@ -926,6 +926,35 @@ def _deterministic_autonomous_recovery_step(
     successful_read_paths = _successful_read_paths(results)
 
     if role_read_only and _successful_records(results, {"read_file"}):
+        if requirements.get("validation") and not _successful_validations(results):
+            validation_command = ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -q"
+            validation_cwd = "services/orchestrator"
+            target_hint = (explicit_targets[0] if explicit_targets else "").casefold()
+            if target_hint.startswith("services/model-gateway/"):
+                validation_command = ".\\.venv\\Scripts\\python.exe -m pytest -q tests"
+                validation_cwd = "services/model-gateway"
+            elif target_hint.startswith("services/local-agent/"):
+                validation_command = ".\\.venv\\Scripts\\python.exe -m compileall -q app"
+                validation_cwd = "services/local-agent"
+            elif target_hint.startswith("apps/control-center/"):
+                validation_command = "npm run build"
+                validation_cwd = "apps/control-center"
+            elif target_hint.startswith("apps/desktop/"):
+                validation_command = "npm run build"
+                validation_cwd = "apps/desktop"
+            return _make_step(
+                "run_terminal",
+                {
+                    "command": validation_command,
+                    "cwd": validation_cwd,
+                    "shell": "powershell",
+                    "timeout_seconds": 300,
+                },
+                reason="Run the required validation from deterministic evidence instead of treating read-only verification as complete.",
+                expected_result="The selected section validation exits with code 0.",
+                requires_approval=False,
+                description=f"Running {validation_command}",
+            )
         return _make_step(
             "finish_task",
             {"content": "Read-only inspection completed from real tool evidence."},
