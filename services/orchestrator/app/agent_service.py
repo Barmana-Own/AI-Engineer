@@ -998,6 +998,22 @@ def _deterministic_autonomous_recovery_step(
                     requires_approval=True,
                     description=f"Compacting repeated memory evidence in {path}",
                 )
+            schema_marker = '        "instruction": instruction_text[:4_000],'
+            schema_version_marker = '        "schema_version": "1.1",'
+            if schema_marker in content and schema_version_marker not in content:
+                return _make_step(
+                    "replace_text",
+                    {
+                        "path": path,
+                        "old": schema_marker,
+                        "new": schema_version_marker + "\n" + schema_marker,
+                        "replace_all": False,
+                    },
+                    reason="Version the compact episodic-memory detail contract for future handoffs.",
+                    expected_result="Persisted memory records identify their bounded detail schema without storing secrets.",
+                    requires_approval=True,
+                    description=f"Versioning memory evidence in {path}",
+                )
         if path.casefold().endswith("services/orchestrator/app/routers/agent.py"):
             marker = "def autonomy_run_status("
             anchor = '@router.get(\n    "/autonomy/runs/{run_id}/subagents",'

@@ -251,6 +251,38 @@ def capabilities() -> dict:
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn("dict.fromkeys(validations)", step["arguments"]["new"])
 
+    def test_db_recovery_versions_existing_memory_evidence(self):
+        content = '''    validations = list(dict.fromkeys(validations))
+    failures = list(dict.fromkeys(failures))
+    detail = {
+        "instruction": instruction_text[:4_000],
+        "validations": validations[-10:],
+        "failures": failures[-10:],
+    }
+'''
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/db.py"}},
+                "outcome": {"tool": "read_file", "ok": True, "result": {
+                    "path": "services/orchestrator/app/db.py", "content": content
+                }},
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-memory-schema",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/orchestrator/app/db.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn('"schema_version": "1.1"', step["arguments"]["new"])
+
     def test_handoff_is_versioned_and_bounded(self):
         handoff = build_handoff(
             run_id="run-1",
