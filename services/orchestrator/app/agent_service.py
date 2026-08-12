@@ -1015,7 +1015,7 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
             marker = "        if normalized and normalized not in seen:"
             dedupe_marker = "        key = normalized.casefold()"
             if marker in content and dedupe_marker not in content:
-                old = marker + "\n            candidates.append(normalized)\n            seen.add(normalized)"
+                old = marker + "\n                candidates.append(normalized)\n                seen.add(normalized)"
                 new = (
                     "        key = normalized.casefold()\n"
                     "        if normalized and key not in seen:\n"
