@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from pydantic import AnyHttpUrl, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.providers.base import ProviderProfile
 
 
 def _project_root() -> Path:
@@ -44,6 +47,12 @@ class Settings(BaseSettings):
     barmana_auth_mode: Literal["bearer", "x-api-key", "api-key"] = "bearer"
     barmana_models_path: str = "/models"
     barmana_chat_path: str = "/chat/completions"
+
+    # Optional provider profiles are supplied as JSON in the local .env file.
+    # The value is never returned by an API endpoint and may contain secrets.
+    # Example: {"openrouter":{"base_url":"https://openrouter.ai/api/v1",
+    # "api_key":"...","default_model":"openai/gpt-4o-mini"}}
+    provider_profiles_json: str = ""
 
     connect_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     read_timeout_seconds: float = Field(default=90.0, gt=0, le=600)
@@ -88,7 +97,7 @@ class Settings(BaseSettings):
         return bool(
             self.barmana_api_key
             and self.barmana_api_key.get_secret_value().strip()
-        )
+        ) or any(profile.configured for profile in self.parsed_provider_profiles)
 
     @property
     def normalized_base_url(self) -> str:
@@ -101,6 +110,47 @@ class Settings(BaseSettings):
             for model in self.fallback_models.split(",")
             if model.strip()
         )
+
+    @property
+    def parsed_provider_profiles(self) -> tuple[ProviderProfile, ...]:
+        """Parse optional provider profiles without failing local startup."""
+        raw = self.provider_profiles_json.strip()
+        if not raw:
+            return ()
+        try:
+            payload = json.loads(raw)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return ()
+        if not isinstance(payload, dict):
+            return ()
+
+        profiles: list[ProviderProfile] = []
+        for name, value in payload.items():
+            if not isinstance(value, dict):
+                continue
+            base_url = str(value.get("base_url") or "").strip().rstrip("/")
+            if not base_url or not name:
+                continue
+            fallback = value.get("fallback_models") or ()
+            if isinstance(fallback, str):
+                fallback = tuple(item.strip() for item in fallback.split(",") if item.strip())
+            elif isinstance(fallback, list):
+                fallback = tuple(str(item).strip() for item in fallback if str(item).strip())
+            else:
+                fallback = ()
+            profiles.append(
+                ProviderProfile(
+                    name=str(name).strip().casefold(),
+                    base_url=base_url,
+                    api_key=(str(value.get("api_key")).strip() if value.get("api_key") else None),
+                    auth_mode=str(value.get("auth_mode") or "bearer"),
+                    models_path=str(value.get("models_path") or "/models"),
+                    chat_path=str(value.get("chat_path") or "/chat/completions"),
+                    default_model=(str(value.get("default_model")).strip() if value.get("default_model") else None),
+                    fallback_models=fallback,
+                )
+            )
+        return tuple(profiles)
 
 
 @lru_cache

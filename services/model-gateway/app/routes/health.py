@@ -15,13 +15,14 @@ router = APIRouter(tags=["health"])
 @router.get("/health", response_model=HealthResponse)
 async def health(
     settings: Settings = Depends(get_runtime_settings),
+    provider: ModelProvider = Depends(get_model_provider),
 ) -> HealthResponse:
     return HealthResponse(
         status="ok",
         service=settings.app_name,
         version=settings.app_version,
         environment=settings.app_environment,
-        provider="barmana",
+        provider=provider.name,
         provider_configured=settings.provider_configured,
     )
 

@@ -36,6 +36,7 @@ class ModelRouter:
             requested_model,
             *request.fallback_models,
             *self._settings.parsed_fallback_models,
+            *getattr(self._provider, "candidate_models", ()),
         ]
 
         candidates: list[str] = []

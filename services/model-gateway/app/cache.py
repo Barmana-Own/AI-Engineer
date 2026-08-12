@@ -45,9 +45,9 @@ class ModelCatalogCache:
 
             return entry.model_copy(update={"cached": True, "stale": True})
 
-    async def set(self, payload: ProviderModelList) -> GatewayModelList:
+    async def set(self, payload: ProviderModelList, *, source: str = "barmana") -> GatewayModelList:
         entry = GatewayModelList(
-            source="barmana",
+            source=source,
             cached=False,
             stale=False,
             fetched_at=datetime.now(UTC),

@@ -14,6 +14,8 @@ from app.config import Settings, get_settings
 from app.exceptions import GatewayError
 from app.providers.barmana import BarmanaProvider
 from app.providers.base import ModelProvider
+from app.providers.compatible import OpenAICompatibleProvider
+from app.providers.pool import ProviderPool
 from app.router import ModelRouter
 from app.routes import chat, health, models, runtime, usage
 from app.schemas import ErrorBody
@@ -29,6 +31,54 @@ def configure_logging(level: str) -> None:
     )
 
 
+def build_provider(settings: Settings) -> ModelProvider:
+    """Build the legacy provider or a configured multi-provider pool."""
+    providers: dict[str, ModelProvider] = {
+        "barmana": BarmanaProvider(settings),
+    }
+    profiles = [
+        *settings.parsed_provider_profiles,
+    ]
+    for profile in profiles:
+        if profile.name in providers or not profile.configured:
+            continue
+        providers[profile.name] = OpenAICompatibleProvider(settings, profile)
+
+    if len(providers) == 1:
+        return providers["barmana"]
+
+    barmana_profile = next(
+        (
+            profile
+            for profile in profiles
+            if profile.name == "barmana"
+        ),
+        None,
+    )
+    if barmana_profile is None:
+        from app.providers.base import ProviderProfile
+
+        barmana_profile = ProviderProfile(
+            name="barmana",
+            base_url=settings.normalized_base_url,
+            api_key=(
+                settings.barmana_api_key.get_secret_value()
+                if settings.barmana_api_key
+                else None
+            ),
+            auth_mode=settings.barmana_auth_mode,
+            models_path=settings.barmana_models_path,
+            chat_path=settings.barmana_chat_path,
+            default_model=settings.default_model,
+            fallback_models=settings.parsed_fallback_models,
+        )
+    return ProviderPool(
+        providers,
+        (barmana_profile, *profiles),
+        default_name="barmana",
+    )
+
+
 def create_app(
     *,
     settings: Settings | None = None,
@@ -40,7 +90,7 @@ def create_app(
     runtime_settings = settings or get_settings()
     configure_logging(runtime_settings.gateway_log_level)
 
-    runtime_provider = provider or BarmanaProvider(runtime_settings)
+    runtime_provider = provider or build_provider(runtime_settings)
     runtime_cache = model_cache or ModelCatalogCache(
         path=runtime_settings.model_cache_path,
         ttl_seconds=runtime_settings.model_cache_ttl_seconds,
