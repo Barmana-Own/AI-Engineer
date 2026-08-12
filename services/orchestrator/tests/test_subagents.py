@@ -112,6 +112,37 @@ def root() -> dict:
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn("capabilities", step["arguments"]["new"])
 
+    def test_local_agent_recovery_refines_existing_capabilities(self):
+        content = '''@app.get("/capabilities")
+def capabilities() -> dict:
+    return {
+        "service": settings.app_name,
+        "workspace_guarded": True,
+        "mutation_requires_checkpoint": True,
+        "read_only_tools": ["files", "terminal_preview", "health"],
+    }
+'''
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/local-agent/app/main.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "services/local-agent/app/main.py", "content": content},
+            },
+        }, {
+            "step": {"tool": "git_checkpoint", "arguments": {}},
+            "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-capabilities",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn('"checkpoint_scope": "project"', step["arguments"]["new"])
+
     def test_db_recovery_compacts_duplicate_memory_evidence(self):
         content = '''    detail = {
         "instruction": instruction_text[:4_000],

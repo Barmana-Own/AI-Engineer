@@ -4,6 +4,8 @@ import os
 import re
 import shutil
 import subprocess
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,14 @@ from app.services.files import (
     resolve_workspace_path,
     to_relative_path,
 )
+
+
+# The Local Agent can receive overlapping Git requests while the autonomous
+# supervisor is moving from a checkpoint to diff/validation.  Serialize those
+# requests in-process and retry a short-lived index lock instead of turning a
+# healthy cycle into a false failure.
+_GIT_MUTEX = threading.RLock()
+_LOCK_RETRY_SECONDS = 15.0
 
 
 def _git_executable() -> str:
@@ -67,30 +77,42 @@ def _run_git(
     check: bool = True,
     timeout: int = 90,
 ) -> subprocess.CompletedProcess[str]:
-    try:
-        completed = subprocess.run(
-            [_git_executable(), *args],
-            cwd=str(root),
-            env=_git_environment(root),
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            shell=False,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail={
-                "message": "Git command timed out.",
-                "args": args,
-                "timeout_seconds": timeout,
-            },
-        ) from exc
+    with _GIT_MUTEX:
+        retry_deadline = time.monotonic() + _LOCK_RETRY_SECONDS
+        while True:
+            try:
+                completed = subprocess.run(
+                    [_git_executable(), *args],
+                    cwd=str(root),
+                    env=_git_environment(root),
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=timeout,
+                    shell=False,
+                    check=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail={
+                        "message": "Git command timed out.",
+                        "args": args,
+                        "timeout_seconds": timeout,
+                    },
+                ) from exc
+
+            lock_busy = (
+                completed.returncode != 0
+                and "index.lock" in (completed.stderr or "")
+                and time.monotonic() < retry_deadline
+            )
+            if not lock_busy:
+                break
+            time.sleep(0.5)
 
     if check and completed.returncode != 0:
         raise HTTPException(
@@ -153,14 +175,10 @@ def _ensure_repository(root: Path) -> None:
             timeout=15,
         )
 
-    for name in ("index.lock", "HEAD.lock", "config.lock"):
-        lock = project_git / name
-
-        if lock.exists():
-            try:
-                lock.unlink()
-            except OSError:
-                pass
+    # Never delete Git lock files here.  A lock can belong to a concurrent
+    # checkpoint; _run_git waits briefly for that operation to finish.  An
+    # operator can still recover a genuinely stale lock explicitly after
+    # checking that no Git process is active.
 
 
 def git_status(project_path: str) -> dict[str, Any]:

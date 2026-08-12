@@ -1033,7 +1033,25 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
         if not path.casefold().endswith("services/local-agent/app/main.py"):
             continue
         marker = '@app.get("/capabilities")'
-        if marker in content or '@app.get("/")' not in content:
+        if marker in content:
+            checkpoint_marker = '        "mutation_requires_checkpoint": True,'
+            scope_marker = '        "checkpoint_scope": "project",'
+            if checkpoint_marker in content and scope_marker not in content:
+                return _make_step(
+                    "replace_text",
+                    {
+                        "path": path,
+                        "old": checkpoint_marker,
+                        "new": checkpoint_marker + "\n" + scope_marker,
+                        "replace_all": False,
+                    },
+                    reason="Make the local-agent checkpoint boundary explicit for autonomous handoffs.",
+                    expected_result="Capabilities identify that the checkpoint applies to the selected project.",
+                    requires_approval=True,
+                    description=f"Clarifying checkpoint scope in {path}",
+                )
+            continue
+        if '@app.get("/")' not in content:
             continue
         start = content.find('@app.get("/")')
         end = content.find("\n\n", start)
