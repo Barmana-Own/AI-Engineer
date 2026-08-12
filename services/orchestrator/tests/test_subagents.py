@@ -90,6 +90,30 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(step["tool"], "read_file")
         self.assertEqual(step["arguments"]["path"], "services/local-agent/app/main.py")
 
+    def test_role_contract_recovery_adds_reviewer_handoff(self):
+        content = '        capabilities=("read", "diff", "evidence"),\n'
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/subagents.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "services/orchestrator/app/subagents.py", "content": content},
+            },
+        }, {
+            "step": {"tool": "git_checkpoint", "arguments": {}},
+            "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-role-contract",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/orchestrator/app/subagents.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn('"handoff"', step["arguments"]["new"])
+
     def test_read_only_summary_fallback_starts_at_explicit_target(self):
         step = _deterministic_autonomous_recovery_step(
             "task-read-only-summary",

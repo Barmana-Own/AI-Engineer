@@ -1064,6 +1064,22 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
                     requires_approval=True,
                     description=f"Hardening model candidate routing in {path}",
                 )
+        if path.casefold().endswith("services/orchestrator/app/subagents.py"):
+            marker = '        capabilities=("read", "diff", "evidence"),'
+            if marker in content:
+                return _make_step(
+                    "replace_text",
+                    {
+                        "path": path,
+                        "old": marker,
+                        "new": '        capabilities=("read", "diff", "evidence", "handoff"),',
+                        "replace_all": False,
+                    },
+                    reason="Make the reviewer handoff capability explicit in the specialist registry.",
+                    expected_result="The reviewer emits an evidence handoff contract for the next bounded role.",
+                    requires_approval=True,
+                    description=f"Adding reviewer handoff capability in {path}",
+                )
         if not path.casefold().endswith("services/local-agent/app/main.py"):
             continue
         marker = '@app.get("/capabilities")'
