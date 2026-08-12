@@ -912,25 +912,30 @@ def _deterministic_autonomous_recovery_step(
                 for _index, path, _outcome in _successful_mutations(results)
                 if path
             }
-            validation_command = "npm run build --prefix apps/desktop"
+            validation_command = "npm run build"
+            validation_cwd = "apps/desktop"
             if any(path.endswith("services/local-agent/app/main.py") for path in changed_paths):
-                validation_command = "python -m compileall -q services/local-agent/app"
+                validation_command = "python -m compileall -q app"
+                validation_cwd = "services/local-agent"
             elif any(path.startswith("services/model-gateway/") for path in changed_paths):
-                validation_command = "python -m pytest -q services/model-gateway/tests"
+                validation_command = "python -m pytest -q tests"
+                validation_cwd = "services/model-gateway"
             elif any(path.startswith("services/orchestrator/") for path in changed_paths):
-                validation_command = "python -m unittest discover -s services/orchestrator/tests -q"
+                validation_command = "python -m unittest discover -s tests -q"
+                validation_cwd = "services/orchestrator"
             elif any(path.startswith("apps/control-center/") for path in changed_paths):
-                validation_command = "npm run build --prefix apps/control-center"
+                validation_command = "npm run build"
+                validation_cwd = "apps/control-center"
             return _make_step(
                 "run_terminal",
                 {
                     "command": validation_command,
-                    "cwd": ".",
+                    "cwd": validation_cwd,
                     "shell": "powershell",
                     "timeout_seconds": 300,
                 },
-                reason="Run the deterministic desktop build after the autonomous mutation.",
-                expected_result="A successful desktop build with exit code 0.",
+                reason="Run the deterministic section validation after the autonomous mutation.",
+                expected_result="A successful section validation with exit code 0.",
                 requires_approval=False,
                 description=f"Running {validation_command}",
             )
@@ -2250,21 +2255,28 @@ async def _append_default_validation(
 ) -> bool:
     profile = _environment_profile(results)
     command = str(profile.get("validation_command") or "").strip()
+    validation_cwd = "."
+    read_paths = {
+        path.replace("\\", "/").casefold()
+        for path in _successful_read_paths(results)
+    }
+    if any(path.startswith("services/local-agent/") for path in read_paths):
+        command = "python -m compileall -q app"
+        validation_cwd = "services/local-agent"
+    elif any(path.startswith("services/model-gateway/") for path in read_paths):
+        command = "python -m pytest -q tests"
+        validation_cwd = "services/model-gateway"
+    elif any(path.startswith("services/orchestrator/") for path in read_paths):
+        command = "python -m unittest discover -s tests -q"
+        validation_cwd = "services/orchestrator"
+    elif any(path.startswith("apps/control-center/") for path in read_paths):
+        command = "npm run build"
+        validation_cwd = "apps/control-center"
+    elif any(path.startswith("apps/desktop/") for path in read_paths):
+        command = "npm run build"
+        validation_cwd = "apps/desktop"
     if not command:
-        read_paths = {
-            path.replace("\\", "/").casefold()
-            for path in _successful_read_paths(results)
-        }
-        if any(path.startswith("services/local-agent/") for path in read_paths):
-            command = "python -m compileall -q services/local-agent/app"
-        elif any(path.startswith("services/model-gateway/") for path in read_paths):
-            command = "python -m pytest -q services/model-gateway/tests"
-        elif any(path.startswith("services/orchestrator/") for path in read_paths):
-            command = "python -m unittest discover -s services/orchestrator/tests -q"
-        elif any(path.startswith("apps/control-center/") for path in read_paths):
-            command = "npm run build --prefix apps/control-center"
-        elif any(path.startswith("apps/desktop/") for path in read_paths):
-            command = "npm run build --prefix apps/desktop"
+        command = str(profile.get("validation_command") or "").strip()
     if not command:
         return False
 
@@ -2272,7 +2284,7 @@ async def _append_default_validation(
         "run_terminal",
         {
             "command": command,
-            "cwd": ".",
+            "cwd": validation_cwd,
             "shell": "powershell",
             "timeout_seconds": 300,
         },
