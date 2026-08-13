@@ -277,11 +277,31 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         for path in detail.get("changed_files") or []:
             changed_files.add(str(path).replace("\\", "/").casefold())
 
+    failed_targets: set[str] = set()
+    for memory in memories:
+        detail = memory.get("detail")
+        if not isinstance(detail, dict):
+            continue
+        status = str(detail.get("status") or memory.get("kind") or "").casefold()
+        if status != "failed":
+            continue
+        instruction = str(detail.get("instruction") or "")
+        for line in instruction.splitlines():
+            if line.strip().casefold().startswith("target file:"):
+                target = line.split(":", 1)[1].strip().replace("\\", "/")
+                if target:
+                    failed_targets.add(target.casefold())
+                break
+
     untouched = [
         item for item in AUTONOMOUS_BACKLOG
         if item.target.casefold() not in changed_files
     ]
-    candidates = untouched or list(AUTONOMOUS_BACKLOG)
+    retryable = [
+        item for item in untouched
+        if item.target.casefold() not in failed_targets
+    ]
+    candidates = retryable or untouched or list(AUTONOMOUS_BACKLOG)
     # A persisted memory count gives the queue a deterministic cursor across
     # process restarts without adding another database migration.
     cursor = len(memories) % len(candidates)

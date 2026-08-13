@@ -1,6 +1,7 @@
 import unittest
+from unittest.mock import patch
 
-from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal
+from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal, select_autonomous_backlog_item
 
 
 class AutonomousBacklogTests(unittest.TestCase):
@@ -14,6 +15,18 @@ class AutonomousBacklogTests(unittest.TestCase):
             self.assertTrue(item.target.startswith(("services/", "apps/", "packages/")))
 
 
+    @patch("app.autonomy.search_memories")
+    def test_selection_skips_recently_failed_target(self, search_memories):
+        failed = AUTONOMOUS_BACKLOG[0]
+        search_memories.return_value = [{
+            "kind": "failed",
+            "detail": {
+                "status": "failed",
+                "instruction": f"TARGET FILE: {failed.target}",
+            },
+        }]
+        selected = select_autonomous_backlog_item("project")
+        self.assertNotEqual(selected.target, failed.target)
     def test_targets_are_unique(self):
         targets = [item.target for item in AUTONOMOUS_BACKLOG]
         self.assertEqual(len(targets), len(set(targets)))
