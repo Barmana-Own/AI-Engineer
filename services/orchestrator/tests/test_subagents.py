@@ -154,6 +154,29 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn('"handoff"', step["arguments"]["new"])
 
+    def test_control_center_status_recovery(self):
+        content = 'export function listRunSubagents(runId: string): Promise<SubagentHandoff[]> {\n'
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "apps/control-center/src/api.ts"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "apps/control-center/src/api.ts", "content": content},
+            },
+        }, {
+            "step": {"tool": "git_checkpoint", "arguments": {}},
+            "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-control-center",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["apps/control-center/src/api.ts"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "replace_text")
+        self.assertIn("getAutonomyRunStatus", step["arguments"]["new"])
     def test_supervisor_resume_recovery_includes_open_runs(self):
         content = '            if any(run["status"] in {"queued", "running"} for run in open_runs):\n'
         results = [{

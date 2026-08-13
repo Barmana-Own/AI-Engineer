@@ -1160,6 +1160,35 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
                     requires_approval=True,
                     description=f"Adding compact autonomy status to {path}",
                 )
+        if path.casefold().endswith("apps/control-center/src/api.ts"):
+            marker = 'export function listRunSubagents(runId: string): Promise<SubagentHandoff[]> {'
+            if marker in content and 'getAutonomyRunStatus' not in content:
+                old = marker
+                new = '''export type AutonomyRunStatus = {
+  id: string;
+  project_id: string;
+  status: string;
+  requested_cycles: number;
+  completed_cycles: number;
+  task_count: number;
+  task_status_counts: Record<string, number>;
+  error: string | null;
+  updated_at: string;
+};
+
+export function getAutonomyRunStatus(runId: string): Promise<AutonomyRunStatus> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/status`);
+}
+
+''' + marker
+                return _make_step(
+                    "replace_text",
+                    {"path": path, "old": old, "new": new, "replace_all": False},
+                    reason="Expose the existing compact autonomy status endpoint to the control-center client.",
+                    expected_result="The control center can poll per-run task status without fetching full task payloads.",
+                    requires_approval=True,
+                    description=f"Adding autonomy status polling to {path}",
+                )
         if path.casefold().endswith("services/model-gateway/app/router.py"):
             marker = "        if normalized and normalized not in seen:"
             dedupe_marker = "        key = normalized.casefold()"
