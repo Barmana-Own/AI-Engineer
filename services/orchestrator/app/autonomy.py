@@ -711,7 +711,7 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
                 )
 
             open_runs = list_autonomy_runs(project["id"], limit=100)
-            if any(run["status"] in {"queued", "running"} for run in open_runs):
+            if any(run["status"] in {"queued", "planning", "running", "awaiting_approval"} for run in open_runs):
                 continue
 
             backlog_item = select_autonomous_backlog_item(project["id"])
