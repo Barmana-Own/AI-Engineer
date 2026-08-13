@@ -8,6 +8,27 @@ from typing import Any
 from uuid import uuid4
 
 DATABASE_PATH = Path("F:/AI-Engineer/data/orchestrator/orchestrator.db")
+MEMORY_INSTRUCTION_LIMIT = 4_000
+MEMORY_ITEM_LIMIT = 1_000
+
+
+def _bounded_memory_values(
+    values: list[str],
+    *,
+    limit: int,
+    item_limit: int = MEMORY_ITEM_LIMIT,
+) -> list[str]:
+    """Keep episodic evidence unique and bounded before serializing it."""
+    bounded: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text:
+            continue
+        if len(text) > item_limit:
+            text = text[:item_limit] + "..."
+        if text not in bounded:
+            bounded.append(text)
+    return bounded[-max(int(limit), 1):]
 
 
 def utc_now() -> str:
@@ -371,17 +392,18 @@ def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> N
             instruction_text = instruction_text.split(marker, 1)[0].rstrip()
             break
 
-    validations = list(dict.fromkeys(validations))
-    failures = list(dict.fromkeys(failures))
+    changed_files = _bounded_memory_values(changed_files, limit=30, item_limit=512)
+    validations = _bounded_memory_values(validations, limit=10)
+    failures = _bounded_memory_values(failures, limit=10)
     detail = {
-        "schema_version": "1.1",
-        "instruction": instruction_text[:4_000],
+        "schema_version": "1.2",
+        "instruction": instruction_text[:MEMORY_INSTRUCTION_LIMIT],
         "mode": str(row["mode"] if "mode" in row.keys() else "interactive"),
         "status": status,
         "step_count": len(plan) if isinstance(plan, list) else 0,
-        "changed_files": changed_files[:30],
-        "validations": validations[-10:],
-        "failures": failures[-10:],
+        "changed_files": changed_files,
+        "validations": validations,
+        "failures": failures,
     }
     now = utc_now()
     database.execute(

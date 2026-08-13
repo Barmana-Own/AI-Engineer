@@ -418,6 +418,50 @@ class AgentReadGuardTests(unittest.IsolatedAsyncioTestCase):
         mocked.assert_awaited_once_with("ai-engineer", ".")
 
 
+class MemoryPersistenceTests(unittest.TestCase):
+    def test_terminal_memory_evidence_is_unique_and_bounded(self):
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            database_path = Path(directory) / "orchestrator.db"
+            with patch.object(db, "DATABASE_PATH", database_path):
+                db.initialize_database()
+                project = db.create_project("Memory", "memory-test")
+                task = db.create_task(project["id"], "Implement bounded memory evidence.")
+                db.update_task(
+                    task["id"],
+                    status="completed",
+                    final_output="done",
+                    results=[
+                        {
+                            "step": {"tool": "run_terminal", "arguments": {
+                                "command": "v" * 5_000,
+                            }},
+                            "outcome": {"tool": "run_terminal", "ok": True},
+                        },
+                        {
+                            "step": {"tool": "replace_text", "arguments": {
+                                "path": "services/orchestrator/app/db.py",
+                            }},
+                            "outcome": {"tool": "replace_text", "ok": True},
+                        },
+                        {
+                            "step": {"tool": "run_terminal", "arguments": {}},
+                            "outcome": {
+                                "tool": "run_terminal",
+                                "ok": False,
+                                "error": "e" * 5_000,
+                            },
+                        },
+                    ],
+                )
+                memories = db.search_memories(project["id"], limit=5)
+                self.assertEqual(len(memories), 1)
+                detail = memories[0]["detail"]
+                self.assertEqual(detail["schema_version"], "1.2")
+                self.assertEqual(detail["changed_files"], ["services/orchestrator/app/db.py"])
+                self.assertLessEqual(len(detail["validations"][0]), db.MEMORY_ITEM_LIMIT + 3)
+                self.assertLessEqual(len(detail["failures"][0]), db.MEMORY_ITEM_LIMIT + 3)
+
+
 class SubagentHandoffDbTests(unittest.TestCase):
     def test_handoff_round_trip_and_order(self):
         # sqlite connections are intentionally shared by the lightweight DB
