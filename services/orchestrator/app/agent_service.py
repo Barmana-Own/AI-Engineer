@@ -948,6 +948,12 @@ def _autonomous_target_is_current(
             return True
         if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
             return True
+        if (
+            lowered.endswith("services/orchestrator/tests/test_autonomous_backlog.py")
+            and "test_items_have_explicit_project_contracts" in content
+            and "test_selection_skips_recently_failed_target" in content
+        ):
+            return True
     return False
 
 
