@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from app.agent_service import run_agent_task
 from app.autonomy import run_autonomous_cycles
@@ -189,7 +189,7 @@ def autonomy_run_get(run_id: str) -> AutonomyRunResponse:
 )
 def autonomy_runs_list(
     project_id: str | None = None,
-    limit: int = 20,
+    limit: int = Query(20, ge=1, le=100),
 ) -> list[AutonomyRunResponse]:
     """List recent runs so a supervisor can poll status without run IDs."""
     if project_id and not get_project(project_id):
@@ -242,7 +242,7 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
 )
 def autonomy_run_subagents(
     run_id: str,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=200),
 ) -> list[SubagentHandoffResponse]:
     """Return the ordered blackboard handoffs produced by a specialist run."""
     if not get_autonomy_run(run_id):
@@ -260,7 +260,7 @@ def autonomy_run_subagents(
     "/projects/{project_id}/memory",
     response_model=list[MemoryResponse],
 )
-def project_memory(project_id: str, limit: int = 12) -> list[MemoryResponse]:
+def project_memory(project_id: str, limit: int = Query(12, ge=1, le=50)) -> list[MemoryResponse]:
     if not get_project(project_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
