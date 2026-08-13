@@ -3007,7 +3007,8 @@ async def run_agent_task(task_id: str) -> None:
             tool = _tool_name(step)
 
             if tool == "finish_task":
-                if (\n                    bool(_arguments(step).get("no_change"))
+                if (
+                    bool(_arguments(step).get("no_change"))
                     and requirements.get("mutation")
                     and _autonomous_target_is_current(
                         results, _autonomous_target_paths(instruction)
