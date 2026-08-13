@@ -190,6 +190,22 @@ export function listAutonomyRuns(projectId: string): Promise<AutonomyRun[]> {
   );
 }
 
+export type AutonomyRunStatus = {
+  id: string;
+  project_id: string;
+  status: string;
+  requested_cycles: number;
+  completed_cycles: number;
+  task_count: number;
+  task_status_counts: Record<string, number>;
+  error: string | null;
+  updated_at: string;
+};
+
+export function getAutonomyRunStatus(runId: string): Promise<AutonomyRunStatus> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/status`);
+}
+
 export function listRunSubagents(runId: string): Promise<SubagentHandoff[]> {
   return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/subagents?limit=100`);
 }
