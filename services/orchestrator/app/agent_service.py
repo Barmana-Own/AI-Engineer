@@ -2563,6 +2563,8 @@ async def _append_default_validation(
     workspace: str,
     plan: list[dict[str, Any]],
     results: list[dict[str, Any]],
+    *,
+    autonomous: bool = False,
 ) -> bool:
     profile = _environment_profile(results)
     command = str(profile.get("validation_command") or "").strip()
@@ -2603,6 +2605,13 @@ async def _append_default_validation(
         expected_result="Exit code 0 with real stdout and stderr.",
         requires_approval=False,
         description=f"Running {command}",
+    )
+    # Backlog validation commands are authored as portable ``python -m``
+    # snippets. Autonomous execution must resolve them inside the service
+    # virtualenv; the host Python may not have the project packages.
+    validation_step = _normalize_autonomous_validation_step(
+        validation_step,
+        autonomous=autonomous,
     )
     _index, outcome = await _append_step_result(
         workspace,
@@ -2915,7 +2924,12 @@ async def run_agent_task(task_id: str) -> None:
                 problem = _completion_problem(requirements, results)
 
             if problem and "validation command" in problem.casefold():
-                await _append_default_validation(workspace, plan, results)
+                await _append_default_validation(
+                    workspace,
+                    plan,
+                    results,
+                    autonomous=autonomous,
+                )
                 update_task(
                     task_id,
                     status="running",
@@ -3025,7 +3039,12 @@ async def run_agent_task(task_id: str) -> None:
                 problem = _completion_problem(requirements, results)
 
                 if problem and "validation command" in problem.casefold():
-                    ran_validation = await _append_default_validation(workspace, plan, results)
+                    ran_validation = await _append_default_validation(
+                        workspace,
+                        plan,
+                        results,
+                        autonomous=autonomous,
+                    )
                     update_task(
                         task_id,
                         status="running",
