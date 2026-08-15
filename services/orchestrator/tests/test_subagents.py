@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 from app import db
 from app.agent_service import (
+    _autonomous_target_paths,
     _apply_subagent_requirements,
     _deterministic_autonomous_recovery_step,
     _normalize_autonomous_validation_step,
@@ -108,6 +109,20 @@ class SubagentRegistryTests(unittest.TestCase):
         )
         self.assertIn("Run the real project validation command", instruction)
         self.assertIn("strictly observational", instruction)
+
+    def test_target_parser_ignores_learned_memory_paths(self):
+        instruction = (
+            "TARGET FILE: services/orchestrator/app/autonomy.py
+"
+            "LEARNED MEMORY:
+"
+            "- Previous target: apps/control-center/src/api.ts
+"
+        )
+        self.assertEqual(
+            _autonomous_target_paths(instruction),
+            ["services/orchestrator/app/autonomy.py"],
+        )
 
     def test_speed_phases_bound_readers_and_isolate_writers(self):
         roles = [

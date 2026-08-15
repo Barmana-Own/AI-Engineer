@@ -98,6 +98,9 @@ def _push_verified_checkpoint(
     from the agent tool policy: agents can checkpoint locally, while the
     supervisor is the only component allowed to publish a verified result.
     """
+    if not allowed_paths:
+        return {"pushed": False, "reason": "no verified changes"}
+
     if not bool(getattr(settings, "autonomous_auto_push", False)):
         return {"pushed": False, "reason": "disabled"}
 
@@ -569,9 +572,8 @@ async def run_autonomous_cycles(run_id: str) -> None:
     ]:
         role, task, _handoff = item
         task_id = str(task["id"])
-        completed_cycles = 0
-
-    try:
+    
+        try:
             await asyncio.wait_for(
                 run_agent_task(task_id),
                 timeout=task_timeout,
@@ -593,6 +595,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
             )
         return item, finished, None
 
+    completed_cycles = 0
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
             cycle_task_ids: list[str] = []

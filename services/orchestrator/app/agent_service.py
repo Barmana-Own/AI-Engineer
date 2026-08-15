@@ -911,17 +911,21 @@ def _inspection_fallback_paths(results: list[dict[str, Any]]) -> list[str]:
 
 
 def _autonomous_target_paths(instruction: str) -> list[str]:
-    """Extract explicit backlog targets while ignoring validation commands."""
+    """Extract only explicit backlog targets, never paths from learned memory."""
+    source = str(instruction or "").split("LEARNED MEMORY", 1)[0]
     paths: list[str] = []
-    for path in _mentioned_paths(instruction):
-        normalized = path.replace("\\", "/").strip("./")
+    for line in source.splitlines():
+        marker = line.strip()
+        if not marker.casefold().startswith("target file:"):
+            continue
+        candidate = marker.split(":", 1)[1].strip()
+        normalized = candidate.replace("\", "/").strip("./")
         lowered = normalized.casefold()
         if not lowered.startswith(("services/", "apps/", "packages/", "docs/")):
             continue
         if normalized not in paths:
             paths.append(normalized)
     return paths[:4]
-
 
 def _autonomous_target_is_current(
     results: list[dict[str, Any]],
