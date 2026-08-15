@@ -302,30 +302,26 @@ AUTONOMOUS_BACKLOG: tuple[AutonomousBacklogItem, ...] = (
 
 
 def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
-    """Select a rotating concrete item, preferring work not recently changed."""
-    memories = search_memories(project_id, limit=80)
+    """Select work that has not just been attempted within the memory window."""
+    memories = search_memories(project_id, limit=50)
     changed_files: set[str] = set()
+    attempted_targets: list[str] = []
+    failed_targets: set[str] = set()
     for memory in memories:
         detail = memory.get("detail")
         if not isinstance(detail, dict):
             continue
         for path in detail.get("changed_files") or []:
             changed_files.add(str(path).replace("\\", "/").casefold())
-
-    failed_targets: set[str] = set()
-    for memory in memories:
-        detail = memory.get("detail")
-        if not isinstance(detail, dict):
-            continue
-        status = str(detail.get("status") or memory.get("kind") or "").casefold()
-        if status != "failed":
-            continue
         instruction = str(detail.get("instruction") or "")
         for line in instruction.splitlines():
             if line.strip().casefold().startswith("target file:"):
                 target = line.split(":", 1)[1].strip().replace("\\", "/")
                 if target:
-                    failed_targets.add(target.casefold())
+                    attempted_targets.append(target.casefold())
+                    status = str(detail.get("status") or memory.get("kind") or "").casefold()
+                    if status == "failed":
+                        failed_targets.add(target.casefold())
                 break
 
     untouched = [
@@ -337,9 +333,13 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         if item.target.casefold() not in failed_targets
     ]
     candidates = retryable or untouched or list(AUTONOMOUS_BACKLOG)
-    # A persisted memory count gives the queue a deterministic cursor across
-    # process restarts without adding another database migration.
-    cursor = len(memories) % len(candidates)
+    # search_memories is intentionally bounded. Excluding recently attempted
+    # targets prevents a full 50-row window from pinning the cursor forever.
+    recent_targets = set(attempted_targets[: len(AUTONOMOUS_BACKLOG)])
+    fresh = [item for item in candidates if item.target.casefold() not in recent_targets]
+    if fresh:
+        candidates = fresh
+    cursor = (len(memories) + len(attempted_targets)) % len(candidates)
     return candidates[cursor]
 
 
