@@ -230,6 +230,36 @@ def configured_subagent_roles(value: str | None) -> list[SubagentRole]:
     return roles or [get_subagent_role("implementer")]
 
 
+def build_execution_phases(
+    roles: list[SubagentRole] | tuple[SubagentRole, ...],
+    *,
+    max_parallel_readers: int = 2,
+) -> tuple[tuple[SubagentRole, ...], ...]:
+    """Group roles into bounded read-only phases and single-writer barriers.
+
+    Consecutive read-only roles are split into deterministic batches. Any
+    mutation-capable role flushes the reader batch and occupies its own phase,
+    so a writer can never overlap with another writer or a reader from a later
+    phase. The helper is pure so the scheduler and tests share one contract.
+    """
+    limit = max(int(max_parallel_readers), 1)
+    phases: list[tuple[SubagentRole, ...]] = []
+    readers: list[SubagentRole] = []
+    for role in roles:
+        if role.read_only:
+            readers.append(role)
+            if len(readers) >= limit:
+                phases.append(tuple(readers))
+                readers = []
+            continue
+        if readers:
+            phases.append(tuple(readers))
+            readers = []
+        phases.append((role,))
+    if readers:
+        phases.append(tuple(readers))
+    return tuple(phases)
+
 def role_marker(role: SubagentRole) -> str:
     return f"SUBAGENT_ROLE: {role.key}"
 

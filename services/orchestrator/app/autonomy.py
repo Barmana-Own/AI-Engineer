@@ -35,7 +35,7 @@ from app.db import (
     update_autonomy_run,
 )
 from app.config import settings
-from app.subagents import SUBAGENT_ROLES, build_role_instruction, configured_subagent_roles
+from app.subagents import SUBAGENT_ROLES, build_execution_phases, build_role_instruction, configured_subagent_roles
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
@@ -503,7 +503,14 @@ def _record_age_seconds(value: object) -> float:
 
 
 async def run_autonomous_cycles(run_id: str) -> None:
-    """Run a finite, sequential specialist pipeline and persist its progress."""
+    """Run bounded specialist phases with one explicit writer barrier.
+
+    Read-only specialists share an immutable snapshot in small concurrent
+    batches. Mutation-capable roles always receive their own phase, and no
+    later phase starts until every reader in the previous phase has produced a
+    persisted handoff. This keeps speedups bounded without allowing concurrent
+    workspace writers.
+    """
     from app.agent_service import run_agent_task
 
     run = get_autonomy_run(run_id)
@@ -540,122 +547,166 @@ async def run_autonomous_cycles(run_id: str) -> None:
     )
     if section_role and section_role.key not in {role.key for role in roles}:
         roles = [section_role, *roles]
+    # The deterministic monitor is the parent supervisor, not a child worker.
+    roles = [role for role in roles if role.key != "monitor"]
     roles = roles[: max(int(settings.autonomous_max_subagents), 1)]
+    if not roles:
+        roles = configured_subagent_roles("implementer")
     previous_handoff_ids: list[str] = []
+    task_timeout = max(
+        int(getattr(settings, "autonomous_task_timeout_seconds", 360)),
+        60,
+    )
+    read_parallelism = max(
+        int(getattr(settings, "autonomous_read_parallelism", 2)),
+        1,
+    )
+
+    async def execute_item(item: tuple[object, dict[str, object], dict[str, object]]) -> tuple[
+        tuple[object, dict[str, object], dict[str, object]],
+        dict[str, object] | None,
+        str | None,
+    ]:
+        role, task, _handoff = item
+        task_id = str(task["id"])
+        try:
+            await asyncio.wait_for(
+                run_agent_task(task_id),
+                timeout=task_timeout,
+            )
+        except asyncio.TimeoutError:
+            return (
+                item,
+                get_task(task_id),
+                f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds.",
+            )
+        except Exception as exc:
+            return item, get_task(task_id), str(exc)
+        finished = get_task(task_id)
+        if not finished or finished.get("status") != "completed":
+            return (
+                item,
+                finished,
+                str((finished or {}).get("error") or f"{role.key} sub-agent did not complete."),
+            )
+        return item, finished, None
 
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
-            for role in roles:
-                memories = search_memories(
-                    run["project_id"],
-                    query=f"{run['goal']} {role.key}",
-                    limit=6,
-                )
-                memory_text = _bounded_memory_text(memories)
-                handoff_text = _bounded_handoff_text(previous_handoff_ids)
-                if handoff_text:
-                    memory_text = f"{memory_text}\n\nIMMEDIATE SPECIALIST HANDOFFS:\n{handoff_text}"
-                instruction = build_role_instruction(
-                    role=role,
-                    goal=str(run["goal"]),
-                    cycle=cycle,
-                    total_cycles=int(run["requested_cycles"]),
-                    memory_text=memory_text,
-                )
-                task = create_task(
-                    project_id=run["project_id"],
-                    instruction=instruction,
-                    mode="autonomous",
-                )
-                task_ids.append(task["id"])
-                handoff = create_subagent_handoff(
-                    run_id=run_id,
-                    project_id=run["project_id"],
-                    task_id=task["id"],
-                    role=role.key,
-                    section=role.section,
-                    status="running",
-                    summary=f"{role.title} started for cycle {cycle}.",
-                    previous_handoff_ids=previous_handoff_ids,
-                )
-                handoff_id = handoff["id"]
-                previous_handoff_ids.append(handoff_id)
+            phases = build_execution_phases(
+                roles,
+                max_parallel_readers=read_parallelism,
+            )
+            for phase_index, phase in enumerate(phases, start=1):
+                phase_previous_handoffs = list(previous_handoff_ids)
+                phase_items: list[tuple[object, dict[str, object], dict[str, object]]] = []
+                for role in phase:
+                    memories = search_memories(
+                        run["project_id"],
+                        query=f"{run['goal']} {role.key}",
+                        limit=6,
+                    )
+                    memory_text = _bounded_memory_text(memories)
+                    handoff_text = _bounded_handoff_text(phase_previous_handoffs)
+                    if handoff_text:
+                        memory_text = f"{memory_text}\n\nIMMEDIATE SPECIALIST HANDOFFS:\n{handoff_text}"
+                    instruction = build_role_instruction(
+                        role=role,
+                        goal=str(run["goal"]),
+                        cycle=cycle,
+                        total_cycles=int(run["requested_cycles"]),
+                        memory_text=memory_text,
+                    )
+                    task = create_task(
+                        project_id=run["project_id"],
+                        instruction=instruction,
+                        mode="autonomous",
+                    )
+                    task_ids.append(task["id"])
+                    handoff = create_subagent_handoff(
+                        run_id=run_id,
+                        project_id=run["project_id"],
+                        task_id=task["id"],
+                        role=role.key,
+                        section=role.section,
+                        status="running",
+                        summary=f"{role.title} started for cycle {cycle}, phase {phase_index}.",
+                        previous_handoff_ids=phase_previous_handoffs,
+                    )
+                    phase_items.append((role, task, handoff))
+
                 update_autonomy_run(
                     run_id,
                     task_ids=task_ids,
                     completed_cycles=cycle - 1,
                 )
-
-                task_timeout = max(
-                    int(getattr(settings, "autonomous_task_timeout_seconds", 360)),
-                    60,
+                logger.info(
+                    "Supervisor phase %s/%s started for cycle %s with %s role(s); read_parallelism=%s",
+                    phase_index,
+                    len(phases),
+                    cycle,
+                    len(phase),
+                    read_parallelism,
                 )
-                try:
-                    await asyncio.wait_for(
-                        run_agent_task(task["id"]),
-                        timeout=task_timeout,
-                    )
-                except asyncio.TimeoutError:
-                    timeout_error = (
-                        f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds."
-                    )
-                    update_task(
-                        task["id"],
-                        status="failed",
-                        error=timeout_error,
-                    )
+                outcomes = await asyncio.gather(
+                    *(execute_item(item) for item in phase_items)
+                )
+                phase_failed = False
+                for item, finished, problem in outcomes:
+                    role, task, handoff = item
+                    handoff_id = handoff["id"]
+                    previous_handoff_ids.append(handoff_id)
+                    if problem:
+                        phase_failed = True
+                        if finished and finished.get("status") not in {"failed", "completed"}:
+                            update_task(
+                                task["id"],
+                                status="failed",
+                                error=problem,
+                            )
+                        elif not finished:
+                            update_task(
+                                task["id"],
+                                status="failed",
+                                error=problem,
+                            )
+                        payload = _handoff_payload(finished or {"error": problem})
+                        update_subagent_handoff(
+                            handoff_id,
+                            status="failed",
+                            summary=problem[:4_000],
+                            evidence=payload["evidence"],
+                            changed_files=payload["changed_files"],
+                            validations=payload["validations"],
+                            blockers=payload["blockers"] or [problem],
+                            next_action="Reconcile the failed phase before starting a writer or later reader phase.",
+                            confidence=0.0,
+                        )
+                        continue
+
+                    payload = _handoff_payload(finished)
                     update_subagent_handoff(
                         handoff_id,
-                        status="failed",
-                        summary=timeout_error,
-                        blockers=[timeout_error],
-                        next_action="Retry from the next scheduled cycle after stale-state reconciliation.",
-                        confidence=0.0,
-                    )
-                    update_autonomy_run(
-                        run_id,
-                        task_ids=task_ids,
-                        completed_cycles=cycle - 1,
-                        status="failed",
-                        error=timeout_error,
-                    )
-                    return
-                finished = get_task(task["id"])
-                if not finished or finished["status"] != "completed":
-                    payload = _handoff_payload(finished or {"error": "Task disappeared."})
-                    update_subagent_handoff(
-                        handoff_id,
-                        status="failed",
-                        summary=str((finished or {}).get("error") or f"{role.key} sub-agent did not complete.")[:4_000],
+                        status="completed",
+                        summary=str(finished.get("final_output") or f"{role.title} completed.")[:4_000],
                         evidence=payload["evidence"],
                         changed_files=payload["changed_files"],
                         validations=payload["validations"],
                         blockers=payload["blockers"],
-                        next_action="Reconcile the failure before starting another writer.",
-                        confidence=0.15,
+                        next_action="Use this evidence as the input contract for the next specialist phase.",
+                        confidence=0.85 if payload["blockers"] == [] else 0.55,
                     )
+
+                if phase_failed:
+                    error = "One or more specialists failed; later phases were held behind the writer barrier."
                     update_autonomy_run(
                         run_id,
                         task_ids=task_ids,
                         completed_cycles=cycle - 1,
                         status="failed",
-                        error=(finished or {}).get("error")
-                        or f"{role.key} sub-agent did not complete.",
+                        error=error,
                     )
                     return
-
-                payload = _handoff_payload(finished)
-                update_subagent_handoff(
-                    handoff_id,
-                    status="completed",
-                    summary=str(finished.get("final_output") or f"{role.title} completed.")[:4_000],
-                    evidence=payload["evidence"],
-                    changed_files=payload["changed_files"],
-                    validations=payload["validations"],
-                    blockers=payload["blockers"],
-                    next_action="Use this evidence as the input contract for the next specialist.",
-                    confidence=0.85 if payload["blockers"] == [] else 0.55,
-                )
 
             update_autonomy_run(
                 run_id,
@@ -692,7 +743,6 @@ async def run_autonomous_cycles(run_id: str) -> None:
             status="failed",
             error=str(exc),
         )
-
 
 async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
     """Wake periodically for the configured workspace and reconcile stale workers."""
