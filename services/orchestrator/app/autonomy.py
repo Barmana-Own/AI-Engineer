@@ -611,6 +611,11 @@ async def run_autonomous_cycles(run_id: str) -> None:
     completed_cycles = 0
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
+            cycle_memories = search_memories(
+                run["project_id"],
+                query=str(run["goal"]),
+                limit=8,
+            )
             cycle_task_ids: list[str] = []
             phases = build_execution_phases(
                 roles,
@@ -632,11 +637,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 phase_previous_handoffs = list(previous_handoff_ids)
                 phase_items: list[tuple[object, dict[str, object], dict[str, object]]] = []
                 for role in phase:
-                    memories = search_memories(
-                        run["project_id"],
-                        query=f"{run['goal']} {role.key}",
-                        limit=6,
-                    )
+                    memories = cycle_memories
                     memory_text = _bounded_memory_text(memories)
                     handoff_text = _bounded_handoff_text(phase_previous_handoffs)
                     if handoff_text:
