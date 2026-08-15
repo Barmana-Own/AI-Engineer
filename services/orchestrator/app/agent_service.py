@@ -946,6 +946,12 @@ def _autonomous_target_is_current(
             return True
         if lowered.endswith("services/orchestrator/app/subagents.py") and "HANDOFF_SCHEMA_VERSION" in content and "handoff" in content:
             return True
+        if (
+            lowered.endswith("services/model-gateway/app/router.py")
+            and "key = normalized.casefold()" in content
+            and "key not in seen" in content
+        ):
+            return True
         if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
             return True
         if (

@@ -432,6 +432,31 @@ def capabilities() -> dict:
         self.assertEqual(step["tool"], "replace_text")
         self.assertIn('"schema_version": "1.1"', step["arguments"]["new"])
 
+    def test_gateway_target_recovery_finishes_when_dedupe_exists(self):
+        content = "key = normalized.casefold()\\nif normalized and key not in seen:"
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "services/model-gateway/app/router.py"}},
+                "outcome": {"tool": "read_file", "ok": True, "result": {
+                    "path": "services/model-gateway/app/router.py", "content": content
+                }},
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-gateway-routing",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["services/model-gateway/app/router.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "finish_task")
+        self.assertTrue(step["arguments"]["no_change"])
+
     def test_test_target_recovery_finishes_when_coverage_exists(self):
         content = """def test_items_have_explicit_project_contracts():
     pass
