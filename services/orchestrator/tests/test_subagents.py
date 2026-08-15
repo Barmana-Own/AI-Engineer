@@ -15,6 +15,7 @@ from app.routers.agent import autonomy_run_status
 from app.subagents import (
     HANDOFF_SCHEMA_VERSION,
     SECTION_ROLE_KEYS,
+    build_execution_phases,
     build_handoff,
     build_role_instruction,
     configured_subagent_roles,
@@ -107,6 +108,27 @@ class SubagentRegistryTests(unittest.TestCase):
         )
         self.assertIn("Run the real project validation command", instruction)
         self.assertIn("strictly observational", instruction)
+
+    def test_speed_phases_bound_readers_and_isolate_writers(self):
+        roles = [
+            get_subagent_role("inspector"),
+            get_subagent_role("planner"),
+            get_subagent_role("implementer"),
+            get_subagent_role("verifier"),
+            get_subagent_role("reviewer"),
+        ]
+        phases = build_execution_phases(roles, max_parallel_readers=2)
+        self.assertEqual(
+            [[role.key for role in phase] for phase in phases],
+            [["inspector", "planner"], ["implementer"], ["verifier", "reviewer"]],
+        )
+        self.assertTrue(all(len(phase) <= 2 for phase in phases))
+        self.assertTrue(
+            all(
+                len(phase) == 1 or all(role.read_only for role in phase)
+                for phase in phases
+            )
+        )
 
     def test_read_only_verifier_keeps_validation_requirement(self):
         verifier = get_subagent_role("verifier")
