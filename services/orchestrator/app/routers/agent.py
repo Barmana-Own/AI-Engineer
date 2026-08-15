@@ -239,6 +239,11 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
             handoff_role_counts.get(handoff_role, 0) + 1
         )
 
+    managed_roles = sorted(
+        role for role in handoff_role_counts
+        if role not in {"monitor", "manager"}
+    )
+
     return {
         "id": run["id"],
         "project_id": run["project_id"],
@@ -250,6 +255,13 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
         "handoff_count": len(handoffs),
         "handoff_status_counts": handoff_status_counts,
         "handoff_role_counts": handoff_role_counts,
+        "manager": {
+            "role": "monitor",
+            "mode": "deterministic",
+            "active": True,
+            "managed_roles": managed_roles,
+            "single_writer": True,
+        },
         "error": run.get("error"),
         "updated_at": run["updated_at"],
     }

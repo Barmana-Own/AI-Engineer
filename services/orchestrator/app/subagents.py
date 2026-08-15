@@ -79,11 +79,11 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
     ),
     SubagentRole(
         key="monitor",
-        title="Autonomy Monitor",
-        objective="Track bounded sub-agent progress, reconcile stale tasks, and report pipeline health.",
+        title="Supervisor Manager",
+        objective="Coordinate bounded sub-agent progress, reconcile stale tasks, and report pipeline health without competing with the writer.",
         read_only=True,
         section="supervisor",
-        capabilities=("read", "monitor", "reconcile"),
+        capabilities=("read", "monitor", "reconcile", "schedule", "lease"),
     ),
     # Domain specialists give every product section a stable owner.  They are
     # logical sub-agents executed by the same policy-enforcing worker; this
@@ -190,7 +190,7 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
 )
 
 _ROLE_BY_KEY = {role.key: role for role in SUBAGENT_ROLES}
-_ROLE_ALIASES = {"scout": "inspector", "local-agent": "local_agent", "test-verifier": "tests"}
+_ROLE_ALIASES = {"manager": "monitor", "scout": "inspector", "local-agent": "local_agent", "test-verifier": "tests"}
 ROLE_KEYS: tuple[str, ...] = tuple(role.key for role in SUBAGENT_ROLES)
 _DOMAIN_ROLE_KEYS = {
     "requirements", "architect", "orchestrator", "gateway", "local_agent",

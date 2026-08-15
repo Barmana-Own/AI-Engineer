@@ -65,6 +65,8 @@ class SubagentRegistryTests(unittest.TestCase):
             result["handoff_role_counts"],
             {"architect": 2, "verifier": 1},
         )
+        self.assertEqual(result["manager"]["role"], "monitor")
+        self.assertTrue(result["manager"]["single_writer"])
 
     def test_every_product_section_has_a_specialist(self):
         expected = {
@@ -89,6 +91,7 @@ class SubagentRegistryTests(unittest.TestCase):
 
     def test_alias_and_validation_contract(self):
         self.assertEqual(get_subagent_role("scout").key, "inspector")
+        self.assertEqual(get_subagent_role("manager").key, "monitor")
         self.assertEqual(get_subagent_role("unknown-model-role").key, "inspector")
         self.assertEqual(
             [role.key for role in configured_subagent_roles("unknown-model-role,planner")],
