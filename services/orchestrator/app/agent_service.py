@@ -952,6 +952,14 @@ def _autonomous_target_is_current(
             and "key not in seen" in content
         ):
             return True
+        if (
+            lowered.endswith("services/local-agent/app/main.py")
+            and '@app.get("/capabilities")' in content
+            and '"workspace_guarded": True' in content
+            and '"mutation_requires_checkpoint": True' in content
+            and '"checkpoint_scope": "project"' in content
+        ):
+            return True
         if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
             return True
         if (
