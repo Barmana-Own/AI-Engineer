@@ -223,6 +223,22 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
         task_status = str(task.get("status") or "unknown")
         task_status_counts[task_status] = task_status_counts.get(task_status, 0) + 1
 
+    # Handoffs are the durable blackboard for section specialists. Include
+    # bounded role/status aggregates so the UI and overnight monitor can see
+    # specialist progress without downloading every handoff body.
+    handoffs = list_subagent_handoffs(run_id, limit=200)
+    handoff_status_counts: dict[str, int] = {}
+    handoff_role_counts: dict[str, int] = {}
+    for handoff in handoffs:
+        handoff_status = str(handoff.get("status") or "unknown")
+        handoff_role = str(handoff.get("role") or "unknown")
+        handoff_status_counts[handoff_status] = (
+            handoff_status_counts.get(handoff_status, 0) + 1
+        )
+        handoff_role_counts[handoff_role] = (
+            handoff_role_counts.get(handoff_role, 0) + 1
+        )
+
     return {
         "id": run["id"],
         "project_id": run["project_id"],

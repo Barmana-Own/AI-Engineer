@@ -11,6 +11,7 @@ from app.agent_service import (
     _read_file,
     _unwrap_model_action,
 )
+from app.routers.agent import autonomy_run_status
 from app.subagents import (
     HANDOFF_SCHEMA_VERSION,
     SECTION_ROLE_KEYS,
@@ -23,6 +24,47 @@ from app.subagents import (
 
 
 class SubagentRegistryTests(unittest.TestCase):
+    @patch("app.routers.agent.list_subagent_handoffs")
+    @patch("app.routers.agent.get_task")
+    @patch("app.routers.agent.get_autonomy_run")
+    def test_run_status_includes_bounded_handoff_aggregates(
+        self,
+        get_run,
+        get_task,
+        list_handoffs,
+    ):
+        get_run.return_value = {
+            "id": "run-1",
+            "project_id": "project-1",
+            "status": "running",
+            "requested_cycles": 2,
+            "completed_cycles": 1,
+            "task_ids": ["task-1", "task-2"],
+            "error": None,
+            "updated_at": "2026-08-15T00:00:00+00:00",
+        }
+        get_task.side_effect = [
+            {"status": "completed"},
+            {"status": "running"},
+        ]
+        list_handoffs.return_value = [
+            {"role": "architect", "status": "completed"},
+            {"role": "architect", "status": "completed"},
+            {"role": "verifier", "status": "blocked"},
+        ]
+
+        result = autonomy_run_status("run-1")
+
+        self.assertEqual(result["task_status_counts"], {"completed": 1, "running": 1})
+        self.assertEqual(result["handoff_count"], 3)
+        self.assertEqual(
+            result["handoff_status_counts"],
+            {"completed": 2, "blocked": 1},
+        )
+        self.assertEqual(
+            result["handoff_role_counts"],
+            {"architect": 2, "verifier": 1},
+        )
     def test_every_product_section_has_a_specialist(self):
         expected = {
             "product",
