@@ -616,7 +616,19 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 roles,
                 max_parallel_readers=read_parallelism,
             )
+            writer_phase_completed = False
             for phase_index, phase in enumerate(phases, start=1):
+                if (
+                    writer_phase_completed
+                    and not _task_changed_paths(cycle_task_ids)
+                    and all(role.read_only for role in phase)
+                ):
+                    logger.info(
+                        "Supervisor skipped post-writer read-only phase %s/%s because no verified mutation occurred.",
+                        phase_index,
+                        len(phases),
+                    )
+                    break
                 phase_previous_handoffs = list(previous_handoff_ids)
                 phase_items: list[tuple[object, dict[str, object], dict[str, object]]] = []
                 for role in phase:
@@ -668,6 +680,8 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     len(phase),
                     read_parallelism,
                 )
+                if any(not role.read_only for role in phase):
+                    writer_phase_completed = True
                 outcomes = await asyncio.gather(
                     *(execute_item(item) for item in phase_items)
                 )
