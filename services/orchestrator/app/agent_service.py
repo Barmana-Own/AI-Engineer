@@ -919,7 +919,7 @@ def _autonomous_target_paths(instruction: str) -> list[str]:
         if not marker.casefold().startswith("target file:"):
             continue
         candidate = marker.split(":", 1)[1].strip()
-        normalized = candidate.replace("\", "/").strip("./")
+        normalized = candidate.replace(chr(92), "/").strip("./")
         lowered = normalized.casefold()
         if not lowered.startswith(("services/", "apps/", "packages/", "docs/")):
             continue

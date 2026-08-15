@@ -111,19 +111,14 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertIn("strictly observational", instruction)
 
     def test_target_parser_ignores_learned_memory_paths(self):
-        instruction = (
-            "TARGET FILE: services/orchestrator/app/autonomy.py
-"
-            "LEARNED MEMORY:
-"
-            "- Previous target: apps/control-center/src/api.ts
-"
-        )
+        instruction = """TARGET FILE: services/orchestrator/app/autonomy.py
+LEARNED MEMORY:
+- Previous target: apps/control-center/src/api.ts
+"""
         self.assertEqual(
             _autonomous_target_paths(instruction),
             ["services/orchestrator/app/autonomy.py"],
         )
-
     def test_speed_phases_bound_readers_and_isolate_writers(self):
         roles = [
             get_subagent_role("inspector"),
