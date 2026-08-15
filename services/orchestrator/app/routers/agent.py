@@ -247,6 +247,9 @@ def autonomy_run_status(run_id: str) -> dict[str, object]:
         "completed_cycles": run["completed_cycles"],
         "task_count": len(run.get("task_ids") or []),
         "task_status_counts": task_status_counts,
+        "handoff_count": len(handoffs),
+        "handoff_status_counts": handoff_status_counts,
+        "handoff_role_counts": handoff_role_counts,
         "error": run.get("error"),
         "updated_at": run["updated_at"],
     }

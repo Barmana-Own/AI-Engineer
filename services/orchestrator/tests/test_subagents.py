@@ -65,6 +65,7 @@ class SubagentRegistryTests(unittest.TestCase):
             result["handoff_role_counts"],
             {"architect": 2, "verifier": 1},
         )
+
     def test_every_product_section_has_a_specialist(self):
         expected = {
             "product",
