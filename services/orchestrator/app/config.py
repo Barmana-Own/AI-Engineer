@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     autonomous_max_subagents: int = 5
     # Read-only specialists may overlap on one immutable snapshot; writers remain serialized.
     autonomous_read_parallelism: int = 2
+    autonomous_reconciliation_grace_seconds: int = 900
     autonomous_task_timeout_seconds: int = 360
     autonomous_model_timeout_seconds: int = 180
     # Push only clean, verified checkpoints to the configured GitHub remote.

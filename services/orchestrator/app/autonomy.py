@@ -494,6 +494,19 @@ remain policy-controlled.
 """.strip()
 
 
+def _reconciliation_grace_seconds() -> int:
+    """Keep the manager from reclaiming a healthy task before its timeout."""
+    configured = max(
+        int(getattr(settings, "autonomous_reconciliation_grace_seconds", 900)),
+        RECONCILIATION_GRACE_SECONDS,
+    )
+    task_timeout = max(
+        int(getattr(settings, "autonomous_task_timeout_seconds", 360)),
+        60,
+    )
+    interval = max(int(getattr(settings, "autonomous_interval_minutes", 3)), 1) * 60
+    return max(configured, task_timeout + interval)
+
 def _record_age_seconds(value: object) -> float:
     """Return the age of a persisted record without trusting local timezone."""
     try:
@@ -501,7 +514,7 @@ def _record_age_seconds(value: object) -> float:
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
-        return float(RECONCILIATION_GRACE_SECONDS + 1)
+        return float(_reconciliation_grace_seconds() + 1)
     return max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds())
 
 
@@ -763,6 +776,7 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
     interval_seconds = max(int(settings.autonomous_interval_minutes), 1) * 60
     target_workspace = str(settings.autonomous_workspace or "").strip().casefold()
     active_statuses = {"queued", "planning", "running", "awaiting_approval"}
+    reconciliation_grace = _reconciliation_grace_seconds()
 
     while not stop_event.is_set():
         projects = list_projects()
@@ -791,7 +805,7 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
             # finishing during a restart.  Use a grace period to avoid killing
             # healthy work or creating duplicate runs.
             for task in active_tasks:
-                if _record_age_seconds(task.get("updated_at")) < RECONCILIATION_GRACE_SECONDS:
+                if _record_age_seconds(task.get("updated_at")) < reconciliation_grace:
                     continue
                 update_task(
                     task["id"],
@@ -821,7 +835,7 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
                     continue
                 if active_ids.intersection(set(run.get("task_ids") or [])):
                     continue
-                if _record_age_seconds(run.get("updated_at")) < RECONCILIATION_GRACE_SECONDS:
+                if _record_age_seconds(run.get("updated_at")) < reconciliation_grace:
                     continue
                 update_autonomy_run(
                     run["id"],

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from app import db
+from app.autonomy import _reconciliation_grace_seconds
 from app.agent_service import (
     _autonomous_target_paths,
     _apply_subagent_requirements,
@@ -110,6 +111,11 @@ class SubagentRegistryTests(unittest.TestCase):
         self.assertIn("Run the real project validation command", instruction)
         self.assertIn("strictly observational", instruction)
 
+    def test_manager_grace_covers_task_timeout_and_interval(self):
+        self.assertGreaterEqual(
+            _reconciliation_grace_seconds(),
+            360 + (3 * 60),
+        )
     def test_target_parser_ignores_learned_memory_paths(self):
         instruction = """TARGET FILE: services/orchestrator/app/autonomy.py
 LEARNED MEMORY:
