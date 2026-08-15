@@ -12,7 +12,7 @@ class AutonomousBacklogTests(unittest.TestCase):
             self.assertIn(f"BACKLOG_KEY: {item.key}", goal)
             self.assertIn(f"TARGET FILE: {item.target}", goal)
             self.assertIn(f"VALIDATION COMMAND: {item.validation}", goal)
-            self.assertTrue(item.target.startswith(("services/", "apps/", "packages/")))
+            self.assertTrue(item.target.startswith(("services/", "apps/", "packages/", "README.md")))
 
 
     @patch("app.autonomy.search_memories")
@@ -30,3 +30,22 @@ class AutonomousBacklogTests(unittest.TestCase):
     def test_targets_are_unique(self):
         targets = [item.target for item in AUTONOMOUS_BACKLOG]
         self.assertEqual(len(targets), len(set(targets)))
+
+    def test_every_domain_section_has_a_backlog_owner(self):
+        sections = {item.section for item in AUTONOMOUS_BACKLOG}
+        self.assertTrue(
+            {
+                "product",
+                "architecture",
+                "orchestrator",
+                "model-gateway",
+                "local-agent",
+                "control-center",
+                "desktop",
+                "tests",
+                "security",
+                "docs",
+                "recovery",
+                "integration",
+            }.issubset(sections)
+        )

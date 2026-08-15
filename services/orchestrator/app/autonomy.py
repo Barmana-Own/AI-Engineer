@@ -263,6 +263,41 @@ AUTONOMOUS_BACKLOG: tuple[AutonomousBacklogItem, ...] = (
         validation="python -m unittest discover -s services/orchestrator/tests -q",
         section="tests",
     ),
+    AutonomousBacklogItem(
+        key="requirements-contract",
+        target="services/orchestrator/app/schemas.py",
+        goal="Keep the typed task, handoff, and acceptance contracts explicit so requirement changes remain observable and bounded.",
+        validation="python -m compileall -q services/orchestrator/app",
+        section="product",
+    ),
+    AutonomousBacklogItem(
+        key="security-boundary",
+        target="services/orchestrator/app/agent_service.py",
+        goal="Review path, command, checkpoint, and validation guards for one narrowly scoped security hardening that preserves safe execution.",
+        validation="python -m compileall -q services/orchestrator/app",
+        section="security",
+    ),
+    AutonomousBacklogItem(
+        key="recovery-coverage",
+        target="services/orchestrator/tests/test_subagents.py",
+        goal="Add one deterministic regression test for bounded recovery, validation, or specialist handoff behavior.",
+        validation="python -m unittest discover -s services/orchestrator/tests -q",
+        section="recovery",
+    ),
+    AutonomousBacklogItem(
+        key="operations-docs",
+        target="README.md",
+        goal="Keep local operation, offline Ollama behavior, and autonomous supervisor recovery instructions accurate and concise.",
+        validation="python -c \"from pathlib import Path; assert Path('README.md').read_text(encoding='utf-8').strip()\"",
+        section="docs",
+    ),
+    AutonomousBacklogItem(
+        key="integration-health",
+        target="services/orchestrator/app/main.py",
+        goal="Improve the cross-service health and startup contract without changing service ports or opening the UI during supervisor runs.",
+        validation="python -m compileall -q services/orchestrator/app",
+        section="integration",
+    ),
 )
 
 
