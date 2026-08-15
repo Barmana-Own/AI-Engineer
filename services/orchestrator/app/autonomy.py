@@ -569,7 +569,9 @@ async def run_autonomous_cycles(run_id: str) -> None:
     ]:
         role, task, _handoff = item
         task_id = str(task["id"])
-        try:
+        completed_cycles = 0
+
+    try:
             await asyncio.wait_for(
                 run_agent_task(task_id),
                 timeout=task_timeout,
@@ -593,6 +595,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
     try:
         for cycle in range(1, int(run["requested_cycles"]) + 1):
+            cycle_task_ids: list[str] = []
             phases = build_execution_phases(
                 roles,
                 max_parallel_readers=read_parallelism,
@@ -623,6 +626,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         mode="autonomous",
                     )
                     task_ids.append(task["id"])
+                    cycle_task_ids.append(task["id"])
                     handoff = create_subagent_handoff(
                         run_id=run_id,
                         project_id=run["project_id"],
@@ -708,16 +712,23 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     )
                     return
 
+            completed_cycles = cycle
             update_autonomy_run(
                 run_id,
                 task_ids=task_ids,
-                completed_cycles=cycle,
+                completed_cycles=completed_cycles,
             )
-
+            if cycle < int(run["requested_cycles"]) and not _task_changed_paths(cycle_task_ids):
+                logger.info(
+                    "Supervisor stopped after cycle %s because no verified mutation occurred; "
+                    "the next backlog target will be selected on the next wake.",
+                    cycle,
+                )
+                break
         update_autonomy_run(
             run_id,
             task_ids=task_ids,
-            completed_cycles=int(run["requested_cycles"]),
+            completed_cycles=completed_cycles,
             status="completed",
             error=None,
         )
