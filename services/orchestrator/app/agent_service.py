@@ -261,22 +261,43 @@ def _model_reported_verified_noop(value: str) -> bool:
     changed_files = detail.get("changed_files") or payload.get("changed_files") or []
     failures = detail.get("failures") or payload.get("failures") or []
     validations = detail.get("validations") or payload.get("validations") or []
+    successful_validation = any(
+        isinstance(item, dict)
+        and (
+            item.get("ok") is True
+            or item.get("exit_code") == 0
+            or str(item.get("status") or "").casefold() in {"pass", "passed", "success", "completed"}
+        )
+        for item in validations
+    )
+    if not successful_validation and validations and all(not isinstance(item, dict) for item in validations):
+        successful_validation = True
     summary = " ".join(
         str(value)
         for value in (payload.get("summary"), detail.get("summary"))
         if value
     ).casefold()
+    structured_noop = (
+        str(payload.get("mode") or detail.get("mode") or "").casefold() == "autonomous"
+        and payload.get("step_count") is not None
+        and "changed_files" in payload
+        and "validations" in payload
+        and "failures" in payload
+    )
     return (
         status in {"completed", "success"}
         and not changed_files
         and not failures
-        and bool(validations)
-        and any(
-            marker in summary
-            for marker in (
-                "no additional safe bounded change",
-                "already satisfies",
-                "no safe bounded change",
+        and successful_validation
+        and (
+            structured_noop
+            or any(
+                marker in summary
+                for marker in (
+                    "no additional safe bounded change",
+                    "already satisfies",
+                    "no safe bounded change",
+                )
             )
         )
     )
