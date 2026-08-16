@@ -503,7 +503,7 @@ const status = health?.status;
   "kind": "success",
   "summary": "Verified completion from real tool outcomes.",
   "changed_files": [],
-  "validations": [{"command": ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -q", "ok": true}],
+  "validations": [{"command": "python -m unittest discover -s tests -q", "ok": true}],
   "blockers": []
 }
 ```'''
