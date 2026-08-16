@@ -250,6 +250,36 @@ def _extract_json(value: str) -> dict[str, Any]:
         f"The model did not return one valid JSON tool call: {last_error}"
     )
 
+def _model_reported_verified_noop(value: str) -> bool:
+    """Recognize a bounded no-op summary emitted instead of a tool call."""
+    try:
+        payload = _extract_json(str(value or ""))
+    except ValueError:
+        return False
+    detail = payload.get("detail") if isinstance(payload.get("detail"), dict) else {}
+    status = str(detail.get("status") or payload.get("status") or "").casefold()
+    changed_files = detail.get("changed_files") or payload.get("changed_files") or []
+    failures = detail.get("failures") or payload.get("failures") or []
+    validations = detail.get("validations") or payload.get("validations") or []
+    summary = " ".join(
+        str(value)
+        for value in (payload.get("summary"), detail.get("summary"))
+        if value
+    ).casefold()
+    return (
+        status in {"completed", "success"}
+        and not changed_files
+        and not failures
+        and bool(validations)
+        and any(
+            marker in summary
+            for marker in (
+                "no additional safe bounded change",
+                "already satisfies",
+                "no safe bounded change",
+            )
+        )
+    )
 def _normalize_tool_call(raw: dict[str, Any]) -> dict[str, Any]:
     tool = TOOL_ALIASES.get(
         str(raw.get("tool") or raw.get("action") or "").strip(),
@@ -964,7 +994,14 @@ def _autonomous_target_is_current(
             and '"checkpoint_scope": "project"' in content
         ):
             return True
-        if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
+        if (
+            lowered.endswith("apps/desktop/src/App.tsx")
+            and "refreshHealth" in content
+            and "model_gateway" in content
+            and "local_agent" in content
+            and "health?.status" in content
+        ):
+            return True        if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
             return True
         if (
             lowered.endswith("services/orchestrator/tests/test_autonomous_backlog.py")
@@ -2444,6 +2481,26 @@ Choose the next tool that implements the requested visible outcome. Do not make 
             last_error = exc
             feedback = f"{exc}.{raw_output}"
 
+    if (
+        autonomous
+        and _model_reported_verified_noop(content)
+        and _successful_records(results, {"read_file", "git_checkpoint"})
+        and (
+            _autonomous_target_is_current(results, _autonomous_target_paths(instruction))
+            or _successful_validations(results)
+        )
+    ):
+        return _make_step(
+            "finish_task",
+            {
+                "content": "The model supplied verified no-op evidence; rotate to another backlog target.",
+                "no_change": True,
+            },
+            reason="Recover from a structured no-op summary emitted instead of a tool call.",
+            expected_result="Record the verified target state and rotate to another backlog item.",
+            requires_approval=False,
+            description="Recording verified no-op recovery",
+        )
     recovery = _deterministic_autonomous_recovery_step(
         task_id,
         results,
