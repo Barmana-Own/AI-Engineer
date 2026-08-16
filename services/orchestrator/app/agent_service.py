@@ -257,9 +257,9 @@ def _model_reported_verified_noop(value: str) -> bool:
     except ValueError:
         return False
     detail = payload.get("detail") if isinstance(payload.get("detail"), dict) else {}
-    status = str(detail.get("status") or payload.get("status") or "").casefold()
+    status = str(detail.get("status") or payload.get("status") or payload.get("kind") or "").casefold()
     changed_files = detail.get("changed_files") or payload.get("changed_files") or []
-    failures = detail.get("failures") or payload.get("failures") or []
+    failures = detail.get("failures") or payload.get("failures") or detail.get("blockers") or payload.get("blockers") or []
     validations = detail.get("validations") or payload.get("validations") or []
     successful_validation = any(
         isinstance(item, dict)
@@ -297,6 +297,7 @@ def _model_reported_verified_noop(value: str) -> bool:
                     "no additional safe bounded change",
                     "already satisfies",
                     "no safe bounded change",
+                    "verified completion from real tool outcomes",
                 )
             )
         )
