@@ -305,10 +305,18 @@ AUTONOMOUS_BACKLOG: tuple[AutonomousBacklogItem, ...] = (
 
 
 def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
-    """Select work that has not just been attempted within the memory window."""
+    """Select the oldest uncompleted target instead of repeating no-op work.
+
+    Task memories contain one record per specialist, so using their bounded
+    window as a cursor can count the same target several times and pin the
+    selector on a small subset of the backlog.  The persisted autonomy-run
+    goals are one record per target attempt and provide a stable fairness
+    signal across restarts.  Memories remain the fallback for isolated unit
+    tests and older databases that predate autonomy-run persistence.
+    """
     memories = search_memories(project_id, limit=50)
     changed_files: set[str] = set()
-    attempted_targets: list[str] = []
+    memory_attempted_targets: list[str] = []
     failed_targets: set[str] = set()
     for memory in memories:
         detail = memory.get("detail")
@@ -321,11 +329,25 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
             if line.strip().casefold().startswith("target file:"):
                 target = line.split(":", 1)[1].strip().replace("\\", "/")
                 if target:
-                    attempted_targets.append(target.casefold())
+                    memory_attempted_targets.append(target.casefold())
                     status = str(detail.get("status") or memory.get("kind") or "").casefold()
                     if status == "failed":
                         failed_targets.add(target.casefold())
                 break
+
+    run_attempted_targets: list[str] = []
+    run_limit = max(len(AUTONOMOUS_BACKLOG) * 4, 50)
+    for run in list_autonomy_runs(project_id, limit=run_limit):
+        target = ""
+        for line in str(run.get("goal") or "").splitlines():
+            if line.strip().casefold().startswith("target file:"):
+                target = line.split(":", 1)[1].strip().replace("\\", "/").casefold()
+                break
+        if not target:
+            continue
+        run_attempted_targets.append(target)
+        if str(run.get("status") or "").casefold() == "failed":
+            failed_targets.add(target)
 
     untouched = [
         item for item in AUTONOMOUS_BACKLOG
@@ -336,15 +358,27 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         if item.target.casefold() not in failed_targets
     ]
     candidates = retryable or untouched or list(AUTONOMOUS_BACKLOG)
-    # search_memories is intentionally bounded. Excluding recently attempted
-    # targets prevents a full 50-row window from pinning the cursor forever.
+
+    # One autonomy run represents one target attempt, unlike the many
+    # specialist memories generated inside it.  Prefer targets absent from
+    # the recent run window; this makes a no-op immediately advance to the
+    # next untouched backlog item and survives process restarts.
+    attempted_targets = run_attempted_targets or memory_attempted_targets
     recent_targets = set(attempted_targets[: len(AUTONOMOUS_BACKLOG)])
     fresh = [item for item in candidates if item.target.casefold() not in recent_targets]
     if fresh:
-        candidates = fresh
-    cursor = (len(memories) + len(attempted_targets)) % len(candidates)
-    return candidates[cursor]
+        return fresh[0]
 
+    # Once every candidate has appeared in the window, choose the least
+    # recently attempted item.  Never-used targets sort before old attempts.
+    last_seen = {
+        target: index
+        for index, target in reversed(list(enumerate(attempted_targets)))
+    }
+    return min(
+        candidates,
+        key=lambda item: last_seen.get(item.target.casefold(), len(attempted_targets) + 1),
+    )
 
 def build_backlog_goal(item: AutonomousBacklogItem) -> str:
     """Render an explicit target/validation contract for all sub-agents."""

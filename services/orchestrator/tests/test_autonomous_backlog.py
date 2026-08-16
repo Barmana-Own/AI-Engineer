@@ -44,6 +44,21 @@ class AutonomousBacklogTests(unittest.TestCase):
         selected = select_autonomous_backlog_item("project")
         self.assertNotEqual(selected.target, repeated.target)
 
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
+    def test_selection_advances_after_completed_noop_runs(self, search_memories, list_autonomy_runs):
+        search_memories.return_value = []
+        list_autonomy_runs.return_value = [
+            {
+                "status": "completed",
+                "goal": f"TARGET FILE: {item.target}",
+            }
+            for item in AUTONOMOUS_BACKLOG[:2]
+        ]
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertEqual(selected.target, AUTONOMOUS_BACKLOG[2].target)
     def test_targets_are_unique(self):
         targets = [item.target for item in AUTONOMOUS_BACKLOG]
         self.assertEqual(len(targets), len(set(targets)))
