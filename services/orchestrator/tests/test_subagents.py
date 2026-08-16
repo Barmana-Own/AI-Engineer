@@ -497,6 +497,17 @@ const status = health?.status;
 }
 ```'''
         self.assertTrue(_model_reported_verified_noop(summary))
+    def test_verified_success_kind_noop_summary_is_bounded(self):
+        summary = '''```json
+{
+  "kind": "success",
+  "summary": "Verified completion from real tool outcomes.",
+  "changed_files": [],
+  "validations": [{"command": ".\\.venv\\Scripts\\python.exe -m unittest discover -s tests -q", "ok": true}],
+  "blockers": []
+}
+```'''
+        self.assertTrue(_model_reported_verified_noop(summary))
     def test_db_recovery_compacts_duplicate_memory_evidence(self):
         content = '''    detail = {
         "instruction": instruction_text[:4_000],
