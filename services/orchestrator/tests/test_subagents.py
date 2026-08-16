@@ -485,6 +485,18 @@ const status = health?.status;
         self.assertTrue(_model_reported_verified_noop(summary))
         changed = summary.replace('"changed_files": []', '"changed_files": ["x"]')
         self.assertFalse(_model_reported_verified_noop(changed))
+    def test_structured_autonomous_noop_summary_is_verified(self):
+        summary = '''```json
+{
+  "status": "completed",
+  "mode": "autonomous",
+  "step_count": "5",
+  "changed_files": [],
+  "validations": [{"command": "python -m unittest discover -s tests -q", "ok": true}],
+  "failures": []
+}
+```'''
+        self.assertTrue(_model_reported_verified_noop(summary))
     def test_db_recovery_compacts_duplicate_memory_evidence(self):
         content = '''    detail = {
         "instruction": instruction_text[:4_000],
