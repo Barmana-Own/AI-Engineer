@@ -995,7 +995,7 @@ def _autonomous_target_is_current(
         ):
             return True
         if (
-            lowered.endswith("apps/desktop/src/App.tsx")
+            lowered.endswith("apps/desktop/src/app.tsx")
             and "refreshHealth" in content
             and "model_gateway" in content
             and "local_agent" in content
