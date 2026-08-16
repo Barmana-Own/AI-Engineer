@@ -1001,7 +1001,8 @@ def _autonomous_target_is_current(
             and "local_agent" in content
             and "health?.status" in content
         ):
-            return True        if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
+            return True
+        if lowered.endswith("apps/control-center/src/api.ts") and "getAutonomyRunStatus" in content:
             return True
         if (
             lowered.endswith("services/orchestrator/tests/test_autonomous_backlog.py")

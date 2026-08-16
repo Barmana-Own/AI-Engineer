@@ -10,6 +10,7 @@ from app.agent_service import (
     _apply_subagent_requirements,
     _deterministic_autonomous_recovery_step,
     _normalize_autonomous_validation_step,
+    _model_reported_verified_noop,
     _read_file,
     _unwrap_model_action,
 )
@@ -439,6 +440,51 @@ def capabilities() -> dict:
         self.assertEqual(step["tool"], "finish_task")
         self.assertTrue(step["arguments"]["no_change"])
 
+    def test_desktop_health_recovery_finishes_when_health_visibility_exists(self):
+        content = """async function refreshHealth() {}
+const model_gateway = health?.dependencies?.model_gateway?.ok;
+const local_agent = health?.dependencies?.local_agent?.ok;
+const status = health?.status;
+"""
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "apps/desktop/src/App.tsx"}},
+                "outcome": {"tool": "read_file", "ok": True, "result": {
+                    "path": "apps/desktop/src/App.tsx", "content": content
+                }},
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-desktop-health",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["apps/desktop/src/App.tsx"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "finish_task")
+        self.assertTrue(step["arguments"]["no_change"])
+
+    def test_model_verified_noop_summary_is_bounded(self):
+        summary = '''```json
+{
+  "kind": "success",
+  "summary": "No additional safe bounded change was identified; the selected target already satisfies its contract.",
+  "detail": {
+    "status": "completed",
+    "changed_files": [],
+    "validations": ["npm run build"],
+    "failures": []
+  }
+}
+```'''
+        self.assertTrue(_model_reported_verified_noop(summary))
+        changed = summary.replace('"changed_files": []', '"changed_files": ["x"]')
+        self.assertFalse(_model_reported_verified_noop(changed))
     def test_db_recovery_compacts_duplicate_memory_evidence(self):
         content = '''    detail = {
         "instruction": instruction_text[:4_000],
