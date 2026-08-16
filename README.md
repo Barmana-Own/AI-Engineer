@@ -4,7 +4,7 @@
 
 This repository is maintained by a bounded five-minute supervisor with checkpointed sub-agent inspection, implementation, and verification.
 
-- Last bounded cycle checkpoint: 84cc9a63
+- Last bounded cycle checkpoint: 499da617
 
 پلتفرم مهندسی نرم‌افزار هوشمند شخصی، Local-First و قابل اجرا روی Windows 11.
 
