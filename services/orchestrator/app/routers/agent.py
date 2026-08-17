@@ -43,8 +43,11 @@ def section_subagents_list() -> list[dict[str, object]]:
 
 
 @router.get("/tasks", response_model=list[AgentTaskResponse])
-def tasks_list(project_id: str | None = None) -> list[AgentTaskResponse]:
-    return [AgentTaskResponse(**task) for task in list_tasks(project_id)]
+def tasks_list(
+    project_id: str | None = None,
+    limit: int = Query(100, ge=1, le=200),
+) -> list[AgentTaskResponse]:
+    return [AgentTaskResponse(**task) for task in list_tasks(project_id)[:limit]]
 
 
 @router.get("/tasks/{task_id}", response_model=AgentTaskResponse)
