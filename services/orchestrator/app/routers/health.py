@@ -54,7 +54,7 @@ async def health() -> dict[str, Any]:
     return {
         "status": "ok" if ready else "degraded",
         "service": settings.app_name,
-        "version": "0.1.0",
+        "version": "0.6.0",
         "dependencies": {
             "model_gateway": gateway,
             "local_agent": agent,
