@@ -201,7 +201,8 @@ SECTION_ROLE_KEYS: dict[str, str] = {
     for role in SUBAGENT_ROLES
     if role.key in _DOMAIN_ROLE_KEYS
 }
-HANDOFF_SCHEMA_VERSION = "1.0"HANDOFF_ITEM_LIMIT = 1_000
+HANDOFF_SCHEMA_VERSION = "1.0"
+HANDOFF_ITEM_LIMIT = 1_000
 
 
 def _bounded_unique_strings(
@@ -461,11 +462,11 @@ def build_handoff(
         summary=str(summary or "").strip()[:4_000],
         task_id=task_id,
         evidence=tuple(dict(item) for item in evidence[:20]),
-'        changed_files=_bounded_unique_strings(
+        changed_files=_bounded_unique_strings(
             [str(item).replace("\\", "/") for item in changed_files],
             limit=50,
             item_limit=512,
-        ),'
+        ),
         validations=tuple(dict(item) for item in validations[:20]),
         blockers=_bounded_unique_strings(blockers, limit=20),
         next_action=str(next_action).strip()[:1_000] if next_action else None,
