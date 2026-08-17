@@ -36,6 +36,18 @@ export type HealthResponse = {
   };
 };
 
+export type CapabilitiesResponse = {
+  service: string;
+  health_endpoint: string;
+  workspace_guarded: boolean;
+  mutation_requires_checkpoint: boolean;
+  autonomous_supervisor: {
+    enabled: boolean;
+    interval_minutes: number;
+    cycles_per_run: number;
+  };
+};
+
 export type AutonomyRun = {
   id: string;
   project_id: string;
@@ -118,6 +130,10 @@ function get<T>(url: string): Promise<T> {
 
 export function getHealth(): Promise<HealthResponse> {
   return get(`${ORCHESTRATOR_URL}/health`);
+}
+
+export function getCapabilities(): Promise<CapabilitiesResponse> {
+  return get(`${ORCHESTRATOR_URL}/capabilities`);
 }
 
 export function getRuntimeModels(): Promise<RuntimeModels> {
