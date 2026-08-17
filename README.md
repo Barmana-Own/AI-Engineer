@@ -1,10 +1,10 @@
-﻿# AI Engineer
+# AI Engineer
 
 ## Autonomous development
 
-This repository is maintained by a bounded five-minute supervisor with checkpointed sub-agent inspection, implementation, and verification.
+This repository is maintained by a bounded, interval-configured supervisor with checkpointed sub-agent inspection, implementation, and verification.
 
-- Last bounded cycle checkpoint: d2e8f777
+- The latest bounded cycle is recorded as a Git checkpoint; inspect `git log -1 --oneline` for the current commit.
 
 پلتفرم مهندسی نرم‌افزار هوشمند شخصی، Local-First و قابل اجرا روی Windows 11.
 
@@ -14,6 +14,7 @@ This repository is maintained by a bounded five-minute supervisor with checkpoin
 - مسیر پروژه: `F:\AI-Engineer`
 - Model Gateway، Local Agent و Desktop اولیه موجود هستند.
 - Orchestrator اکنون دو حالت `interactive` و `autonomous` دارد.
+- وضعیت زنده‌ی سرویس‌ها و cadence supervisor از `GET /health` و `GET /capabilities` قابل مشاهده است.
 - هر چرخه خودتکمیل قبل از تغییر Read و Git Checkpoint انجام می‌دهد، Validation اجرا می‌کند و نتیجه را در حافظه پروژه ثبت می‌کند.
 - مخزن Git محلی در ریشه پروژه نگهداری می‌شود.
 - API Key، رمزها و فایل‌های محرمانه نباید وارد Git شوند.
@@ -123,7 +124,7 @@ GET /v1/agent/autonomy/runs/{run_id}
 GET /v1/agent/projects/{project_id}/memory
 ```
 
-حالت خودکار فقط برای تغییرات فایلِ خوانده‌شده و پس از checkpoint فعال است؛ حذف، نصب، rollback، انتشار و تغییرات سیستم‌عامل همچنان نیازمند Policy/Approval هستند.
+حالت خودکار فقط برای تغییرات فایلِ خوانده‌شده و پس از checkpoint فعال است؛ هر task می‌تواند `validation_command` مشخص داشته باشد تا در پایان همان پروژه اجرا شود. حذف، نصب، rollback، انتشار و تغییرات سیستم‌عامل همچنان نیازمند Policy/Approval هستند.
 
 برای اینکه Supervisor خودش به‌صورت دوره‌ای بیدار شود، مقادیر نمونه‌ی
 `services/orchestrator/.env.example` را در `.env` کپی و
