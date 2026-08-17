@@ -424,6 +424,10 @@ def _safe_relative(value: str | None, *, allow_dot: bool = True) -> str:
         raise ValueError("Paths may not escape the selected project.")
     if any("\x00" in part for part in parts):
         raise ValueError("Invalid path.")
+    if any(":" in part for part in parts):
+        raise ValueError("Paths may not contain a colon.")
+    if any(part.endswith((".", " ")) for part in parts):
+        raise ValueError("Paths may not end with a dot or space.")
 
     return PurePosixPath(*parts).as_posix()
 
