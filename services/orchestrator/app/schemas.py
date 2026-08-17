@@ -4,25 +4,25 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatMessage(BaseModel):
-    role: str
+    role: str = Field(min_length=1, max_length=32)
     content: str
 
 
 class ChatTaskRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    messages: list[ChatMessage]
-    model: str | None = None
-    temperature: float = 0
-    max_tokens: int = 512
-    project_id: str = "default"
-    task_id: str = "chat-task"
-    agent_id: str = "orchestrator"
+    messages: list[ChatMessage] = Field(min_length=1, max_length=100)
+    model: str | None = Field(default=None, max_length=200)
+    temperature: float = Field(default=0, ge=0, le=2)
+    max_tokens: int = Field(default=512, ge=1, le=32_768)
+    project_id: str = Field(default="default", min_length=1, max_length=128)
+    task_id: str = Field(default="chat-task", min_length=1, max_length=128)
+    agent_id: str = Field(default="orchestrator", min_length=1, max_length=128)
 
 
 class FileWriteTaskRequest(BaseModel):
     path: str = Field(min_length=1, max_length=500)
-    content: str
+    content: str = Field(max_length=1_048_576)
     overwrite: bool = False
 
 
