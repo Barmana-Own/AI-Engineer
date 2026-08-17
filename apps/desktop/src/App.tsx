@@ -20,6 +20,15 @@ type Health = {
   };
 };
 
+type Capabilities = {
+  workspace_guarded: boolean;
+  mutation_requires_checkpoint: boolean;
+  autonomous_supervisor: {
+    enabled: boolean;
+    interval_minutes: number;
+    cycles_per_run: number;
+  };
+};
 type Message = {
   id: string;
   role: "user" | "assistant";
@@ -229,6 +238,7 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [health, setHealth] = useState<Health | null>(null);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<"chat" | "agent">("agent");
@@ -283,6 +293,14 @@ export default function App() {
       setHealth(await api("orchestrator", "GET", "/health"));
     } catch {
       setHealth(null);
+    }
+
+    try {
+      setCapabilities(
+        (await api("orchestrator", "GET", "/capabilities")) as Capabilities,
+      );
+    } catch {
+      setCapabilities(null);
     }
   }
 
@@ -804,6 +822,7 @@ export default function App() {
     health?.dependencies?.local_agent?.ok === true;
   const gatewayReady =
     health?.dependencies?.model_gateway?.ok === true;
+  const supervisorReady = capabilities?.autonomous_supervisor.enabled === true;
 
   return (
     <div className="app-shell" dir="ltr">
@@ -874,6 +893,8 @@ export default function App() {
             Agent
             <span className={`dot ${gatewayReady ? "ok" : ""}`} />
             Model
+            <span className={`dot ${supervisorReady ? "ok" : ""}`} />
+            Supervisor
           </div>
         </aside>
 
