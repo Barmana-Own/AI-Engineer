@@ -3,7 +3,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+from pydantic import ValidationError
 from app import db
+from app.schemas import ChatMessage, ChatTaskRequest, FileWriteTaskRequest
 from app.autonomy import _reconciliation_grace_seconds
 from app.agent_service import (
     _autonomous_target_paths,
@@ -700,6 +702,19 @@ def test_selection_skips_recently_failed_target():
         self.assertLessEqual(len(handoff["blockers"][1]), 1_003)
         self.assertEqual(handoff["previous_handoff_ids"], ["h-0"])
         self.assertEqual(handoff["confidence"], 1.0)
+
+
+class SchemaContractTests(unittest.TestCase):
+    def test_chat_and_file_payloads_are_bounded(self):
+        valid = ChatTaskRequest(messages=[ChatMessage(role="user", content="ok")])
+        self.assertEqual(valid.max_tokens, 512)
+
+        with self.assertRaises(ValidationError):
+            ChatTaskRequest(messages=[ChatMessage(role="user", content="x" * 100_001)])
+        with self.assertRaises(ValidationError):
+            ChatTaskRequest(messages=[ChatMessage(role="user", content="ok")] * 101)
+        with self.assertRaises(ValidationError):
+            FileWriteTaskRequest(path="src/file.py", content="x" * 1_048_577)
 
 
 class AgentReadGuardTests(unittest.IsolatedAsyncioTestCase):

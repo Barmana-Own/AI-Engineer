@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ChatMessage(BaseModel):
     role: str = Field(min_length=1, max_length=32)
-    content: str
+    content: str = Field(min_length=1, max_length=100_000)
 
 
 class ChatTaskRequest(BaseModel):
