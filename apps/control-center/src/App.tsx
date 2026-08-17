@@ -100,6 +100,7 @@ function App() {
       ]);
 
     if (healthResult.status === "fulfilled") setHealth(healthResult.value);
+    if (capabilitiesResult.status === "fulfilled") setCapabilitiesState(capabilitiesResult.value);
     if (modelsResult.status === "fulfilled") setModels(modelsResult.value);
     if (rolesResult.status === "fulfilled") setRoles(rolesResult.value);
     if (sectionRolesResult.status === "fulfilled") setSectionRoles(sectionRolesResult.value);
