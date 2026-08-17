@@ -55,6 +55,7 @@ class ProjectResponse(BaseModel):
 class AgentTaskCreateRequest(BaseModel):
     project_id: str
     instruction: str = Field(min_length=3, max_length=8000)
+    validation_command: str | None = Field(default=None, max_length=1000)
     mode: Literal["interactive", "autonomous"] = "interactive"
 
 

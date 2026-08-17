@@ -76,6 +76,13 @@ def task_create(
             detail="Instruction is empty.",
         )
 
+    validation_command = (request.validation_command or "").strip()
+    if validation_command:
+        instruction = (
+            f"{instruction}\\n\\nFINAL VALIDATION COMMAND (run after any mutation): "
+            f"{validation_command}"
+        )
+
     task = create_task(
         project_id=request.project_id,
         instruction=instruction,
