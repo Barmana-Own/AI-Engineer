@@ -59,6 +59,23 @@ class AutonomousBacklogTests(unittest.TestCase):
         selected = select_autonomous_backlog_item("project")
 
         self.assertEqual(selected.target, AUTONOMOUS_BACKLOG[2].target)
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
+    def test_selection_skips_verified_changed_target(self, search_memories, list_autonomy_runs):
+        changed = AUTONOMOUS_BACKLOG[0]
+        search_memories.return_value = [{
+            "kind": "success",
+            "detail": {
+                "status": "completed",
+                "instruction": f"TARGET FILE: {changed.target}",
+                "changed_files": [changed.target.replace("/", "\\").upper()],
+            },
+        }]
+        list_autonomy_runs.return_value = []
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertNotEqual(selected.target, changed.target)
     def test_targets_are_unique(self):
         targets = [item.target for item in AUTONOMOUS_BACKLOG]
         self.assertEqual(len(targets), len(set(targets)))
