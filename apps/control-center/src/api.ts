@@ -103,6 +103,7 @@ export type RuntimeModels = {
   candidate_order: string;
 };
 
+const API_TIMEOUT_MS = 10_000
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   let payload: unknown = null;
@@ -125,7 +126,12 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 function get<T>(url: string): Promise<T> {
-  return fetch(url).then((response) => parseResponse<T>(response));
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  return fetch(url, { signal: controller.signal })
+    .then((response) => parseResponse<T>(response))
+    .finally(() => window.clearTimeout(timeout));
 }
 
 export function getHealth(): Promise<HealthResponse> {
