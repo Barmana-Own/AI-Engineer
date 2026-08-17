@@ -2507,7 +2507,8 @@ Choose the next tool that implements the requested visible outcome. Do not make 
     if (
         autonomous
         and _model_reported_verified_noop(content)
-        and _successful_records(results, {"read_file", "git_checkpoint"})
+        and _successful_records(results, {"read_file"})
+        and _successful_records(results, {"git_checkpoint"})
         and (
             _autonomous_target_is_current(results, _autonomous_target_paths(instruction))
             or _successful_validations(results)
