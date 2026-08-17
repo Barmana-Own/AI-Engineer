@@ -682,14 +682,23 @@ def test_selection_skips_recently_failed_target():
             role="gateway",
             status="completed",
             summary="Gateway inspected.",
-            changed_files=["services\\model-gateway\\app\\router.py"],
+            changed_files=[
+                " services\\model-gateway\\app\\router.py ",
+                "services\\model-gateway\\app\\router.py",
+                "",
+            ],
             validations=[{"command": "python -m pytest -q", "ok": True}],
-            previous_handoff_ids=["h-0"],
+            blockers=[" timeout ", "timeout", "b" * 2_000],
+            previous_handoff_ids=["h-0", "h-0", ""],
             confidence=1.4,
         )
         self.assertEqual(handoff["schema_version"], HANDOFF_SCHEMA_VERSION)
         self.assertEqual(handoff["section"], "model-gateway")
         self.assertEqual(handoff["changed_files"], ["services/model-gateway/app/router.py"])
+        self.assertEqual(handoff["blockers"][0], "timeout")
+        self.assertEqual(len(handoff["blockers"]), 2)
+        self.assertLessEqual(len(handoff["blockers"][1]), 1_003)
+        self.assertEqual(handoff["previous_handoff_ids"], ["h-0"])
         self.assertEqual(handoff["confidence"], 1.0)
 
 
