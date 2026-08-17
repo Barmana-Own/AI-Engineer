@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -15,21 +16,23 @@ async def request_json(
     json: dict[str, Any] | None = None,
     timeout_seconds: int | None = None,
 ) -> Any:
-    timeout = httpx.Timeout(
-        timeout_seconds or settings.request_timeout_seconds
-    )
+    effective_timeout = max(float(timeout_seconds or settings.request_timeout_seconds), 0.001)
+    timeout = httpx.Timeout(effective_timeout)
 
     try:
         async with httpx.AsyncClient(
             timeout=timeout,
             trust_env=False,
         ) as client:
-            response = await client.request(
-                method,
-                url,
-                json=json,
+            response = await asyncio.wait_for(
+                client.request(
+                    method,
+                    url,
+                    json=json,
+                ),
+                timeout=effective_timeout,
             )
-    except httpx.TimeoutException as exc:
+    except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail={
