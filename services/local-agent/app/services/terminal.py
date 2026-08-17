@@ -43,7 +43,7 @@ BLOCKED_PATTERNS: tuple[tuple[str, str], ...] = (
 
 APPROVAL_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"(?i)\b(remove-item|del|erase|rd|rmdir)\b", "Deletes files or directories."),
-    (r"(?i)\brm(?:\.exe)?\b", "Deletes files or directories.")
+    (r"(?i)\brm(?:\.exe)?\b", "Deletes files or directories."),
     (r"(?i)\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f)", "Can discard Git work."),
     (r"(?i)\b(npm|pnpm|yarn|pip|python\s+-m\s+pip)\s+(install|uninstall|update|upgrade)\b", "Changes installed dependencies."),
     (r"(?i)\bwinget\s+(install|uninstall|upgrade)\b", "Changes installed applications."),
