@@ -489,6 +489,33 @@ const status = health?.status;
         self.assertEqual(step["tool"], "finish_task")
         self.assertTrue(step["arguments"]["no_change"])
 
+    def test_operations_docs_recovery_finishes_when_contract_exists(self):
+        content = """This repository is maintained by a bounded, interval-configured supervisor.
+GET /capabilities
+validation_command
+"""
+        results = [
+            {
+                "step": {"tool": "read_file", "arguments": {"path": "README.md"}},
+                "outcome": {"tool": "read_file", "ok": True, "result": {
+                    "path": "README.md", "content": content
+                }},
+            },
+            {
+                "step": {"tool": "git_checkpoint", "arguments": {}},
+                "outcome": {"tool": "git_checkpoint", "ok": True, "result": {}},
+            },
+        ]
+        step = _deterministic_autonomous_recovery_step(
+            "task-operations-docs",
+            results,
+            {"mutation": True, "validation": True},
+            False,
+            ["README.md"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "finish_task")
+        self.assertTrue(step["arguments"]["no_change"])
     def test_model_verified_noop_summary_is_bounded(self):
         summary = '''```json
 {
