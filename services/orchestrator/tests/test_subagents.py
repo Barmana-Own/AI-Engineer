@@ -305,6 +305,26 @@ LEARNED MEMORY:
         self.assertEqual(step["tool"], "run_terminal")
         self.assertEqual(step["arguments"]["cwd"], "services/orchestrator")
         self.assertTrue(step["arguments"]["command"].startswith(".\\.venv\\Scripts\\python.exe -m"))
+    def test_read_only_verifier_recovery_uses_gateway_suite(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/model-gateway/app/router.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {"path": "services/model-gateway/app/router.py", "content": "# current"},
+            },
+        }]
+        step = _deterministic_autonomous_recovery_step(
+            "task-gateway-verifier",
+            results,
+            {"mutation": False, "validation": True},
+            True,
+            ["services/model-gateway/app/router.py"],
+        )
+        self.assertIsNotNone(step)
+        self.assertEqual(step["tool"], "run_terminal")
+        self.assertEqual(step["arguments"]["cwd"], "services/model-gateway")
+        self.assertIn(".venv\\Scripts\\python.exe -m pytest", step["arguments"]["command"])
     def test_validation_recovery_uses_service_virtualenv(self):
         results = [
             {
