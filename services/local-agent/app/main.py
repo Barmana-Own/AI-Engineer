@@ -36,4 +36,11 @@ def capabilities() -> dict:
         "mutation_requires_checkpoint": True,
         "checkpoint_scope": "project",
         "read_only_tools": ["files", "terminal_preview", "health"],
+        "approval_required_for": ["file_write", "terminal_run_risky", "git_checkpoint", "git_rollback", "process_start", "process_stop"],
+        "limits": {
+            "max_command_timeout_seconds": settings.max_command_timeout_seconds,
+            "max_command_length": settings.max_command_length,
+            "max_file_read_bytes": settings.max_file_read_bytes,
+            "max_file_write_bytes": settings.max_file_write_bytes,
+        },
     }
