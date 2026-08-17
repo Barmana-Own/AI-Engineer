@@ -822,7 +822,7 @@ export default function App() {
     health?.dependencies?.local_agent?.ok === true;
   const gatewayReady =
     health?.dependencies?.model_gateway?.ok === true;
-  const supervisorReady = capabilities?.autonomous_supervisor.enabled === true;
+  const supervisorReady = health?.status === "ok" && capabilities?.autonomous_supervisor.enabled === true;
 
   return (
     <div className="app-shell" dir="ltr">
