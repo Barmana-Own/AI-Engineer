@@ -2511,6 +2511,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
         and (
             _autonomous_target_is_current(results, _autonomous_target_paths(instruction))
             or _successful_validations(results)
+            or _model_reported_verified_noop(content)
         )
     ):
         return _make_step(
