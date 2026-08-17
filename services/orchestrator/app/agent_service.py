@@ -404,6 +404,13 @@ def _unwrap_model_action(raw: dict[str, Any]) -> dict[str, Any]:
 
     return raw
 
+_WINDOWS_DEVICE_NAMES = {
+    "con",
+    "prn",
+    "aux",
+    "nul",
+} | {f"com{index}" for index in range(1, 10)} | {f"lpt{index}" for index in range(1, 10)}
+
 def _safe_relative(value: str | None, *, allow_dot: bool = True) -> str:
     raw = (value or ".").replace("\\", "/")
     if raw != raw.strip():
@@ -428,6 +435,8 @@ def _safe_relative(value: str | None, *, allow_dot: bool = True) -> str:
         raise ValueError("Invalid path.")
     if any(":" in part for part in parts):
         raise ValueError("Paths may not contain a colon.")
+    if any(part.split(".", 1)[0].casefold() in _WINDOWS_DEVICE_NAMES for part in parts):
+        raise ValueError("Paths may not use reserved Windows device names.")
     if any(part.endswith((".", " ")) for part in parts):
         raise ValueError("Paths may not end with a dot or space.")
 
