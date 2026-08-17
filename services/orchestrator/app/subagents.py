@@ -201,7 +201,31 @@ SECTION_ROLE_KEYS: dict[str, str] = {
     for role in SUBAGENT_ROLES
     if role.key in _DOMAIN_ROLE_KEYS
 }
-HANDOFF_SCHEMA_VERSION = "1.0"
+HANDOFF_SCHEMA_VERSION = "1.0"HANDOFF_ITEM_LIMIT = 1_000
+
+
+def _bounded_unique_strings(
+    values: list[object] | tuple[object, ...],
+    *,
+    limit: int,
+    item_limit: int = HANDOFF_ITEM_LIMIT,
+) -> tuple[str, ...]:
+    """Normalize repeated handoff labels without allowing prompt amplification."""
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text:
+            continue
+        if len(text) > item_limit:
+            text = text[:item_limit] + "..."
+        if text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+        if len(normalized) >= max(int(limit), 1):
+            break
+    return tuple(normalized)
 
 
 def get_subagent_role(key: str) -> SubagentRole:
@@ -437,12 +461,16 @@ def build_handoff(
         summary=str(summary or "").strip()[:4_000],
         task_id=task_id,
         evidence=tuple(dict(item) for item in evidence[:20]),
-        changed_files=tuple(str(item).replace("\\", "/") for item in changed_files[:50]),
+'        changed_files=_bounded_unique_strings(
+            [str(item).replace("\\", "/") for item in changed_files],
+            limit=50,
+            item_limit=512,
+        ),'
         validations=tuple(dict(item) for item in validations[:20]),
-        blockers=tuple(str(item).strip() for item in blockers if str(item).strip())[:20],
+        blockers=_bounded_unique_strings(blockers, limit=20),
         next_action=str(next_action).strip()[:1_000] if next_action else None,
         confidence=confidence,
-        previous_handoff_ids=tuple(str(item) for item in previous_handoff_ids[:20]),
+        previous_handoff_ids=_bounded_unique_strings(previous_handoff_ids, limit=20, item_limit=200),
         created_at=created_at,
     ).as_dict()
 
