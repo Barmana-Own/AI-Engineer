@@ -54,6 +54,7 @@ APPROVAL_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"(?i)\b(set-content|add-content|out-file|new-item|copy-item|move-item|rename-item)\b", "Writes or changes files."),
     (r"(?i)\b(invoke-webrequest|invoke-restmethod|iwr|irm|curl(?:\.exe)?|wget)\b", "Makes an external network request."),
     (r"(?i)(?:^|[^>])>(?:>|[^>])", "Uses output redirection."),
+    (r"(?i)\\$\\(", "Contains PowerShell subexpression or command substitution."),
     (r"[\r\n;&|]", "Contains command chaining, piping, or multiple commands."),
 )
 
