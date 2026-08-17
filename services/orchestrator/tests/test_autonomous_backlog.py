@@ -27,6 +27,20 @@ class AutonomousBacklogTests(unittest.TestCase):
         }]
         selected = select_autonomous_backlog_item("project")
         self.assertNotEqual(selected.target, failed.target)
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
+    def test_selection_skips_recently_failed_run_target(self, search_memories, list_autonomy_runs):
+        search_memories.return_value = []
+        failed = AUTONOMOUS_BACKLOG[0]
+        list_autonomy_runs.return_value = [{
+            "status": "failed",
+            "goal": f"TARGET FILE: {failed.target}",
+        }]
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertNotEqual(selected.target, failed.target)
+
     @patch("app.autonomy.search_memories")
     def test_selection_rotates_after_bounded_memory_window(self, search_memories):
         repeated = next(item for item in AUTONOMOUS_BACKLOG if item.key == "test-coverage")
