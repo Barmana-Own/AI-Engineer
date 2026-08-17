@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import Any
 
 import httpx
@@ -10,6 +11,7 @@ router = APIRouter(tags=["health"])
 
 
 async def probe(name: str, url: str) -> dict[str, Any]:
+    started = time.perf_counter()
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(10),
@@ -22,6 +24,7 @@ async def probe(name: str, url: str) -> dict[str, Any]:
             "url": url,
             "ok": response.status_code == 200,
             "status_code": response.status_code,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         }
     except Exception as exc:
         return {
@@ -29,6 +32,7 @@ async def probe(name: str, url: str) -> dict[str, Any]:
             "url": url,
             "ok": False,
             "error": str(exc),
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
         }
 
 
