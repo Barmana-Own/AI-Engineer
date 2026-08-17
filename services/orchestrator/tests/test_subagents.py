@@ -749,5 +749,17 @@ class PathBoundaryTests(unittest.TestCase):
                 _safe_relative(value)
 
 
+
+class IntegrationHealthTests(unittest.TestCase):
+    def test_orchestrator_capabilities_contract(self):
+        from app.main import capabilities
+
+        result = capabilities()
+        self.assertTrue(result["workspace_guarded"])
+        self.assertTrue(result["mutation_requires_checkpoint"])
+        self.assertEqual(result["health_endpoint"], "/health")
+        self.assertIn("autonomous_supervisor", result)
+
+
 if __name__ == "__main__":
     unittest.main()
