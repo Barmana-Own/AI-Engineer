@@ -83,3 +83,17 @@ def root() -> dict:
         "service": settings.app_name,
         "version": "0.6.0",
     }
+
+@app.get("/capabilities")
+def capabilities() -> dict:
+    return {
+        "service": settings.app_name,
+        "health_endpoint": "/health",
+        "workspace_guarded": True,
+        "mutation_requires_checkpoint": True,
+        "autonomous_supervisor": {
+            "enabled": bool(settings.autonomous_mode_enabled),
+            "interval_minutes": settings.autonomous_interval_minutes,
+            "cycles_per_run": settings.autonomous_cycles_per_run,
+        },
+    }
