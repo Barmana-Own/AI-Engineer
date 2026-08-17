@@ -79,7 +79,7 @@ def task_create(
     validation_command = (request.validation_command or "").strip()
     if validation_command:
         instruction = (
-            f"{instruction}\\n\\nFINAL VALIDATION COMMAND (run after any mutation): "
+            f"{instruction}\n\nFINAL VALIDATION COMMAND (run after any mutation): "
             f"{validation_command}"
         )
 
