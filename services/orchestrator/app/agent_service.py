@@ -405,7 +405,9 @@ def _unwrap_model_action(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 def _safe_relative(value: str | None, *, allow_dot: bool = True) -> str:
-    raw = (value or ".").strip().replace("\\", "/")
+    raw = (value or ".").replace("\\", "/")
+    if raw != raw.strip():
+        raise ValueError("Paths may not contain leading or trailing whitespace.")
 
     if raw in {"", "."}:
         if allow_dot:
