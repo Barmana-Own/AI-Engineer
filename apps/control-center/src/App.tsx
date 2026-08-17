@@ -4,6 +4,7 @@ import {
   createAgentTask,
   createProject,
   getAgentTask,
+  getCapabilities,
   getHealth,
   getRuntimeModels,
   listAgentTasks,
@@ -15,6 +16,7 @@ import {
   startSelfImprove,
   type AgentTask,
   type AutonomyRun,
+  type CapabilitiesResponse,
   type HealthResponse,
   type Project,
   type RuntimeModels,
@@ -36,6 +38,7 @@ const capabilities = [
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [capabilitiesState, setCapabilitiesState] = useState<CapabilitiesResponse | null>(null);
   const [models, setModels] = useState<RuntimeModels | null>(null);
   const [roles, setRoles] = useState<SubagentRole[]>([]);
   const [sectionRoles, setSectionRoles] = useState<SubagentRole[]>([]);
@@ -86,9 +89,10 @@ function App() {
   }, []);
 
   const refreshAll = useCallback(async () => {
-    const [healthResult, modelsResult, rolesResult, sectionRolesResult, projectsResult] =
+    const [healthResult, capabilitiesResult, modelsResult, rolesResult, sectionRolesResult, projectsResult] =
       await Promise.allSettled([
         getHealth(),
+        getCapabilities(),
         getRuntimeModels(),
         listSubagents(),
         listSectionSubagents(),
@@ -269,7 +273,7 @@ function App() {
         <section className="main-column">
           <section className="panel command-panel">
             <div className="panel-heading"><div><p className="panel-label">COMMAND DECK</p><h2>Direct the engineer</h2></div><span className="project-context">{selectedProject?.workspace ?? "no project"}</span></div>
-            <p className="muted">The autonomous supervisor runs one bounded specialist pipeline every five minutes. Manual tasks use the same guarded tool loop.</p>
+            <p className="muted">The autonomous supervisor {capabilitiesState?.autonomous_supervisor.enabled ? `runs ${capabilitiesState.autonomous_supervisor.cycles_per_run} bounded specialist cycle${capabilitiesState.autonomous_supervisor.cycles_per_run === 1 ? "" : "s"} every ${capabilitiesState.autonomous_supervisor.interval_minutes} minute${capabilitiesState.autonomous_supervisor.interval_minutes === 1 ? "" : "s"}` : "is disabled"}. Manual tasks use the same guarded tool loop.</p>
             <form onSubmit={handleRunTask} className="command-form">
               <textarea rows={5} value={instruction} onChange={(event) => setInstruction(event.target.value)} />
               <div className="button-row">
