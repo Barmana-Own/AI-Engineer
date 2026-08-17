@@ -738,5 +738,16 @@ class SubagentHandoffDbTests(unittest.TestCase):
                 self.assertEqual(rows[1]["previous_handoff_ids"], [first["id"]])
 
 
+
+class PathBoundaryTests(unittest.TestCase):
+    def test_safe_relative_rejects_windows_aliases(self):
+        from app.agent_service import _safe_relative
+
+        self.assertEqual(_safe_relative("src/main.py"), "src/main.py")
+        for value in ("file:stream", "name.", "name ", " name", "name\\t"):
+            with self.assertRaises(ValueError):
+                _safe_relative(value)
+
+
 if __name__ == "__main__":
     unittest.main()
