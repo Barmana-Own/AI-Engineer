@@ -122,6 +122,7 @@ Content-Type: application/json
 ```text
 GET /v1/agent/autonomy/runs/{run_id}
 GET /v1/agent/projects/{project_id}/memory
+GET /capabilities
 ```
 
 حالت خودکار فقط برای تغییرات فایلِ خوانده‌شده و پس از checkpoint فعال است؛ هر task می‌تواند `validation_command` مشخص داشته باشد تا در پایان همان پروژه اجرا شود. حذف، نصب، rollback، انتشار و تغییرات سیستم‌عامل همچنان نیازمند Policy/Approval هستند.
