@@ -880,7 +880,7 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
                 and task.get("status") in active_statuses
             }
             for run in open_runs:
-                if run["status"] not in {"queued", "planning", "running"}:
+                if run["status"] not in {"queued", "planning", "running", "awaiting_approval"}:
                     continue
                 if active_ids.intersection(set(run.get("task_ids") or [])):
                     continue
