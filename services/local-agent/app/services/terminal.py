@@ -76,6 +76,12 @@ def classify_command(command: str) -> CommandAssessment:
             reasons=[f"Command exceeds {settings.max_command_length} characters."],
         )
 
+    if any(ord(char) < 32 or ord(char) == 127 for char in normalized):
+        return CommandAssessment(
+            risk="blocked",
+            reasons=["Command contains control characters."],
+        )
+
     blocked_reasons = [
         reason
         for pattern, reason in BLOCKED_PATTERNS
