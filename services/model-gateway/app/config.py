@@ -95,6 +95,7 @@ class Settings(BaseSettings):
     read_timeout_seconds: float = Field(default=90.0, gt=0, le=600)
     write_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    max_provider_response_bytes: int = Field(default=4 * 1024 * 1024, ge=1024, le=64 * 1024 * 1024)
 
     # A retry is performed against the same model before moving to a fallback model.
     max_retries: int = Field(default=1, ge=0, le=5)

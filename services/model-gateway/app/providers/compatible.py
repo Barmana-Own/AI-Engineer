@@ -32,6 +32,7 @@ class _ProfileSettings(SimpleNamespace):
             read_timeout_seconds=settings.read_timeout_seconds,
             write_timeout_seconds=settings.write_timeout_seconds,
             pool_timeout_seconds=settings.pool_timeout_seconds,
+            max_provider_response_bytes=settings.max_provider_response_bytes,
             max_retries=settings.max_retries,
             retry_base_delay_seconds=settings.retry_base_delay_seconds,
         )

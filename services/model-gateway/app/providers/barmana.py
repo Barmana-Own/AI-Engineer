@@ -181,6 +181,16 @@ class BarmanaProvider(ModelProvider):
                     "The provider could not be reached."
                 ) from exc
 
+            response_bytes = len(response.content)
+            if response_bytes > self._settings.max_provider_response_bytes:
+                raise ProviderResponseError(
+                    "The provider response exceeded the configured byte limit.",
+                    details={
+                        "response_bytes": response_bytes,
+                        "max_response_bytes": self._settings.max_provider_response_bytes,
+                    },
+                )
+
             if response.status_code in {401, 403}:
                 raise ProviderAuthenticationError(
                     "The provider rejected the configured API credentials."
