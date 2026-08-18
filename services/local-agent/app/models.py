@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -98,7 +98,10 @@ class GitRollbackRequest(GitProjectRequest):
 class ProcessStartRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     executable: str = Field(min_length=1, max_length=500)
-    args: list[str] = Field(default_factory=list, max_length=100)
+    args: list[Annotated[str, Field(max_length=2048)]] = Field(
+        default_factory=list,
+        max_length=100,
+    )
     cwd: str = Field(default=".", max_length=500)
     approved: bool = False
 
