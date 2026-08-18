@@ -143,7 +143,9 @@ def _compact_registry(registry: dict[str, dict[str, Any]], *, reserve: int = 0) 
         process_id, _item = stopped.pop(0)
         registry.pop(process_id, None)
         changed = True
-    return changeddef list_processes() -> list[dict[str, Any]]:
+    return changed
+
+def list_processes() -> list[dict[str, Any]]:
     registry = _load_registry()
     changed = _compact_registry(registry)
     results = [
