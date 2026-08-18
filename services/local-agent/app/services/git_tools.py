@@ -25,7 +25,7 @@ from app.services.files import (
 _GIT_MUTEX = threading.RLock()
 _LOCK_RETRY_SECONDS = 15.0
 _GIT_DIFF_MAX_BYTES = 1_048_576
-_GIT_DIFF_TRUNCATION_MARKER = "`n...[diff truncated at 1048576 bytes]..."
+_GIT_DIFF_TRUNCATION_MARKER = "\n...[diff truncated at 1048576 bytes]..."
 
 
 def _git_executable() -> str:
@@ -315,13 +315,15 @@ def git_diff(
 
     args.extend(["--", "."])
     result = _run_git(root, args, timeout=90)
+    diff, diff_truncated = _truncate_diff(result.stdout)
 
     return {
         "project_path": to_relative_path(root),
         "repository_root": str(root),
         "staged": staged,
         "base": base,
-        "diff": result.stdout,
+        "diff": diff,
+        "diff_truncated": diff_truncated,
     }
 
 
