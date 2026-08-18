@@ -433,6 +433,8 @@ def _safe_relative(value: str | None, *, allow_dot: bool = True) -> str:
         raise ValueError("Paths may not escape the selected project.")
     if any("\x00" in part for part in parts):
         raise ValueError("Invalid path.")
+    if any(any(ord(char) < 32 or ord(char) == 127 for char in part) for part in parts):
+        raise ValueError("Paths may not contain control characters.")
     if any(":" in part for part in parts):
         raise ValueError("Paths may not contain a colon.")
     if any(part.split(".", 1)[0].casefold() in _WINDOWS_DEVICE_NAMES for part in parts):
