@@ -24,6 +24,8 @@ from app.services.files import (
 # healthy cycle into a false failure.
 _GIT_MUTEX = threading.RLock()
 _LOCK_RETRY_SECONDS = 15.0
+_GIT_DIFF_MAX_BYTES = 1_048_576
+_GIT_DIFF_TRUNCATION_MARKER = "`n...[diff truncated at 1048576 bytes]..."
 
 
 def _git_executable() -> str:
@@ -276,6 +278,16 @@ def git_checkpoint(
         "message": message,
     }
 
+
+def _truncate_diff(value: str) -> tuple[str, bool]:
+    encoded = value.encode("utf-8")
+    if len(encoded) <= _GIT_DIFF_MAX_BYTES:
+        return value, False
+
+    marker_bytes = _GIT_DIFF_TRUNCATION_MARKER.encode("utf-8")
+    budget = max(_GIT_DIFF_MAX_BYTES - len(marker_bytes), 0)
+    truncated = encoded[:budget].decode("utf-8", errors="ignore")
+    return truncated + _GIT_DIFF_TRUNCATION_MARKER, True
 
 def git_diff(
     project_path: str,
