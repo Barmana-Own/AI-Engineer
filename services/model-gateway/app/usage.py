@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import closing
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -50,7 +51,7 @@ class UsageStore:
         return connection
 
     def _initialize_sync(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute(
                 """
@@ -89,7 +90,7 @@ class UsageStore:
     def _record_sync(self, record: UsageRecord) -> None:
         attempted_models = ",".join(record.attempted_models)
 
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO model_usage (
@@ -129,7 +130,7 @@ class UsageStore:
             )
 
     def _summary_sync(self) -> UsageSummary:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             totals = connection.execute(
                 """
                 SELECT
