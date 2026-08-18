@@ -161,7 +161,7 @@ class RuntimeModelsResponse(BaseModel):
     max_fallback_attempts: int = Field(ge=0)
     max_retries_per_model: int = Field(ge=0)
     fallback_on: list[Annotated[str, Field(max_length=64)]] = Field(max_length=16)
-    candidate_order: str = Field(max_length=64)
+    candidate_order: str = Field(max_length=256)
 
 
 class UsageModelSummary(BaseModel):
