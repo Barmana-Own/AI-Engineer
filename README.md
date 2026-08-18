@@ -2,6 +2,10 @@
 
 ## Autonomous development
 
+This repository is maintained by a bounded five-minute supervisor with checkpointed sub-agent inspection, implementation, and verification.
+
+- Last bounded cycle checkpoint: 23af1962
+
 This repository is maintained by a bounded, interval-configured supervisor with checkpointed sub-agent inspection, implementation, and verification.
 
 - The latest bounded cycle is recorded as a Git checkpoint; inspect `git log -1 --oneline` for the current commit.
