@@ -8,6 +8,8 @@ from pathlib import Path
 
 from app.schemas import GatewayModelList, ProviderModelList
 
+_CACHE_MAX_BYTES = 4 * 1024 * 1024
+
 
 class ModelCatalogCache:
     """Small in-memory cache with a sanitized JSON disk fallback."""
@@ -55,8 +57,8 @@ class ModelCatalogCache:
         )
 
         async with self._lock:
-            self._memory = entry
             await asyncio.to_thread(self._write_to_disk, entry)
+            self._memory = entry
 
         return entry
 
@@ -65,9 +67,11 @@ class ModelCatalogCache:
             return None
 
         try:
-            raw = json.loads(self._path.read_text(encoding="utf-8"))
-            return GatewayModelList.model_validate(raw)
-        except (OSError, ValueError):
+            raw = self._path.read_bytes()
+            if len(raw) > _CACHE_MAX_BYTES:
+                return None
+            return GatewayModelList.model_validate(json.loads(raw))
+        except (OSError, ValueError, UnicodeError):
             return None
 
     def _write_to_disk(self, entry: GatewayModelList) -> None:
@@ -78,6 +82,10 @@ class ModelCatalogCache:
             entry.model_dump(mode="json"),
             ensure_ascii=False,
             indent=2,
-        )
-        temporary_path.write_text(serialized, encoding="utf-8")
+        ).encode("utf-8")
+        if len(serialized) > _CACHE_MAX_BYTES:
+            raise ValueError(
+                f"Model catalog cache exceeds {_CACHE_MAX_BYTES} bytes."
+            )
+        temporary_path.write_bytes(serialized)
         os.replace(temporary_path, self._path)
