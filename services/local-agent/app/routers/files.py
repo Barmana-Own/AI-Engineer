@@ -1,3 +1,4 @@
+import heapq
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -32,13 +33,13 @@ def list_files(path: str = Query(default=".", max_length=500)) -> FileListRespon
         )
 
     entries: list[FileEntry] = []
+    limit = max(int(settings.max_list_entries), 1)
 
-    for child in sorted(
+    for child in heapq.nsmallest(
+        limit,
         target.iterdir(),
         key=lambda item: (not item.is_dir(), item.name.casefold()),
     ):
-        if len(entries) >= settings.max_list_entries:
-            break
 
         assert_no_symlink_escape(child)
 
