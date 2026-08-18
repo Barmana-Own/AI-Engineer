@@ -821,6 +821,13 @@ class PathBoundaryTests(unittest.TestCase):
 
 
 
+    def test_safe_relative_rejects_control_characters(self):
+        from app.agent_service import _safe_relative
+
+        for value in ("src/line\nname.py", "src/null\x00name.py", "src/delete\x7fname.py"):
+            with self.assertRaisesRegex(ValueError, "control characters"):
+                _safe_relative(value)
+
 class IntegrationHealthTests(unittest.TestCase):
     def test_orchestrator_capabilities_contract(self):
         from app.main import capabilities
