@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { initDb, getDb, setSetting, getSetting } from '../../db/index.js';
-import { applyCatalog, reapplyCachedCatalog, MIN_CATALOG_VERSION } from '../../services/catalog-sync.js';
+import { applyCatalog, readCappedCatalogBytes, reapplyCachedCatalog, MIN_CATALOG_VERSION, MAX_CATALOG_BYTES } from '../../services/catalog-sync.js';
 import { runMigrationsSync } from '../../db/migrate/runner.js';
 import { recordCatalogModelTombstone, upsertModelOverrides } from '../../services/model-state.js';
 
@@ -500,5 +500,23 @@ describe('applyCatalog: transcriptionModels', () => {
     setSetting('catalog_applied_json', JSON.stringify(catalog));
     // isCatalog gates both the network and the cached re-apply paths.
     expect(reapplyCachedCatalog().reapplied).toBe(false);
+  });
+});
+
+
+describe('readCappedCatalogBytes (#safety)', () => {
+  it('rejects an oversized declared response before reading it', async () => {
+    const parse = vi.fn().mockResolvedValue(new ArrayBuffer(0));
+    const response = {
+      headers: new Headers({ 'content-length': String(MAX_CATALOG_BYTES + 1) }),
+      arrayBuffer: parse,
+    } as unknown as Response;
+    await expect(readCappedCatalogBytes(response)).rejects.toThrow(/exceeds/);
+    expect(parse).not.toHaveBeenCalled();
+  });
+
+  it('stops a chunked response when it crosses the cap', async () => {
+    const response = new Response(new Uint8Array([1, 2, 3]));
+    await expect(readCappedCatalogBytes(response, 2)).rejects.toThrow(/exceeds/);
   });
 });

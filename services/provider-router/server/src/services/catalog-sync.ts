@@ -585,7 +585,7 @@ export async function readCappedCatalogBytes(res: Response, maxBytes = MAX_CATAL
 
   const body = res.body as ReadableStream<Uint8Array> | null | undefined;
   if (!body || typeof body.getReader !== 'function') {
-    const bytes = await readCappedCatalogBytes(res);
+    const bytes = Buffer.from(await res.arrayBuffer());
     if (bytes.length > maxBytes) throw tooLarge();
     return bytes;
   }
