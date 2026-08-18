@@ -20,6 +20,7 @@ from app.services.files import (
 
 REGISTRY_PATH = Path("F:/AI-Engineer/data/local-agent/processes.json")
 LOG_ROOT = Path("F:/AI-Engineer/logs/managed-processes")
+MAX_MANAGED_PROCESSES = 256
 LOCK = threading.Lock()
 
 ALLOWED_EXECUTABLE_NAMES = {
@@ -117,24 +118,41 @@ def _resolve_executable(value: str) -> str:
     return candidate
 
 
-def list_processes() -> list[dict[str, Any]]:
-    registry = _load_registry()
+def _compact_registry(registry: dict[str, dict[str, Any]], *, reserve: int = 0) -> bool:
+    """Refresh process state and evict oldest stopped records within the cap."""
     changed = False
-    results: list[dict[str, Any]] = []
-
-    for process_id, item in registry.items():
-        running = _is_running(int(item["pid"]))
-
+    for item in registry.values():
+        try:
+            running = _is_running(int(item["pid"]))
+        except (KeyError, TypeError, ValueError):
+            running = False
         if item.get("running") != running:
             item["running"] = running
             changed = True
 
-        results.append(
-            {
-                "id": process_id,
-                **item,
-            }
-        )
+    target = max(MAX_MANAGED_PROCESSES - max(int(reserve), 0), 0)
+    stopped = sorted(
+        (
+            (process_id, item)
+            for process_id, item in registry.items()
+            if not item.get("running")
+        ),
+        key=lambda pair: (str(pair[1].get("started_at", "")), pair[0]),
+    )
+    while len(registry) > target and stopped:
+        process_id, _item = stopped.pop(0)
+        registry.pop(process_id, None)
+        changed = True
+    return changeddef list_processes() -> list[dict[str, Any]]:
+    registry = _load_registry()
+    changed = _compact_registry(registry)
+    results = [
+        {
+            "id": process_id,
+            **item,
+        }
+        for process_id, item in registry.items()
+    ]
 
     if changed:
         _save_registry(registry)
@@ -143,9 +161,7 @@ def list_processes() -> list[dict[str, Any]]:
         results,
         key=lambda item: item["started_at"],
         reverse=True,
-    )
-
-
+    )[:MAX_MANAGED_PROCESSES]
 def start_process(
     *,
     name: str,
@@ -170,6 +186,18 @@ def start_process(
         )
 
     resolved_executable = _resolve_executable(executable)
+    registry = _load_registry()
+    changed = _compact_registry(registry, reserve=1)
+    if len(registry) >= MAX_MANAGED_PROCESSES:
+        if changed:
+            _save_registry(registry)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Managed process limit reached ({MAX_MANAGED_PROCESSES}). Stop a process before starting another.",
+        )
+    if changed:
+        _save_registry(registry)
+
     process_id = str(uuid4())
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
 
