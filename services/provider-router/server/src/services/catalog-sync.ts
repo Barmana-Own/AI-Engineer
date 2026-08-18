@@ -54,6 +54,9 @@ const SYNC_INTERVAL_MS = 12 * 60 * 60 * 1000; // twice daily
 const BOOT_DELAY_MS = 10 * 1000; // let the server settle before first sync
 const FETCH_TIMEOUT_MS = 20 * 1000;
 
+/** Hard cap on a signed catalog response before buffering or parsing it. */
+export const MAX_CATALOG_BYTES = 4 * 1024 * 1024;
+
 // settings table keys
 export const SETTING_LICENSE_KEY = 'premium_license_key';
 export const SETTING_LICENSE_STATUS = 'premium_license_status'; // JSON LicenseStatus
@@ -574,6 +577,37 @@ export function applyCatalog(db: Db, catalog: Catalog): NonNullable<SyncResult['
   return counts;
 }
 
+/** Read a catalog response with a hard byte cap. Declared and chunked bodies are both bounded. */
+export async function readCappedCatalogBytes(res: Response, maxBytes = MAX_CATALOG_BYTES): Promise<Buffer> {
+  const tooLarge = () => new Error('Catalog response exceeds ' + Math.round(maxBytes / 1024) + ' KB; refusing to read it.');
+  const declared = Number(res.headers?.get?.('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge();
+
+  const body = res.body as ReadableStream<Uint8Array> | null | undefined;
+  if (!body || typeof body.getReader !== 'function') {
+    const bytes = await readCappedCatalogBytes(res);
+    if (bytes.length > maxBytes) throw tooLarge();
+    return bytes;
+  }
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) throw tooLarge();
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  return Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
+}
+
 /**
  * Fetch the catalog, verify its signature, and apply it if it moves us forward.
  * `force` skips the `since` short-circuit — used right after a license key is
@@ -601,7 +635,7 @@ export async function syncCatalog(force = false): Promise<SyncResult> {
 
     const signature = res.headers.get('x-catalog-signature');
     if (!signature) throw new Error('catalog response missing signature');
-    const bytes = Buffer.from(await res.arrayBuffer());
+    const bytes = await readCappedCatalogBytes(res);
     const verified = crypto.verify(null, bytes, catalogPublicKey(), Buffer.from(signature, 'base64'));
     if (!verified) throw new Error('catalog signature verification FAILED — discarding response');
 
