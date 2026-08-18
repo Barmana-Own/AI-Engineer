@@ -72,11 +72,14 @@ def _load_registry() -> dict[str, dict[str, Any]]:
 def _save_registry(registry: dict[str, dict[str, Any]]) -> None:
     with LOCK:
         REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(registry, ensure_ascii=False, indent=2).encode("utf-8")
+        if len(payload) > MAX_REGISTRY_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Managed process registry exceeds {MAX_REGISTRY_BYTES} bytes.",
+            )
         temporary = REGISTRY_PATH.with_suffix(".tmp")
-        temporary.write_text(
-            json.dumps(registry, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        temporary.write_bytes(payload)
         os.replace(temporary, REGISTRY_PATH)
 
 
