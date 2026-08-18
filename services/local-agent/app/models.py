@@ -30,7 +30,7 @@ class FileReadResponse(BaseModel):
 
 class FileWriteRequest(BaseModel):
     path: str = Field(min_length=1, max_length=500)
-    content: str
+    content: str = Field(max_length=4 * 1024 * 1024)
     overwrite: bool = False
 
 
