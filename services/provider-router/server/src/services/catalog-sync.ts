@@ -56,6 +56,8 @@ const FETCH_TIMEOUT_MS = 20 * 1000;
 
 /** Hard cap on a signed catalog response before buffering or parsing it. */
 export const MAX_CATALOG_BYTES = 4 * 1024 * 1024;
+/** License endpoints return small metadata documents, never catalogs. */
+export const MAX_LICENSE_RESPONSE_BYTES = 256 * 1024;
 
 // settings table keys
 export const SETTING_LICENSE_KEY = 'premium_license_key';
@@ -693,7 +695,7 @@ export async function refreshLicenseStatus(): Promise<LicenseStatus | null> {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok && res.status !== 401) throw new Error(`HTTP ${res.status}`);
-    const body = (await res.json()) as Omit<LicenseStatus, 'checkedAtMs'>;
+    const body = JSON.parse((await readCappedCatalogBytes(res, MAX_LICENSE_RESPONSE_BYTES)).toString('utf8')) as Omit<LicenseStatus, 'checkedAtMs'>;
     const status: LicenseStatus = { ...body, checkedAtMs: Date.now() };
     setSetting(SETTING_LICENSE_STATUS, JSON.stringify(status));
     return status;

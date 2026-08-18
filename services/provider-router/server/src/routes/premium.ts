@@ -9,6 +9,8 @@ import {
   getSyncState,
   refreshLicenseStatus,
   syncCatalog,
+  readCappedCatalogBytes,
+  MAX_LICENSE_RESPONSE_BYTES,
 } from '../services/catalog-sync.js';
 
 export const premiumRouter = Router();
@@ -56,7 +58,7 @@ premiumRouter.post('/key', async (req: Request, res: Response) => {
       body: JSON.stringify({ key }),
       signal: AbortSignal.timeout(15000),
     });
-    result = (await r.json()) as typeof result;
+    result = JSON.parse((await readCappedCatalogBytes(r, MAX_LICENSE_RESPONSE_BYTES)).toString('utf8')) as typeof result;
   } catch {
     res.status(502).json({ error: 'Could not reach the license service. Check your connection and try again.' });
     return;
@@ -114,7 +116,7 @@ premiumRouter.post('/portal', async (_req: Request, res: Response) => {
       body: JSON.stringify({ key }),
       signal: AbortSignal.timeout(15000),
     });
-    const body = (await r.json()) as { url?: string; error?: string };
+    const body = JSON.parse((await readCappedCatalogBytes(r, MAX_LICENSE_RESPONSE_BYTES)).toString('utf8')) as { url?: string; error?: string };
     if (!r.ok || !body.url) {
       res.status(502).json({ error: body.error ?? 'Could not open the billing portal.' });
       return;
