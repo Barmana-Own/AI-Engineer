@@ -26,6 +26,11 @@ export interface ProviderHttpError extends Error {
  *  than any real free-tier reset window, so clamping cannot mask a genuine hint. */
 const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 
+/** Declared validation error bodies are capped before JSON parsing. A hostile
+ *  endpoint must not force a health cycle to materialize an arbitrarily large
+ *  response just to explain a rejected credential. */
+export const MAX_VALIDATION_BODY_BYTES = 64 * 1024;
+
 /** Parse an HTTP `Retry-After` header (delta-seconds or an HTTP-date) into a
  *  millisecond delay, clamped to MAX_RETRY_AFTER_MS. Returns undefined when
  *  absent or unparseable. */
@@ -152,7 +157,9 @@ export abstract class BaseProvider {
 
     let body: any = null;
     try {
-      if (typeof (res as any).json === 'function') body = await res.json();
+      const declaredBytes = Number(res.headers?.get?.('content-length') ?? '');
+      const declaredTooLarge = Number.isFinite(declaredBytes) && declaredBytes > MAX_VALIDATION_BODY_BYTES;
+      if (!declaredTooLarge && typeof (res as any).json === 'function') body = await res.json();
     } catch {
       // A status and provider name are still more useful than no reason.
     }
