@@ -7,7 +7,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 from fastapi import HTTPException, status
 
@@ -26,9 +26,28 @@ _GIT_MUTEX = threading.RLock()
 _LOCK_RETRY_SECONDS = 15.0
 _GIT_DIFF_MAX_BYTES = 1_048_576
 _GIT_DIFF_TRUNCATION_MARKER = "\n...[diff truncated at 1048576 bytes]..."
+_GIT_OUTPUT_MAX_BYTES = 1_048_576
+_GIT_OUTPUT_TRUNCATION_MARKER = "\n...[git output truncated at 1048576 bytes]..."
 
 
-def _git_executable() -> str:
+def _drain_stream(stream: BinaryIO, buffer: bytearray) -> None:
+    limit = _GIT_OUTPUT_MAX_BYTES + 1
+    while True:
+        chunk = stream.read(64 * 1024)
+        if not chunk:
+            return
+        if len(buffer) < limit:
+            buffer.extend(chunk[: limit - len(buffer)])
+
+
+def _decode_git_output(buffer: bytearray) -> str:
+    raw = bytes(buffer)
+    if len(raw) <= _GIT_OUTPUT_MAX_BYTES:
+        return raw.decode("utf-8", errors="replace")
+
+    marker = _GIT_OUTPUT_TRUNCATION_MARKER.encode("utf-8")
+    budget = max(_GIT_OUTPUT_MAX_BYTES - len(marker), 0)
+    return raw[:budget].decode("utf-8", errors="ignore") + _GIT_OUTPUT_TRUNCATION_MARKERdef _git_executable() -> str:
     executable = shutil.which("git.exe") or shutil.which("git")
 
     if not executable:
@@ -82,22 +101,39 @@ def _run_git(
     with _GIT_MUTEX:
         retry_deadline = time.monotonic() + _LOCK_RETRY_SECONDS
         while True:
+            command = [_git_executable(), *args]
+            process = subprocess.Popen(
+                command,
+                cwd=str(root),
+                env=_git_environment(root),
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=False,
+                shell=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            stdout_buffer = bytearray()
+            stderr_buffer = bytearray()
+            stdout_thread = threading.Thread(
+                target=_drain_stream,
+                args=(process.stdout, stdout_buffer),
+                daemon=True,
+            )
+            stderr_thread = threading.Thread(
+                target=_drain_stream,
+                args=(process.stderr, stderr_buffer),
+                daemon=True,
+            )
+            stdout_thread.start()
+            stderr_thread.start()
             try:
-                completed = subprocess.run(
-                    [_git_executable(), *args],
-                    cwd=str(root),
-                    env=_git_environment(root),
-                    stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=timeout,
-                    shell=False,
-                    check=False,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                )
+                process.wait(timeout=timeout)
             except subprocess.TimeoutExpired as exc:
+                process.kill()
+                process.wait()
+                stdout_thread.join()
+                stderr_thread.join()
                 raise HTTPException(
                     status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                     detail={
@@ -106,6 +142,14 @@ def _run_git(
                         "timeout_seconds": timeout,
                     },
                 ) from exc
+            stdout_thread.join()
+            stderr_thread.join()
+            completed = subprocess.CompletedProcess(
+                command,
+                process.returncode,
+                _decode_git_output(stdout_buffer),
+                _decode_git_output(stderr_buffer),
+            )
 
             lock_busy = (
                 completed.returncode != 0
