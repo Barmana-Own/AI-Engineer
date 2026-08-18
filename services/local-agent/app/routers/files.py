@@ -80,12 +80,29 @@ def read_file(path: str = Query(min_length=1, max_length=500)) -> FileReadRespon
         )
 
     try:
-        content = target.read_text(encoding="utf-8")
+        with target.open("rb") as handle:
+            raw_content = handle.read(settings.max_file_read_bytes + 1)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unable to read file.",
+        ) from exc
+
+    if len(raw_content) > settings.max_file_read_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds {settings.max_file_read_bytes} bytes.",
+        )
+
+    try:
+        content = raw_content.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Only UTF-8 text files are supported.",
         ) from exc
+
+    size = len(raw_content)
 
     return FileReadResponse(
         path=to_relative_path(target),
