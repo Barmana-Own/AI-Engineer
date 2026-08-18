@@ -3,10 +3,11 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import BinaryIO, Literal
 
 from fastapi import HTTPException, status
 
@@ -129,6 +130,15 @@ def _truncate_output(value: str) -> str:
     clipped = encoded[:max(0, allowed)].decode("utf-8", errors="replace")
     return clipped + marker
 
+def _drain_stream(stream: BinaryIO, buffer: bytearray) -> None:
+    limit = settings.max_command_output_bytes + 1
+    while True:
+        chunk = stream.read(64 * 1024)
+        if not chunk:
+            return
+        if len(buffer) < limit:
+            buffer.extend(chunk[: limit - len(buffer)])
+
 
 def run_command(
     *,
@@ -187,54 +197,69 @@ def run_command(
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     started = time.perf_counter()
 
+    process = subprocess.Popen(
+        [executable, *arguments],
+        cwd=str(target_cwd),
+        env=environment,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=False,
+        creationflags=creation_flags,
+        shell=False,
+    )
+
+    stdout_buffer = bytearray()
+    stderr_buffer = bytearray()
+    stdout_thread = threading.Thread(
+        target=_drain_stream,
+        args=(process.stdout, stdout_buffer),
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=_drain_stream,
+        args=(process.stderr, stderr_buffer),
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    timed_out = False
     try:
-        completed = subprocess.run(
-            [executable, *arguments],
-            cwd=str(target_cwd),
-            env=environment,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            check=False,
-            shell=False,
-            creationflags=creation_flags,
-        )
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        process.kill()
+        process.wait()
+    finally:
+        stdout_thread.join()
+        stderr_thread.join()
 
-        duration_ms = int((time.perf_counter() - started) * 1000)
+    duration_ms = int((time.perf_counter() - started) * 1000)
+    stdout = _truncate_output(bytes(stdout_buffer).decode("utf-8", errors="replace"))
+    stderr = _truncate_output(bytes(stderr_buffer).decode("utf-8", errors="replace"))
 
-        return {
-            "command": command,
-            "cwd": to_relative_path(target_cwd),
-            "shell": shell,
-            "risk": assessment.risk,
-            "exit_code": completed.returncode,
-            "stdout": _truncate_output(completed.stdout),
-            "stderr": _truncate_output(completed.stderr),
-            "timed_out": False,
-            "duration_ms": duration_ms,
-        }
-    except subprocess.TimeoutExpired as exc:
-        duration_ms = int((time.perf_counter() - started) * 1000)
-
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
-
+    if timed_out:
         return {
             "command": command,
             "cwd": to_relative_path(target_cwd),
             "shell": shell,
             "risk": assessment.risk,
             "exit_code": 124,
-            "stdout": _truncate_output(stdout),
-            "stderr": _truncate_output(stderr or f"Command timed out after {timeout} seconds."),
+            "stdout": stdout,
+            "stderr": stderr or f"Command timed out after {timeout} seconds.",
             "timed_out": True,
             "duration_ms": duration_ms,
         }
+
+    return {
+        "command": command,
+        "cwd": to_relative_path(target_cwd),
+        "shell": shell,
+        "risk": assessment.risk,
+        "exit_code": process.returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "timed_out": False,
+        "duration_ms": duration_ms,
+    }
