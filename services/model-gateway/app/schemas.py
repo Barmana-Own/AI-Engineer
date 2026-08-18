@@ -9,20 +9,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class ProviderModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    id: str
-    object: str | None = None
+    id: str = Field(min_length=1, max_length=200)
+    object: str | None = Field(default=None, max_length=64)
     created: int | None = None
-    owned_by: str | None = None
-    providers: list[str] = Field(default_factory=list)
-    display_name: str | None = None
-    modality: str | None = None
+    owned_by: str | None = Field(default=None, max_length=200)
+    providers: list[Annotated[str, Field(max_length=100)]] = Field(default_factory=list, max_length=16)
+    display_name: str | None = Field(default=None, max_length=200)
+    modality: str | None = Field(default=None, max_length=64)
 
 
 class ProviderModelList(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     object: str = "list"
-    data: list[ProviderModel]
+    data: list[ProviderModel] = Field(max_length=1000)
 
 
 class GatewayModelList(BaseModel):
@@ -31,7 +31,7 @@ class GatewayModelList(BaseModel):
     cached: bool
     stale: bool
     fetched_at: datetime
-    data: list[ProviderModel]
+    data: list[ProviderModel] = Field(max_length=1000)
 
 
 class ChatMessage(BaseModel):
@@ -90,47 +90,47 @@ class GatewayChatRequest(BaseModel):
 class ProviderUsage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-    total_tokens: int | None = None
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
 
 
 class ProviderChatChoice(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    index: int = 0
+    index: int = Field(default=0, ge=0)
     message: dict[str, Any] | None = None
-    text: str | None = None
-    finish_reason: str | None = None
+    text: str | None = Field(default=None, max_length=100000)
+    finish_reason: str | None = Field(default=None, max_length=64)
 
 
 class ProviderChatResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    id: str | None = None
-    object: str | None = None
+    id: str | None = Field(default=None, max_length=200)
+    object: str | None = Field(default=None, max_length=64)
     created: int | None = None
-    model: str | None = None
-    choices: list[ProviderChatChoice] = Field(default_factory=list)
+    model: str | None = Field(default=None, max_length=200)
+    choices: list[ProviderChatChoice] = Field(default_factory=list, max_length=128)
     usage: ProviderUsage | None = None
 
 
 class RoutingMetadata(BaseModel):
-    provider: str
-    requested_model: str | None
-    selected_model: str
-    attempted_models: list[str]
+    provider: str = Field(max_length=100)
+    requested_model: str | None = Field(default=None, max_length=200)
+    selected_model: str = Field(max_length=200)
+    attempted_models: list[Annotated[str, Field(max_length=200)]] = Field(max_length=16)
     fallback_used: bool
-    latency_ms: int
-    request_id: str
+    latency_ms: int = Field(ge=0)
+    request_id: str = Field(max_length=128)
 
 
 class GatewayChatResponse(BaseModel):
-    id: str | None = None
-    object: str = "chat.completion"
+    id: str | None = Field(default=None, max_length=200)
+    object: str = Field(default="chat.completion", max_length=64)
     created: int | None = None
-    model: str
-    choices: list[ProviderChatChoice]
+    model: str = Field(max_length=200)
+    choices: list[ProviderChatChoice] = Field(max_length=128)
     usage: ProviderUsage | None = None
     gateway: RoutingMetadata
 
@@ -154,25 +154,25 @@ class ReadyResponse(BaseModel):
 class RuntimeModelsResponse(BaseModel):
     """Effective model/provider routing settings with secrets omitted."""
 
-    provider: str
+    provider: str = Field(max_length=100)
     provider_configured: bool
-    default_model: str
-    fallback_models: list[str]
-    max_fallback_attempts: int
-    max_retries_per_model: int
-    fallback_on: list[str]
-    candidate_order: str
+    default_model: str = Field(max_length=200)
+    fallback_models: list[Annotated[str, Field(max_length=200)]] = Field(max_length=10)
+    max_fallback_attempts: int = Field(ge=0)
+    max_retries_per_model: int = Field(ge=0)
+    fallback_on: list[Annotated[str, Field(max_length=64)]] = Field(max_length=16)
+    candidate_order: str = Field(max_length=64)
 
 
 class UsageModelSummary(BaseModel):
-    model: str
-    request_count: int
-    success_count: int
-    failure_count: int
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
-    average_latency_ms: float
+    model: str = Field(max_length=200)
+    request_count: int = Field(ge=0)
+    success_count: int = Field(ge=0)
+    failure_count: int = Field(ge=0)
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    average_latency_ms: float = Field(ge=0)
 
 
 class UsageSummary(BaseModel):
@@ -186,8 +186,8 @@ class UsageSummary(BaseModel):
 
 
 class ErrorBody(BaseModel):
-    code: str
-    message: str
+    code: str = Field(max_length=64)
+    message: str = Field(max_length=1000)
     retryable: bool
     request_id: str | None = None
     details: dict[str, Any] | None = None
