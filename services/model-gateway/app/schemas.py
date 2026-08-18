@@ -182,7 +182,7 @@ class UsageSummary(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
-    by_model: list[UsageModelSummary]
+    by_model: list[UsageModelSummary] = Field(max_length=256)
 
 
 class ErrorBody(BaseModel):

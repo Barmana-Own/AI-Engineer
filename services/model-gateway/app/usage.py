@@ -8,6 +8,8 @@ from pathlib import Path
 
 from app.schemas import UsageModelSummary, UsageSummary
 
+USAGE_MODEL_SUMMARY_LIMIT = 256
+
 
 @dataclass(frozen=True)
 class UsageRecord:
@@ -159,7 +161,9 @@ class UsageStore:
                 FROM model_usage
                 GROUP BY COALESCE(selected_model, requested_model, 'unknown')
                 ORDER BY request_count DESC, model ASC
-                """
+                LIMIT ?
+                """,
+                (USAGE_MODEL_SUMMARY_LIMIT,),
             ).fetchall()
 
         by_model = [
