@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MAX_VALIDATION_BODY_BYTES } from '../../providers/base.js';
 import { CloudflareProvider } from '../../providers/cloudflare.js';
 
 describe('CloudflareProvider', () => {
@@ -69,6 +70,18 @@ describe('CloudflareProvider', () => {
       expect(await provider.validateKey('acc123:tok')).toBe(true);
       expect(calls).toHaveLength(1);
       expect(calls[0]).toBe('https://api.cloudflare.com/client/v4/user/tokens/verify');
+    });
+
+    it('does not parse an oversized successful verification body', async () => {
+      const parse = vi.fn();
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-length': String(MAX_VALIDATION_BODY_BYTES + 1) }),
+        json: parse,
+      } as any);
+      await expect(provider.validateKey('acc123:tok')).resolves.toBe(true);
+      expect(parse).not.toHaveBeenCalled();
     });
 
     it('falls back to the account-scoped endpoint when /user 403s (#297)', async () => {

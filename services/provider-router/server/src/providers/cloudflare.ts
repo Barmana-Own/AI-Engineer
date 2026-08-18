@@ -3,7 +3,7 @@ import type {
   ChatCompletionResponse,
   ChatCompletionChunk,
 } from '@freellmapi/shared/types.js';
-import { BaseProvider, providerHttpError, type CompletionOptions, type KeyValidationResult, type KeyValidationFailure } from './base.js';
+import { BaseProvider, providerHttpError, MAX_VALIDATION_BODY_BYTES, type CompletionOptions, type KeyValidationResult, type KeyValidationFailure } from './base.js';
 import { extendedBodyParams, resolveMaxTokens } from '../lib/sampling-params.js';
 import { contentToString } from '../lib/content.js';
 import { extractThinkFromMessage } from '../lib/think-tags.js';
@@ -204,6 +204,10 @@ export class CloudflareProvider extends BaseProvider {
       return { authFailed: await this.validationResult(res) as KeyValidationFailure };
     }
     if (!res.ok) return { result: true }; // unexpected non-2xx that isn't auth — don't disable
+    const declaredBytes = Number(res.headers?.get?.('content-length') ?? '');
+    // A successful but oversized verification body cannot prove the token is active.
+    // Keep the key usable rather than materializing an unbounded response or disabling it.
+    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_VALIDATION_BODY_BYTES) return { result: true };
     const data = await res.json() as any;
     if (data.success === true && data.result?.status === 'active') return { result: true };
     const reason = data.result?.status
