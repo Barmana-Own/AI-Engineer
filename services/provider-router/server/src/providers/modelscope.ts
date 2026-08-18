@@ -1,5 +1,5 @@
 import { OpenAICompatProvider } from './openai-compat.js';
-import type { KeyValidationResult } from './base.js';
+import { MAX_VALIDATION_BODY_BYTES, type KeyValidationResult } from './base.js';
 import { recordQuotaObservationsFromResponse, type QuotaObservationContext } from '../services/provider-quota.js';
 
 const MODELSCOPE_BASE_URL = 'https://api-inference.modelscope.cn/v1';
@@ -67,6 +67,10 @@ export class ModelScopeProvider extends OpenAICompatProvider {
       // Auth failures cannot happen here (endpoint is unauthenticated); treat
       // any non-200 as an upstream outage → status='error', never 'invalid'.
       throw new Error(`ModelScope /models returned HTTP ${modelsRes.status} while picking a validation probe model`);
+    }
+    const declaredBytes = Number(modelsRes.headers?.get?.('content-length') ?? '');
+    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_VALIDATION_BODY_BYTES) {
+      throw new Error('ModelScope /models response exceeds ' + MAX_VALIDATION_BODY_BYTES + ' bytes; refusing to parse roster');
     }
     const roster = await modelsRes.json().catch(() => null) as { data?: Array<{ id?: string }> } | null;
     const probeModel = roster?.data?.[0]?.id;

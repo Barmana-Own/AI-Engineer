@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ModelScopeProvider } from '../../providers/modelscope.js';
 import { getProvider, hasProvider, resolveProvider } from '../../providers/index.js';
-import type { KeyValidationFailure } from '../../providers/base.js';
+import { MAX_VALIDATION_BODY_BYTES, type KeyValidationFailure } from '../../providers/base.js';
 
 // All fixtures are deliberately fake — no real ModelScope tokens exist for
 // this project yet (auth requires an Alibaba Cloud cn-site account binding).
@@ -126,6 +126,19 @@ describe('ModelScope validateKey (#581)', () => {
 
     const provider = new ModelScopeProvider();
     await expect(provider.validateKey(GARBAGE_KEY)).rejects.toThrow(/HTTP 503/);
+  });
+
+  it('rejects an oversized declared roster before JSON parsing', async () => {
+    const parse = vi.fn();
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-length': String(MAX_VALIDATION_BODY_BYTES + 1) }),
+      json: parse,
+    } as unknown as Response);
+    const provider = new ModelScopeProvider();
+    await expect(provider.validateKey(GARBAGE_KEY)).rejects.toThrow(/response exceeds/);
+    expect(parse).not.toHaveBeenCalled();
   });
 
   it('throws when the roster is empty (no probe model available)', async () => {
