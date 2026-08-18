@@ -47,7 +47,9 @@ def _decode_git_output(buffer: bytearray) -> str:
 
     marker = _GIT_OUTPUT_TRUNCATION_MARKER.encode("utf-8")
     budget = max(_GIT_OUTPUT_MAX_BYTES - len(marker), 0)
-    return raw[:budget].decode("utf-8", errors="ignore") + _GIT_OUTPUT_TRUNCATION_MARKER`r`n`r`ndef _git_executable() -> str:
+    return raw[:budget].decode("utf-8", errors="ignore") + _GIT_OUTPUT_TRUNCATION_MARKER
+
+def _git_executable() -> str:
     executable = shutil.which("git.exe") or shutil.which("git")
 
     if not executable:
