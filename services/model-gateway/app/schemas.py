@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -36,17 +36,20 @@ class GatewayModelList(BaseModel):
 
 class ChatMessage(BaseModel):
     role: Literal["system", "user", "assistant", "tool"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=100000)
 
 
 class GatewayChatRequest(BaseModel):
-    model: str | None = None
-    fallback_models: list[str] = Field(default_factory=list)
-    messages: list[ChatMessage] = Field(min_length=1)
+    model: str | None = Field(default=None, max_length=200)
+    fallback_models: list[Annotated[str, Field(max_length=200)]] = Field(
+        default_factory=list,
+        max_length=10,
+    )
+    messages: list[ChatMessage] = Field(min_length=1, max_length=100)
     temperature: float = Field(default=0.2, ge=0, le=2)
-    max_tokens: int | None = Field(default=None, ge=1)
+    max_tokens: int | None = Field(default=None, ge=1, le=65536)
     stream: bool = False
-    tools: list[dict[str, Any]] = Field(default_factory=list)
+    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
     tool_choice: str | dict[str, Any] | None = None
     response_format: dict[str, Any] | None = None
 
