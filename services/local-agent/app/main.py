@@ -40,7 +40,9 @@ def capabilities() -> dict:
         "limits": {
             "max_command_timeout_seconds": settings.max_command_timeout_seconds,
             "max_command_length": settings.max_command_length,
+            "max_command_output_bytes": settings.max_command_output_bytes,
             "max_file_read_bytes": settings.max_file_read_bytes,
             "max_file_write_bytes": settings.max_file_write_bytes,
+            "max_list_entries": settings.max_list_entries,
         },
     }
