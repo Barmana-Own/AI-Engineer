@@ -5,16 +5,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "AI Engineer Local Agent"
-    environment: str = "development"
-    host: str = "127.0.0.1"
+    app_name: str = Field(default="AI Engineer Local Agent", min_length=1, max_length=200)
+    environment: str = Field(default="development", min_length=1, max_length=32)
+    host: str = Field(default="127.0.0.1", min_length=1, max_length=255)
     port: int = Field(default=8011, ge=1, le=65535)
-    workspace_root: str = "F:/AI-Engineer/workspaces"
+    workspace_root: str = Field(default="F:/AI-Engineer/workspaces", min_length=1, max_length=500)
     # The platform can supervise its own repository through a named alias.
     # The alias is resolved explicitly and never by accepting arbitrary
     # absolute paths from a client.
-    self_workspace_name: str = "ai-engineer"
-    self_workspace_root: str = "F:/AI-Engineer"
+    self_workspace_name: str = Field(default="ai-engineer", min_length=1, max_length=100)
+    self_workspace_root: str = Field(default="F:/AI-Engineer", min_length=1, max_length=500)
 
     command_timeout_seconds: int = Field(default=60, ge=1, le=600)
     max_command_timeout_seconds: int = Field(default=300, ge=1, le=3600)
