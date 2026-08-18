@@ -7,7 +7,7 @@ import type {
   ChatToolDefinition,
   TokenUsage,
 } from '@freellmapi/shared/types.js';
-import { BaseProvider, providerHttpError, type CompletionOptions, type KeyValidationResult } from './base.js';
+import { BaseProvider, providerHttpError, MAX_VALIDATION_BODY_BYTES, type CompletionOptions, type KeyValidationResult } from './base.js';
 import { contentToString } from '../lib/content.js';
 import { proxyFetch } from '../lib/proxy.js';
 import { recordQuotaObservationsFromResponse, type QuotaObservationContext } from '../services/provider-quota.js';
@@ -810,7 +810,11 @@ export class GoogleProvider extends BaseProvider {
     // so health.ts records status='error' WITHOUT disabling a usable key.
     type GoogleErrorBody = { error?: { message?: unknown; status?: unknown; details?: unknown } };
     let body: GoogleErrorBody | null = null;
-    try { body = (await res.json()) as GoogleErrorBody; } catch { /* non-JSON error body */ }
+    try {
+      const declaredBytes = Number(res.headers?.get?.('content-length') ?? '');
+      const declaredTooLarge = Number.isFinite(declaredBytes) && declaredBytes > MAX_VALIDATION_BODY_BYTES;
+      if (!declaredTooLarge) body = (await res.json()) as GoogleErrorBody;
+    } catch { /* non-JSON error body */ }
     const err = body?.error;
     const details = Array.isArray(err?.details) ? err!.details as Array<{ reason?: unknown }> : [];
     const reason = details.find(d => typeof d?.reason === 'string')?.reason as string | undefined;

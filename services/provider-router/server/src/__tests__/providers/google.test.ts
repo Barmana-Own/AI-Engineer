@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MAX_VALIDATION_BODY_BYTES } from '../../providers/base.js';
 import { GoogleProvider } from '../../providers/google.js';
 
 describe('GoogleProvider', () => {
@@ -105,6 +106,19 @@ describe('GoogleProvider', () => {
       }),
     } as any);
     expect(await provider.validateKey('bad-key')).toMatchObject({ valid: false });
+  });
+
+  it('skips an oversized declared validation body before JSON parsing', async () => {
+    const parse = vi.fn();
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      headers: new Headers({ 'content-length': String(MAX_VALIDATION_BODY_BYTES + 1) }),
+      json: parse,
+    } as any);
+    await expect(provider.validateKey('bad-key')).rejects.toThrow(/inconclusive/i);
+    expect(parse).not.toHaveBeenCalled();
   });
 
   // #268: a permission/region/restriction 403 (e.g. API not enabled on the project,
