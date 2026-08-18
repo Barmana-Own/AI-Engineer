@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { MAX_VALIDATION_BODY_BYTES } from '../../providers/base.js';
 import { OpenAICompatProvider } from '../../providers/openai-compat.js';
 
 describe('OpenAICompatProvider', () => {
@@ -330,6 +331,22 @@ describe('OpenAICompatProvider', () => {
       valid: false,
       error: 'TestProvider key validation failed (HTTP 401): This token has expired',
     });
+  });
+
+  it('skips an oversized declared validation body before JSON parsing', async () => {
+    const parse = vi.fn();
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: new Headers({ 'content-length': String(MAX_VALIDATION_BODY_BYTES + 1) }),
+      json: parse,
+    } as any);
+    expect(await provider.validateKey('bad')).toEqual({
+      valid: false,
+      error: 'TestProvider key validation failed (HTTP 401): Unauthorized',
+    });
+    expect(parse).not.toHaveBeenCalled();
   });
 
   it('validateKey propagates transport errors instead of swallowing', async () => {
