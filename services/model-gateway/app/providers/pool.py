@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 from app.providers.base import ModelProvider, ProviderProfile
+MAX_CATALOG_MODELS = 1000
+
 from app.schemas import (
     ChatMessage,
     ProviderChatResponse,
@@ -54,8 +56,12 @@ class ProviderPool(ModelProvider):
     async def list_models(self) -> ProviderModelList:
         catalog: list[ProviderModel] = []
         for provider_name, provider in self._providers.items():
+            if len(catalog) >= MAX_CATALOG_MODELS:
+                break
             result = await provider.list_models()
             for model in result.data:
+                if len(catalog) >= MAX_CATALOG_MODELS:
+                    break
                 catalog.append(
                     model.model_copy(
                         update={
