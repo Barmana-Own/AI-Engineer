@@ -21,6 +21,7 @@ import {
   msUntilNextUtcMidnight,
   getFallbackTimeBudgetMs,
   DEFAULT_FALLBACK_TIME_BUDGET_MS,
+  MAX_FALLBACK_TIME_BUDGET_MS,
   AUTH_FAILURE_COOLDOWN_MS,
   type AttemptRecord,
   type FallbackHooks,
@@ -323,6 +324,11 @@ describe('runFallbackLoop: wall-clock retry budget', () => {
       expect(getFallbackTimeBudgetMs()).toBe(12345);
       getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('fallback_time_budget_ms', '999')").run();
       expect(getFallbackTimeBudgetMs()).toBe(999);
+      getDb().prepare("DELETE FROM settings WHERE key = 'fallback_time_budget_ms'").run();
+      process.env.FALLBACK_TIME_BUDGET_MS = String(MAX_FALLBACK_TIME_BUDGET_MS + 1);
+      expect(getFallbackTimeBudgetMs()).toBe(MAX_FALLBACK_TIME_BUDGET_MS);
+      getDb().prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('fallback_time_budget_ms', ?)").run(String(MAX_FALLBACK_TIME_BUDGET_MS * 4));
+      expect(getFallbackTimeBudgetMs()).toBe(MAX_FALLBACK_TIME_BUDGET_MS);
     } finally {
       getDb().prepare("DELETE FROM settings WHERE key = 'fallback_time_budget_ms'").run();
       if (original === undefined) delete process.env.FALLBACK_TIME_BUDGET_MS;
