@@ -21,6 +21,7 @@ from app.services.files import (
 REGISTRY_PATH = Path("F:/AI-Engineer/data/local-agent/processes.json")
 LOG_ROOT = Path("F:/AI-Engineer/logs/managed-processes")
 MAX_MANAGED_PROCESSES = 256
+MAX_REGISTRY_BYTES = 4 * 1024 * 1024
 LOCK = threading.Lock()
 
 ALLOWED_EXECUTABLE_NAMES = {
@@ -59,7 +60,10 @@ def _load_registry() -> dict[str, dict[str, Any]]:
             return {}
 
         try:
-            value = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+            payload = REGISTRY_PATH.read_bytes()
+            if len(payload) > MAX_REGISTRY_BYTES:
+                return {}
+            value = json.loads(payload.decode("utf-8"))
             return value if isinstance(value, dict) else {}
         except Exception:
             return {}
