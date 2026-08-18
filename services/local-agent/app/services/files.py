@@ -32,6 +32,12 @@ def _relative_to_allowed_root(path: Path) -> tuple[Path, Path] | None:
 def resolve_workspace_path(relative_path: str, *, must_exist: bool = False) -> Path:
     raw = (relative_path or "").strip().replace("\\", "/")
 
+    if any(ord(char) < 32 or ord(char) == 127 for char in raw):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path contains control characters.",
+        )
+
     if raw in {"", "."}:
         candidate = settings.workspace_path
     else:
