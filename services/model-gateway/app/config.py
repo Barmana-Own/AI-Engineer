@@ -48,6 +48,14 @@ def _dotenv_secret(name: str) -> str | None:
     return None
 
 
+def _normalize_profile_path(value: object, default: str) -> str:
+    normalized = str(value or default).strip()
+    if (not normalized.startswith("/") or normalized.startswith("//") or
+            "://" in normalized or len(normalized) > 256):
+        return default
+    return normalized
+
+
 class Settings(BaseSettings):
     """Runtime settings loaded from environment variables or a local .env file."""
 
@@ -76,12 +84,12 @@ class Settings(BaseSettings):
     # The value is never returned by an API endpoint and may contain secrets.
     # Example: {"openrouter":{"base_url":"https://openrouter.ai/api/v1",
     # "api_key":"...","default_model":"openai/gpt-4o-mini"}}
-    provider_profiles_json: str = ""
+    provider_profiles_json: str = Field(default="", max_length=65536)
 
     # Optional local sidecar gateways (CLIProxyAPI, Codex Proxy, Codex2API,
     # or Sub2API).  Entries are disabled by default and only become active
     # when enabled and their local API key environment variable is present.
-    local_bridge_profiles_json: str = ""
+    local_bridge_profiles_json: str = Field(default="", max_length=65536)
 
     connect_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
     read_timeout_seconds: float = Field(default=90.0, gt=0, le=600)
@@ -96,8 +104,8 @@ class Settings(BaseSettings):
     model_cache_path: Path = Field(default_factory=_default_cache_path)
     usage_db_path: Path = Field(default_factory=_default_usage_db_path)
 
-    default_model: str = "mistral-small-latest"
-    fallback_models: str = "mistral-medium-latest,auto,codestral-latest"
+    default_model: str = Field(default="mistral-small-latest", max_length=200)
+    fallback_models: str = Field(default="mistral-medium-latest,auto,codestral-latest", max_length=2048)
     max_fallback_attempts: int = Field(default=3, ge=1, le=10)
 
     default_max_tokens: int = Field(default=1024, ge=1, le=32768)
@@ -157,13 +165,16 @@ class Settings(BaseSettings):
                 continue
 
             for name, value in payload.items():
+                if len(profiles) >= 16:
+                    break
                 if not isinstance(value, dict) or value.get("enabled") is False:
                     continue
                 normalized_name = str(name).strip().casefold()
-                if not normalized_name or normalized_name in seen_names:
+                if not normalized_name or len(normalized_name) > 64 or normalized_name in seen_names:
                     continue
                 base_url = str(value.get("base_url") or "").strip().rstrip("/")
-                if not base_url:
+                if (not base_url or len(base_url) > 500 or
+                        not base_url.startswith(("http://", "https://"))):
                     continue
                 auth_mode = str(value.get("auth_mode") or "bearer").strip().casefold()
                 if auth_mode not in {"bearer", "x-api-key", "api-key"}:
@@ -174,9 +185,16 @@ class Settings(BaseSettings):
                     api_key = _dotenv_secret(api_key_env)
                 fallback = value.get("fallback_models") or ()
                 if isinstance(fallback, str):
-                    fallback = tuple(item.strip() for item in fallback.split(",") if item.strip())
-                elif isinstance(fallback, list):
-                    fallback = tuple(str(item).strip() for item in fallback if str(item).strip())
+                    fallback = fallback.split(",")
+                if isinstance(fallback, list) or isinstance(fallback, tuple):
+                    normalized_fallback: list[str] = []
+                    for item in fallback:
+                        model = str(item).strip()
+                        if model and len(model) <= 200 and model not in normalized_fallback:
+                            normalized_fallback.append(model)
+                        if len(normalized_fallback) >= 10:
+                            break
+                    fallback = tuple(normalized_fallback)
                 else:
                     fallback = ()
                 profiles.append(
@@ -185,8 +203,8 @@ class Settings(BaseSettings):
                         base_url=base_url,
                         api_key=(str(api_key).strip() if api_key else None),
                         auth_mode=auth_mode,
-                        models_path=str(value.get("models_path") or "/models"),
-                        chat_path=str(value.get("chat_path") or "/chat/completions"),
+                        models_path=_normalize_profile_path(value.get("models_path"), "/models"),
+                        chat_path=_normalize_profile_path(value.get("chat_path"), "/chat/completions"),
                         default_model=(str(value.get("default_model")).strip() if value.get("default_model") else None),
                         fallback_models=fallback,
                     )
