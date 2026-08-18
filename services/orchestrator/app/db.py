@@ -10,6 +10,7 @@ from uuid import uuid4
 DATABASE_PATH = Path("F:/AI-Engineer/data/orchestrator/orchestrator.db")
 MEMORY_INSTRUCTION_LIMIT = 4_000
 MEMORY_ITEM_LIMIT = 1_000
+MEMORY_JSON_MAX_BYTES = 4 * 1024 * 1024
 
 
 def _bounded_memory_values(
@@ -615,8 +616,11 @@ def update_autonomy_run(run_id: str, **changes: Any) -> dict[str, Any]:
 
 
 def _json_list(value: object) -> list[Any]:
+    serialized = str(value or "[]")
+    if len(serialized.encode("utf-8", errors="replace")) > MEMORY_JSON_MAX_BYTES:
+        return []
     try:
-        parsed = json.loads(str(value or "[]"))
+        parsed = json.loads(serialized)
     except json.JSONDecodeError:
         return []
     return parsed if isinstance(parsed, list) else []
