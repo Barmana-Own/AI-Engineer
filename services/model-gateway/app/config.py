@@ -66,19 +66,19 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "AI Engineer Model Gateway"
-    app_version: str = "0.2.1"
+    app_name: str = Field(default="AI Engineer Model Gateway", min_length=1, max_length=200)
+    app_version: str = Field(default="0.2.1", min_length=1, max_length=64)
     app_environment: Literal["development", "test", "production"] = "development"
 
-    gateway_host: str = "127.0.0.1"
+    gateway_host: str = Field(default="127.0.0.1", min_length=1, max_length=255)
     gateway_port: int = Field(default=8010, ge=1024, le=65535)
-    gateway_log_level: str = "INFO"
+    gateway_log_level: str = Field(default="INFO", min_length=1, max_length=32)
 
     barmana_base_url: AnyHttpUrl = "https://api.codemain.ir/v2/api"
     barmana_api_key: SecretStr | None = None
     barmana_auth_mode: Literal["bearer", "x-api-key", "api-key"] = "bearer"
-    barmana_models_path: str = "/models"
-    barmana_chat_path: str = "/chat/completions"
+    barmana_models_path: str = Field(default="/models", min_length=1, max_length=500)
+    barmana_chat_path: str = Field(default="/chat/completions", min_length=1, max_length=500)
 
     # Optional provider profiles are supplied as JSON in the local .env file.
     # The value is never returned by an API endpoint and may contain secrets.
@@ -121,6 +121,15 @@ class Settings(BaseSettings):
         if "://" in normalized:
             raise ValueError("API endpoint must be a relative path.")
         return normalized
+
+    @field_validator("model_cache_path", "usage_db_path", mode="before")
+    @classmethod
+    def validate_storage_path(cls, value: object) -> object:
+        if isinstance(value, (str, Path)):
+            normalized = str(value).strip()
+            if not normalized or len(normalized) > 500:
+                raise ValueError("Storage path must be between 1 and 500 characters.")
+        return value
 
     @field_validator("default_model")
     @classmethod
