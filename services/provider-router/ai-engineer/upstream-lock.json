@@ -1,0 +1,15 @@
+{
+    "productName":  "AI Engineer Provider Router",
+    "upstreamProject":  "FreeLLMAPI",
+    "upstreamRepository":  "https://github.com/tashfeenahmed/freellmapi",
+    "upstreamVersion":  "v0.6.6",
+    "upstreamCommit":  "88452d1",
+    "sourceArchive":  "F:\\AI-Engineer\\vendor\\freellmapi\\v0.6.6\\freellmapi-v0.6.6-source.zip",
+    "sourceArchiveSha256":  "9b5b2f12e65f372976aa60bbef42bcd1d8a65f5484c6cbde6a2d008a35b5a482",
+    "installedAt":  "2026-07-31T18:01:31.5869160+03:30",
+    "installationType":  "vendored-full-source",
+    "localOnly":  true,
+    "serverHost":  "127.0.0.1",
+    "serverPort":  8020,
+    "databasePath":  "F:\\AI-Engineer\\data\\provider-router\\freellmapi.db"
+}

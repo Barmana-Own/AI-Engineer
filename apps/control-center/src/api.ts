@@ -1,0 +1,259 @@
+function apiBase(value: string | undefined, fallback: string): string {
+  return (value?.trim() || fallback).replace(/\/+$/, "");
+}
+
+// Same-origin paths are used in production behind IIS. Vite proxies the same
+// paths during local development, so the browser never needs a hard-coded
+// loopback URL or a cross-origin exception.
+const ORCHESTRATOR_URL = apiBase(
+  import.meta.env.VITE_ORCHESTRATOR_URL,
+  "/api/orchestrator",
+);
+const GATEWAY_URL = apiBase(
+  import.meta.env.VITE_GATEWAY_URL,
+  "/api/gateway",
+);
+
+export type Project = {
+  id: string;
+  name: string;
+  workspace: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTask = {
+  id: string;
+  project_id: string;
+  instruction: string;
+  mode: "interactive" | "autonomous";
+  status: string;
+  plan: Array<Record<string, unknown>>;
+  current_step: number;
+  results: Array<Record<string, unknown>>;
+  approved_steps: number[];
+  pending: Record<string, unknown> | null;
+  final_output: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HealthResponse = {
+  status: string;
+  service: string;
+  version: string;
+  dependencies: {
+    model_gateway: { ok: boolean };
+    local_agent: { ok: boolean };
+  };
+};
+
+export type CapabilitiesResponse = {
+  service: string;
+  health_endpoint: string;
+  workspace_guarded: boolean;
+  mutation_requires_checkpoint: boolean;
+  autonomous_supervisor: {
+    enabled: boolean;
+    interval_minutes: number;
+    cycles_per_run: number;
+  };
+};
+
+export type AutonomyRun = {
+  id: string;
+  project_id: string;
+  goal: string;
+  requested_cycles: number;
+  completed_cycles: number;
+  status: string;
+  task_ids: string[];
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SubagentRole = {
+  key: string;
+  title: string;
+  objective: string;
+  read_only: boolean;
+  validation_required: boolean;
+  section: string;
+  capabilities: string[];
+};
+
+export type SubagentHandoff = {
+  id: string;
+  run_id: string;
+  project_id: string;
+  task_id: string | null;
+  role: string;
+  section: string;
+  schema_version: string;
+  status: string;
+  summary: string;
+  evidence: Array<Record<string, unknown>>;
+  changed_files: string[];
+  validations: Array<Record<string, unknown>>;
+  blockers: string[];
+  next_action: string | null;
+  confidence: number;
+  previous_handoff_ids: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type RuntimeModels = {
+  provider: string;
+  provider_configured: boolean;
+  default_model: string;
+  fallback_models: string[];
+  max_fallback_attempts: number;
+  max_retries_per_model: number;
+  fallback_on: string[];
+  candidate_order: string;
+};
+
+const API_TIMEOUT_MS = 10_000
+async function parseResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  let payload: unknown = null;
+
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+    );
+  }
+
+  return payload as T;
+}
+
+function get<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  return fetch(url, { signal: controller.signal })
+    .then((response) => parseResponse<T>(response))
+    .finally(() => window.clearTimeout(timeout));
+}
+
+export function getHealth(): Promise<HealthResponse> {
+  return get(`${ORCHESTRATOR_URL}/health`);
+}
+
+export function getCapabilities(): Promise<CapabilitiesResponse> {
+  return get(`${ORCHESTRATOR_URL}/capabilities`);
+}
+
+export function getRuntimeModels(): Promise<RuntimeModels> {
+  return get(`${GATEWAY_URL}/v1/runtime/models`);
+}
+
+export function listSubagents(): Promise<SubagentRole[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/subagents`);
+}
+
+export function listSectionSubagents(): Promise<SubagentRole[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/subagents/sections`);
+}
+
+export function listProjects(): Promise<Project[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/projects`);
+}
+
+export async function createProject(
+  name: string,
+  workspace?: string,
+): Promise<Project> {
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, workspace: workspace || null }),
+    }),
+  );
+}
+
+export async function createAgentTask(
+  projectId: string,
+  instruction: string,
+): Promise<AgentTask> {
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, instruction }),
+    }),
+  );
+}
+
+export async function startSelfImprove(
+  projectId: string,
+  goal: string,
+): Promise<AutonomyRun> {
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/projects/${projectId}/self-improve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal, cycles: 1 }),
+    }),
+  );
+}
+
+export function getAgentTask(taskId: string): Promise<AgentTask> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/tasks/${taskId}`);
+}
+
+export function listAgentTasks(projectId?: string): Promise<AgentTask[]> {
+  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
+  return get(`${ORCHESTRATOR_URL}/v1/agent/tasks${query}`);
+}
+
+export function listAutonomyRuns(projectId: string): Promise<AutonomyRun[]> {
+  return get(
+    `${ORCHESTRATOR_URL}/v1/agent/autonomy/runs?project_id=${encodeURIComponent(projectId)}&limit=12`,
+  );
+}
+
+export type AutonomyRunStatus = {
+  id: string;
+  project_id: string;
+  status: string;
+  requested_cycles: number;
+  completed_cycles: number;
+  task_count: number;
+  task_status_counts: Record<string, number>;
+  error: string | null;
+  updated_at: string;
+};
+
+export function getAutonomyRunStatus(runId: string): Promise<AutonomyRunStatus> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/status`);
+}
+
+export function listRunSubagents(runId: string): Promise<SubagentHandoff[]> {
+  return get(`${ORCHESTRATOR_URL}/v1/agent/autonomy/runs/${encodeURIComponent(runId)}/subagents?limit=100`);
+}
+
+export async function approveAgentTask(
+  taskId: string,
+  approved: boolean,
+): Promise<AgentTask> {
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/tasks/${taskId}/approval`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approved }),
+    }),
+  );
+}
