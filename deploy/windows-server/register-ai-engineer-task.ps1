@@ -1,8 +1,8 @@
 #requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$Root = ""
-    [string]$TaskUser = "SYSTEM"
+    [string]$Root = "",
+    [string]$TaskUser = "SYSTEM",
     [string]$TaskPassword = "",
     [switch]$StartNow
 )
@@ -36,6 +36,8 @@ $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powersh
 $arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $startScript + '" -Root "' + $Root + '"'
 $action = New-ScheduledTaskAction -Execute $powerShell -Argument $arguments -WorkingDirectory $Root
 $trigger = New-ScheduledTaskTrigger -AtStartup
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+
 if ($TaskUser -ieq "SYSTEM") {
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Starts the AI Engineer local services after Windows startup." -Force | Out-Null
