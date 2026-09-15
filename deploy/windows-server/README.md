@@ -30,11 +30,11 @@ Run the smoke checks:
     .\deploy\windows-server\health-check.ps1
     .\deploy\windows-server\health-check.ps1 -Chat
 
-The deployment script enables the bounded autonomous supervisor for the configured workspace, but keeps automatic Git pushes disabled. Autonomous changes stay on the server until server-side authentication, authorization, audit, backup, and rollback controls are complete.
+The deployment script enables the bounded autonomous supervisor for the configured workspace and pushes verified autonomous checkpoints to the configured GitHub repository. Automatic pushes are limited to verified changes; the service account uses the repository GitHub credential and no token is stored in source files.
 ## Automatic startup
 
 Register a Windows startup task and start the services immediately:
 
     .\deploy\windows-server\register-ai-engineer-task.ps1 -StartNow
 
-The task runs as LocalSystem, starts only the loopback services, retries failed startup three times, and writes each service's stdout/stderr to logs\server\*.out.log and logs\server\*.err.log.
+The task starts only the loopback services, retries failed startup three times, and writes each service's stdout/stderr to logs\server\*.out.log and logs\server\*.err.log. For GitHub pushes, register it with the least-privilege deployment account (TaskUser .\aieng); the default SYSTEM mode is retained for installations that do not need GitHub writes.

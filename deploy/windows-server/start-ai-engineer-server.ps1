@@ -164,7 +164,7 @@ $orchestratorEnvironment = @{
     AUTONOMOUS_AGENT_MODEL = $Model
     AUTONOMOUS_MODE_ENABLED = "true"
     AUTONOMOUS_WORKSPACE = "ai-engineer"
-    AUTONOMOUS_AUTO_PUSH = "false"
+    AUTONOMOUS_AUTO_PUSH = "true"
     AUTONOMOUS_REPO_ROOT = $Root
 }
 
