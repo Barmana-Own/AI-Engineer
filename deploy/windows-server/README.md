@@ -37,4 +37,4 @@ Register a Windows startup task and start the services immediately:
 
     .\deploy\windows-server\register-ai-engineer-task.ps1 -StartNow
 
-The task runs as LocalSystem, starts only the loopback services, retries failed startup three times, and writes startup output to logs\server\startup-task.log.
+The task runs as LocalSystem, starts only the loopback services, retries failed startup three times, and writes each service's stdout/stderr to logs\server\*.out.log and logs\server\*.err.log.

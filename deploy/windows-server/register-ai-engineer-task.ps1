@@ -23,7 +23,6 @@ $Root = [System.IO.Path]::GetFullPath($Root)
 $taskName = "AI Engineer Server"
 $startScript = Join-Path $Root "deploy\windows-server\start-ai-engineer-server.ps1"
 $logRoot = Join-Path $Root "logs\server"
-$taskLog = Join-Path $logRoot "startup-task.log"
 
 if (-not (Test-Path -LiteralPath $startScript)) {
     throw "Deployment start script is missing: $startScript"
@@ -32,8 +31,8 @@ if (-not (Test-Path -LiteralPath $startScript)) {
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-$arguments = '/d /c ""' + $powerShell + '" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $startScript + '" -Root "' + $Root + '" > "' + $taskLog + '" 2>&1"'
-$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $arguments
+$arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $startScript + '" -Root "' + $Root + '"'
+$action = New-ScheduledTaskAction -Execute $powerShell -Argument $arguments -WorkingDirectory $Root
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
