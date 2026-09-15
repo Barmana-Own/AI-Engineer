@@ -357,7 +357,12 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         item for item in untouched
         if item.target.casefold() not in failed_targets
     ]
-    candidates = retryable or untouched or list(AUTONOMOUS_BACKLOG)
+    eligible = [
+        item
+        for item in AUTONOMOUS_BACKLOG
+        if item.target.casefold() not in failed_targets
+    ] or list(AUTONOMOUS_BACKLOG)
+    candidates = retryable or eligible
 
     # One autonomy run represents one target attempt, unlike the many
     # specialist memories generated inside it.  Prefer targets absent from
@@ -368,6 +373,15 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
     fresh = [item for item in candidates if item.target.casefold() not in recent_targets]
     if fresh:
         return fresh[0]
+
+    # If the only untouched target has just produced a successful no-op, widen
+    # the pool so a previously changed target can receive a new improvement.
+    # This prevents a valid but unproductive target from starving the backlog.
+    non_recent = [
+        item for item in eligible if item.target.casefold() not in recent_targets
+    ]
+    if non_recent:
+        candidates = non_recent
 
     # Once every candidate has appeared in the window, choose the least
     # recently attempted item.  Never-used targets sort before old attempts.

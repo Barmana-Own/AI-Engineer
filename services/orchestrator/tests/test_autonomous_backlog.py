@@ -75,6 +75,35 @@ class AutonomousBacklogTests(unittest.TestCase):
         self.assertEqual(selected.target, AUTONOMOUS_BACKLOG[2].target)
     @patch("app.autonomy.list_autonomy_runs")
     @patch("app.autonomy.search_memories")
+    def test_selection_does_not_starve_backlog_after_untouched_noop(
+        self, search_memories, list_autonomy_runs
+    ):
+        noop_target = AUTONOMOUS_BACKLOG[-1]
+        search_memories.return_value = [
+            {
+                "kind": "success",
+                "detail": {
+                    "status": "completed",
+                    "instruction": f"TARGET FILE: {noop_target.target}",
+                    "changed_files": [
+                        item.target for item in AUTONOMOUS_BACKLOG[:-1]
+                    ],
+                },
+            }
+        ]
+        list_autonomy_runs.return_value = [
+            {
+                "status": "completed",
+                "goal": f"TARGET FILE: {noop_target.target}",
+            }
+        ]
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertNotEqual(selected.target, noop_target.target)
+
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
     def test_selection_skips_verified_changed_target(self, search_memories, list_autonomy_runs):
         changed = AUTONOMOUS_BACKLOG[0]
         search_memories.return_value = [{
