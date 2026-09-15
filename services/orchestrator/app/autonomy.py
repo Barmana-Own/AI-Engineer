@@ -357,12 +357,12 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         item for item in untouched
         if item.target.casefold() not in failed_targets
     ]
-    eligible = [
-        item
-        for item in AUTONOMOUS_BACKLOG
-        if item.target.casefold() not in failed_targets
-    ] or list(AUTONOMOUS_BACKLOG)
-    candidates = retryable or eligible
+    # Keep failed targets out of the first retry pass, but allow them back into
+    # the fairness pool once the other candidates have been attempted. A
+    # permanent failure blacklist can starve the backlog after transient model
+    # or validation failures.
+    fairness_pool = list(AUTONOMOUS_BACKLOG)
+    candidates = retryable or fairness_pool
 
     # One autonomy run represents one target attempt, unlike the many
     # specialist memories generated inside it.  Prefer targets absent from
@@ -378,7 +378,9 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
     # the pool so a previously changed target can receive a new improvement.
     # This prevents a valid but unproductive target from starving the backlog.
     non_recent = [
-        item for item in eligible if item.target.casefold() not in recent_targets
+        item
+        for item in fairness_pool
+        if item.target.casefold() not in recent_targets
     ]
     if non_recent:
         candidates = non_recent
