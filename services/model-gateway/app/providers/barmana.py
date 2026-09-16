@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
@@ -39,6 +40,7 @@ class BarmanaProvider(ModelProvider):
     ) -> None:
         self._settings = settings
         self._owns_client = client is None
+        self._ollama_native = self._is_native_ollama_url(settings.normalized_base_url)
 
         if client is not None:
             self._client = client
@@ -82,6 +84,19 @@ class BarmanaProvider(ModelProvider):
         if mode == "x-api-key":
             return {"x-api-key": api_key}
         return {"api-key": api_key}
+    @staticmethod
+    def _is_native_ollama_url(base_url: str) -> bool:
+        try:
+            parsed = urlsplit(base_url)
+            host = (parsed.hostname or "").casefold().rstrip(".")
+            return (
+                parsed.scheme.casefold() == "http"
+                and host in {"127.0.0.1", "localhost", "::1"}
+                and parsed.port == 11434
+            )
+        except ValueError:
+            return False
+
 
     async def list_models(self) -> ProviderModelList:
         payload = await self._request_json(
@@ -108,6 +123,22 @@ class BarmanaProvider(ModelProvider):
         tool_choice: str | dict | None = None,
         response_format: dict | None = None,
     ) -> ProviderChatResponse:
+        if self._ollama_native:
+            payload = await self._request_json(
+                method="POST",
+                path="/api/chat",
+                json_body=self._build_ollama_body(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    response_format=response_format,
+                ),
+            )
+            return self._parse_ollama_response(payload, requested_model=model)
+
         body = {
             "model": model,
             "messages": [message.model_dump() for message in messages],
@@ -143,6 +174,104 @@ class BarmanaProvider(ModelProvider):
 
         return parsed
 
+    @staticmethod
+    def _build_ollama_body(
+        *,
+        model: str,
+        messages: list[ChatMessage],
+        temperature: float,
+        max_tokens: int,
+        tools: list[dict] | None,
+        tool_choice: str | dict | None,
+        response_format: dict | None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": [message.model_dump() for message in messages],
+            "stream": False,
+            "think": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+            },
+        }
+        if tools and tool_choice != "none":
+            body["tools"] = tools
+        if response_format:
+            native_format = BarmanaProvider._native_response_format(response_format)
+            if native_format is not None:
+                body["format"] = native_format
+        return body
+
+    @staticmethod
+    def _native_response_format(response_format: dict[str, Any]) -> str | dict[str, Any] | None:
+        response_type = response_format.get("type")
+        if response_type == "json_object":
+            return "json"
+        if response_type == "json_schema":
+            schema = response_format.get("json_schema")
+            if isinstance(schema, dict) and isinstance(schema.get("schema"), dict):
+                return schema["schema"]
+        return None
+
+    @staticmethod
+    def _parse_ollama_response(
+        payload: dict[str, Any],
+        *,
+        requested_model: str,
+    ) -> ProviderChatResponse:
+        native_message = payload.get("message")
+        if not isinstance(native_message, dict):
+            native_message = {
+                "role": "assistant",
+                "content": str(payload.get("response") or ""),
+            }
+        else:
+            native_message = dict(native_message)
+            native_message.setdefault("role", "assistant")
+            if native_message.get("content") is None:
+                native_message["content"] = ""
+
+        normalized: dict[str, Any] = {
+            "id": str(payload.get("id") or f"ollama-{uuid4().hex}"),
+            "object": "chat.completion",
+            "model": str(payload.get("model") or requested_model),
+            "choices": [
+                {
+                    "index": 0,
+                    "message": native_message,
+                    "finish_reason": payload.get("done_reason")
+                    or ("stop" if payload.get("done") else None),
+                }
+            ],
+        }
+
+        prompt_tokens = payload.get("prompt_eval_count")
+        completion_tokens = payload.get("eval_count")
+        usage: dict[str, int] = {}
+        if isinstance(prompt_tokens, int) and prompt_tokens >= 0:
+            usage["prompt_tokens"] = prompt_tokens
+        if isinstance(completion_tokens, int) and completion_tokens >= 0:
+            usage["completion_tokens"] = completion_tokens
+        if usage:
+            usage["total_tokens"] = usage.get("prompt_tokens", 0) + usage.get(
+                "completion_tokens", 0
+            )
+            normalized["usage"] = usage
+
+        try:
+            parsed = ProviderChatResponse.model_validate(normalized)
+        except ValidationError as exc:
+            raise ProviderResponseError(
+                "The provider returned an invalid native Ollama chat response.",
+                details={"validation_error_count": exc.error_count()},
+            ) from exc
+
+        if not parsed.choices:
+            raise ProviderResponseError(
+                "The provider native Ollama response did not contain any choices."
+            )
+        return parsed
     async def _request_json(
         self,
         *,
