@@ -46,6 +46,47 @@ class AutonomousBacklogTests(unittest.TestCase):
             )
         )
 
+    def test_schemas_target_recognizes_current_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/schemas.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/schemas.py",
+                    "content": (
+                        "class AgentTaskCreateRequest class AgentTaskResponse "
+                        "class AutonomyRunResponse class SubagentHandoffResponse "
+                        "class SelfImproveRequest class GitCheckpointRequest"
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(results, ["services/orchestrator/app/schemas.py"])
+        )
+
+    def test_main_target_recognizes_current_startup_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/main.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/main.py",
+                    "content": (
+                        "def _start_scheduler_thread autonomous_mode_enabled "
+                        'def capabilities "workspace_guarded": True '
+                        '"mutation_requires_checkpoint": True',
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(results, ["services/orchestrator/app/main.py"])
+        )
+
+
     def test_items_have_explicit_project_contracts(self):
         self.assertTrue(AUTONOMOUS_BACKLOG)
         for item in AUTONOMOUS_BACKLOG:

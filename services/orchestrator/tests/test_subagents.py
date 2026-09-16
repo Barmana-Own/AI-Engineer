@@ -188,6 +188,32 @@ LEARNED MEMORY:
             [{"old": "before", "new": "after"}],
         )
 
+    def test_editor_alias_with_top_level_exact_changes_is_normalized(self):
+        action = _unwrap_model_action(
+            {
+                "action": "edit_file",
+                "file": "services/example.py",
+                "old": "before",
+                "new": "after",
+            }
+        )
+        normalized = _normalize_tool_call(action)
+        self.assertEqual(normalized["tool"], "apply_patch")
+        self.assertEqual(
+            normalized["arguments"]["edits"],
+            [{"old": "before", "new": "after"}],
+        )
+
+    def test_top_level_full_content_editor_alias_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "exact old and new"):
+            _unwrap_model_action(
+                {
+                    "action": "edit_file",
+                    "file": "services/example.py",
+                    "content": "replacement",
+                }
+            )
+
     def test_validation_alias_maps_to_terminal(self):
         normalized = _normalize_tool_call(
             {

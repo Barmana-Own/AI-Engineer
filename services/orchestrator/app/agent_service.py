@@ -321,7 +321,29 @@ def _action_arguments(raw: dict[str, Any]) -> dict[str, Any]:
     value = raw.get("arguments")
     if value is None:
         value = raw.get("args")
-    return value if isinstance(value, dict) else {}
+    direct_keys = (
+        "command",
+        "validation_command",
+        "cwd",
+        "path",
+        "file_path",
+        "file",
+        "target",
+        "edits",
+        "changes",
+        "change",
+        "old",
+        "old_content",
+        "search_pattern",
+        "new",
+        "new_content",
+        "replacement_text",
+        "content",
+    )
+    direct = {key: raw[key] for key in direct_keys if key in raw}
+    if isinstance(value, dict):
+        return {**direct, **value}
+    return direct
 
 
 def _normalise_model_edit_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -352,7 +374,7 @@ def _normalise_model_edit_arguments(arguments: dict[str, Any]) -> dict[str, Any]
             raw_edits = [source]
     if not isinstance(raw_edits, list) or not raw_edits:
         raise ValueError(
-            "Unsupported editor payload. Use apply_patch with exact old/new text "
+            "Unsupported editor payload. Use apply_patch with exact old and new text "
             "edits; line ranges or full-content replacements are not accepted."
         )
 
@@ -1191,6 +1213,25 @@ def _autonomous_target_is_current(
             and "HANDOFF_SCHEMA_VERSION" in content
             and "_normalize_tool_call" in content
             and "def test_orchestrator_capabilities_contract" in content
+        ):
+            return True
+        if (
+            lowered.endswith("services/orchestrator/app/schemas.py")
+            and "class AgentTaskCreateRequest" in content
+            and "class AgentTaskResponse" in content
+            and "class AutonomyRunResponse" in content
+            and "class SubagentHandoffResponse" in content
+            and "class SelfImproveRequest" in content
+            and "class GitCheckpointRequest" in content
+        ):
+            return True
+        if (
+            lowered.endswith("services/orchestrator/app/main.py")
+            and "def _start_scheduler_thread" in content
+            and "autonomous_mode_enabled" in content
+            and "def capabilities" in content
+            and '"workspace_guarded": True' in content
+            and '"mutation_requires_checkpoint": True' in content
         ):
             return True
         if lowered.endswith("services/orchestrator/app/subagents.py") and "HANDOFF_SCHEMA_VERSION" in content and "handoff" in content:
