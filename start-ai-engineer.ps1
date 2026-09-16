@@ -5,7 +5,13 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$root = "F:\AI-Engineer"
+$root = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+    (Resolve-Path -LiteralPath $PSScriptRoot).Path
+} elseif (Test-Path -LiteralPath "F:\AI-Engineer") {
+    (Resolve-Path -LiteralPath "F:\AI-Engineer").Path
+} else {
+    throw "Could not resolve the AI Engineer repository root."
+}
 
 function Port-Is-Open([int]$Port) {
     return $null -ne (

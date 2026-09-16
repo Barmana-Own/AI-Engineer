@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     autonomous_workspace: str = Field(default="ai-engineer", min_length=1, max_length=200)
     autonomous_subagents: str = Field(default="scout,planner,implementer,verifier,reviewer", min_length=1, max_length=1000)
     autonomous_max_subagents: int = Field(default=5, ge=1, le=16)
+    # Keep domain specialists opt-in so the default cycle spends its bounded
+    # model budget on one writer and one validation reader.
+    autonomous_include_section_specialist: bool = False
     # Read-only specialists may overlap on one immutable snapshot; writers remain serialized.
     autonomous_read_parallelism: int = Field(default=2, ge=1, le=8)
     autonomous_reconciliation_grace_seconds: int = Field(default=900, ge=0, le=86400)

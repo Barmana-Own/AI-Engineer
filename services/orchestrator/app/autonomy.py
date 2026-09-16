@@ -75,6 +75,26 @@ def _task_changed_paths(task_ids: list[str]) -> set[str]:
     return paths
 
 
+def _run_has_successful_validation(task_ids: list[str]) -> bool:
+    """Require a successful validation after a mutation before publishing."""
+    mutation_tools = {"write_file", "replace_text", "apply_patch"}
+    mutation_seen = False
+    for task_id in task_ids:
+        task = get_task(task_id)
+        if not task:
+            continue
+        for record in task.get("results") or []:
+            step = record.get("step") or {}
+            outcome = record.get("outcome") or {}
+            tool = str(outcome.get("tool") or step.get("tool") or "").casefold()
+            if not outcome.get("ok"):
+                continue
+            if tool in mutation_tools:
+                mutation_seen = True
+            elif mutation_seen and tool == "run_terminal":
+                return True
+    return False
+
 def _working_tree_paths(status_text: str) -> set[str]:
     """Extract paths from porcelain output without exposing file contents."""
     paths: set[str] = set()
@@ -629,8 +649,17 @@ async def run_autonomous_cycles(run_id: str) -> None:
     for role in [*writers, *validators]:
         if role.key not in {item.key for item in selected_roles}:
             selected_roles.append(role)
-    if section_role and len(selected_roles) < max_roles:
-        selected_roles.insert(0, section_role)
+    include_section_specialist = bool(
+        getattr(settings, "autonomous_include_section_specialist", False)
+    )
+    if (
+        include_section_specialist
+        and section_role
+        and len(selected_roles) < max_roles
+    ):
+        # Keep the safety-critical writer/validator path first. Domain readers
+        # are optional evidence and must never displace that path.
+        selected_roles.append(section_role)
     for role in observers:
         if len(selected_roles) >= max_roles:
             break
@@ -759,6 +788,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 )
                 phase_failed = False
                 writer_failed = False
+                validation_failed = False
                 for item, finished, problem in outcomes:
                     role, task, handoff = item
                     handoff_id = handoff["id"]
@@ -767,6 +797,8 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         phase_failed = True
                         if not role.read_only:
                             writer_failed = True
+                        if role.validation_required and role.read_only:
+                            validation_failed = True
                         if finished and finished.get("status") not in {"failed", "completed"}:
                             update_task(
                                 task["id"],
@@ -816,6 +848,15 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         error=error,
                     )
                     return
+                if validation_failed:
+                    update_autonomy_run(
+                        run_id,
+                        task_ids=task_ids,
+                        completed_cycles=cycle - 1,
+                        status="failed",
+                        error="Validation specialist failed; no checkpoint was published.",
+                    )
+                    return
                 if phase_failed:
                     logger.warning(
                         "One or more read-only specialists failed in phase %s/%s; "
@@ -837,6 +878,16 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     cycle,
                 )
                 break
+        changed_paths = _task_changed_paths(task_ids)
+        if changed_paths and not _run_has_successful_validation(task_ids):
+            update_autonomy_run(
+                run_id,
+                task_ids=task_ids,
+                completed_cycles=completed_cycles,
+                status="failed",
+                error="Mutation completed without a successful post-change validation; no checkpoint was published.",
+            )
+            return
         update_autonomy_run(
             run_id,
             task_ids=task_ids,
@@ -846,7 +897,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
         )
         push_result = await asyncio.to_thread(
             _push_verified_checkpoint,
-            _task_changed_paths(task_ids),
+            changed_paths,
             run_id,
         )
         if push_result.get("pushed"):

@@ -168,3 +168,23 @@ class AutonomousBacklogTests(unittest.TestCase):
                 "integration",
             }.issubset(sections)
         )
+
+    @patch("app.autonomy.get_task")
+    def test_validation_gate_requires_mutation_then_terminal_success(self, get_task):
+        from app import autonomy
+
+        def fake_task(task_id):
+            if task_id == "writer":
+                return {"results": [{"step": {"tool": "apply_patch"}, "outcome": {"tool": "apply_patch", "ok": True}}]}
+            return {"results": [{"step": {"tool": "run_terminal"}, "outcome": {"tool": "run_terminal", "ok": True}}]}
+
+        get_task.side_effect = fake_task
+        self.assertTrue(autonomy._run_has_successful_validation(["writer", "verifier"]))
+
+    @patch("app.autonomy.get_task")
+    def test_validation_gate_rejects_validation_before_mutation(self, get_task):
+        from app import autonomy
+
+        get_task.return_value = {"results": [{"step": {"tool": "run_terminal"}, "outcome": {"tool": "run_terminal", "ok": True}}]}
+
+        self.assertFalse(autonomy._run_has_successful_validation(["verifier"]))
