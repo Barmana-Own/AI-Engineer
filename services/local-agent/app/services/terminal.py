@@ -5,6 +5,7 @@ import re
 import subprocess
 import threading
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Literal
@@ -19,6 +20,61 @@ from app.services.files import (
 )
 
 Risk = Literal["safe", "approval_required", "blocked"]
+
+# Service startup variables belong to the Local Agent process. Passing them to
+# arbitrary workspace commands makes project tools observe control-plane
+# settings (for example PORT=8011) and can leak integration configuration.
+_SERVICE_ENVIRONMENT_KEYS = frozenset(
+    {
+        "APP_NAME",
+        "APP_ENVIRONMENT",
+        "ENVIRONMENT",
+        "HOST",
+        "PORT",
+        "GATEWAY_HOST",
+        "GATEWAY_PORT",
+        "MODEL_GATEWAY_URL",
+        "LOCAL_AGENT_URL",
+        "WORKSPACE_ROOT",
+        "SELF_WORKSPACE_NAME",
+        "SELF_WORKSPACE_ROOT",
+        "ORCHESTRATOR_DB_PATH",
+        "MANAGED_PROCESS_REGISTRY_PATH",
+        "MANAGED_PROCESS_LOG_ROOT",
+        "AGENT_MODEL",
+        "DEFAULT_MODEL",
+        "FALLBACK_MODELS",
+        "MAX_FALLBACK_ATTEMPTS",
+        "READ_TIMEOUT_SECONDS",
+        "COMMAND_TIMEOUT_SECONDS",
+        "MAX_COMMAND_TIMEOUT_SECONDS",
+        "MAX_COMMAND_LENGTH",
+        "MAX_COMMAND_OUTPUT_BYTES",
+        "MAX_FILE_READ_BYTES",
+        "MAX_FILE_WRITE_BYTES",
+        "MAX_LIST_ENTRIES",
+        "CORS_ORIGINS",
+        "LOG_LEVEL",
+    }
+)
+_SERVICE_ENVIRONMENT_PREFIXES = ("AUTONOMOUS_", "BARMANA_")
+
+
+def _command_environment(
+    base: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Build a project command environment without control-plane settings."""
+    source = os.environ if base is None else base
+    environment = {
+        key: value
+        for key, value in source.items()
+        if key not in _SERVICE_ENVIRONMENT_KEYS
+        and not any(key.startswith(prefix) for prefix in _SERVICE_ENVIRONMENT_PREFIXES)
+    }
+    environment["PYTHONUTF8"] = "1"
+    environment["NO_PROXY"] = "localhost,127.0.0.1,::1"
+    environment["no_proxy"] = "localhost,127.0.0.1,::1"
+    return environment
 
 
 @dataclass(frozen=True)
@@ -195,10 +251,7 @@ def run_command(
         executable = "cmd.exe"
         arguments = ["/d", "/s", "/c", command]
 
-    environment = os.environ.copy()
-    environment["PYTHONUTF8"] = "1"
-    environment["NO_PROXY"] = "localhost,127.0.0.1,::1"
-    environment["no_proxy"] = "localhost,127.0.0.1,::1"
+    environment = _command_environment()
 
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     started = time.perf_counter()
