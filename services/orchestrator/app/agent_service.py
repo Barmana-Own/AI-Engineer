@@ -1373,7 +1373,6 @@ def _deterministic_autonomous_recovery_step(
             description="Creating deterministic recovery checkpoint",
         )
 
-    explicit_targets = _autonomous_target_paths(instruction)
     if _autonomous_target_is_current(results, explicit_targets):
         return _make_step(
             "finish_task",

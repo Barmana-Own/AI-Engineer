@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal, select_autonomous_backlog_item
-from app.agent_service import _autonomous_target_is_current
+from app.agent_service import _autonomous_known_repair, _autonomous_target_is_current
 
 
 class AutonomousBacklogTests(unittest.TestCase):
@@ -87,6 +87,13 @@ class AutonomousBacklogTests(unittest.TestCase):
         )
 
 
+    def test_known_repair_handles_explicit_target_without_name_error(self):
+        instruction = "TARGET FILE: apps/taskflow/src/styles.css" + "\n" + "Fix todo-card styling"
+        with patch(
+            "app.agent_service._autonomous_target_is_current",
+            return_value=False,
+        ):
+            self.assertIsNone(_autonomous_known_repair(instruction, []))
     def test_items_have_explicit_project_contracts(self):
         self.assertTrue(AUTONOMOUS_BACKLOG)
         for item in AUTONOMOUS_BACKLOG:
