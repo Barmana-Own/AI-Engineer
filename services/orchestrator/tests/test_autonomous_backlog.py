@@ -2,9 +2,32 @@ import unittest
 from unittest.mock import patch
 
 from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal, select_autonomous_backlog_item
+from app.agent_service import _autonomous_target_is_current
 
 
 class AutonomousBacklogTests(unittest.TestCase):
+    def test_security_boundary_target_recognizes_hardened_agent_service(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/agent_service.py"}
+            },
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/agent_service.py",
+                    "content": (
+                        "_normalise_model_edit_arguments MODEL_ACTION_ALIASES "
+                        "attempt_limit = 3 if autonomous _model_reported_verified_noop"
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(
+                results, ["services/orchestrator/app/agent_service.py"]
+            )
+        )
+
     def test_items_have_explicit_project_contracts(self):
         self.assertTrue(AUTONOMOUS_BACKLOG)
         for item in AUTONOMOUS_BACKLOG:

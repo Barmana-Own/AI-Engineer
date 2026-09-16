@@ -1178,6 +1178,14 @@ def _autonomous_target_is_current(
             return True
         if lowered.endswith("services/orchestrator/app/autonomy.py") and "planning" in content and "awaiting_approval" in content:
             return True
+        if (
+            lowered.endswith("services/orchestrator/app/agent_service.py")
+            and "_normalise_model_edit_arguments" in content
+            and "MODEL_ACTION_ALIASES" in content
+            and "attempt_limit = 3 if autonomous" in content
+            and "_model_reported_verified_noop" in content
+        ):
+            return True
         if lowered.endswith("services/orchestrator/app/subagents.py") and "HANDOFF_SCHEMA_VERSION" in content and "handoff" in content:
             return True
         if (
