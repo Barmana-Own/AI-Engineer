@@ -68,8 +68,10 @@ def _command_environment(
     environment = {
         key: value
         for key, value in source.items()
-        if key not in _SERVICE_ENVIRONMENT_KEYS
-        and not any(key.startswith(prefix) for prefix in _SERVICE_ENVIRONMENT_PREFIXES)
+        if key.upper() not in _SERVICE_ENVIRONMENT_KEYS
+        and not any(
+            key.upper().startswith(prefix) for prefix in _SERVICE_ENVIRONMENT_PREFIXES
+        )
     }
     environment["PYTHONUTF8"] = "1"
     environment["NO_PROXY"] = "localhost,127.0.0.1,::1"

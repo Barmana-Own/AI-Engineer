@@ -7,7 +7,7 @@ class CommandEnvironmentTests(unittest.TestCase):
     def test_strips_control_plane_variables(self):
         base = {
             "APP_NAME": "AI Engineer Local Agent",
-            "PORT": "8011",
+            "port": "8011",
             "HOST": "127.0.0.1",
             "AUTONOMOUS_MODE_ENABLED": "true",
             "MODEL_GATEWAY_URL": "http://127.0.0.1:8010",
