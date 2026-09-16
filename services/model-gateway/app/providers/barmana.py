@@ -84,6 +84,7 @@ class BarmanaProvider(ModelProvider):
         if mode == "x-api-key":
             return {"x-api-key": api_key}
         return {"api-key": api_key}
+
     @staticmethod
     def _is_native_ollama_url(base_url: str) -> bool:
         try:
@@ -126,7 +127,7 @@ class BarmanaProvider(ModelProvider):
         if self._ollama_native:
             payload = await self._request_json(
                 method="POST",
-                path="/api/chat",
+                path="../api/chat",
                 json_body=self._build_ollama_body(
                     model=model,
                     messages=messages,
