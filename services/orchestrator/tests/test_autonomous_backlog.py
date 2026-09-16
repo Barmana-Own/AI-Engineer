@@ -28,6 +28,24 @@ class AutonomousBacklogTests(unittest.TestCase):
             )
         )
 
+    def test_test_subagents_target_recognizes_current_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/tests/test_subagents.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/tests/test_subagents.py",
+                    "content": "HANDOFF_SCHEMA_VERSION _normalize_tool_call def test_orchestrator_capabilities_contract",
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(
+                results, ["services/orchestrator/tests/test_subagents.py"]
+            )
+        )
+
     def test_items_have_explicit_project_contracts(self):
         self.assertTrue(AUTONOMOUS_BACKLOG)
         for item in AUTONOMOUS_BACKLOG:

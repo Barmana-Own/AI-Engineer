@@ -1186,6 +1186,13 @@ def _autonomous_target_is_current(
             and "_model_reported_verified_noop" in content
         ):
             return True
+        if (
+            lowered.endswith("services/orchestrator/tests/test_subagents.py")
+            and "HANDOFF_SCHEMA_VERSION" in content
+            and "_normalize_tool_call" in content
+            and "def test_orchestrator_capabilities_contract" in content
+        ):
+            return True
         if lowered.endswith("services/orchestrator/app/subagents.py") and "HANDOFF_SCHEMA_VERSION" in content and "handoff" in content:
             return True
         if (
