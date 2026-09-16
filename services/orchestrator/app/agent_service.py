@@ -302,17 +302,152 @@ def _model_reported_verified_noop(value: str) -> bool:
             )
         )
     )
-def _normalize_tool_call(raw: dict[str, Any]) -> dict[str, Any]:
-    tool = TOOL_ALIASES.get(
-        str(raw.get("tool") or raw.get("action") or "").strip(),
-        str(raw.get("tool") or raw.get("action") or "").strip(),
+MODEL_ACTION_ALIASES = {
+    "code_change": "apply_patch",
+    "code_editor": "apply_patch",
+    "edit": "apply_patch",
+    "edit_file": "apply_patch",
+    "file_editor": "apply_patch",
+}
+VALIDATION_ACTION_ALIASES = {"run_validation"}
+
+
+def _canonical_tool_name(value: object) -> str:
+    name = str(value or "").strip().casefold()
+    return TOOL_ALIASES.get(name, name)
+
+
+def _action_arguments(raw: dict[str, Any]) -> dict[str, Any]:
+    value = raw.get("arguments")
+    if value is None:
+        value = raw.get("args")
+    return value if isinstance(value, dict) else {}
+
+
+def _normalise_model_edit_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
+    source = dict(arguments)
+    path = (
+        source.get("path")
+        or source.get("file_path")
+        or source.get("file")
+        or source.get("target")
     )
+    raw_edits = source.get("edits")
+    if raw_edits is None:
+        raw_edits = source.get("changes")
+    if raw_edits is None and isinstance(source.get("change"), dict):
+        raw_edits = [source["change"]]
+    if not isinstance(raw_edits, list) or not raw_edits:
+        old = source.get("old")
+        if old is None:
+            old = source.get("old_content")
+        if old is None:
+            old = source.get("search_pattern")
+        new = source.get("new")
+        if new is None:
+            new = source.get("new_content")
+        if new is None:
+            new = source.get("replacement_text")
+        if old is not None and new is not None:
+            raw_edits = [source]
+    if not isinstance(raw_edits, list) or not raw_edits:
+        raise ValueError(
+            "Unsupported editor payload. Use apply_patch with exact old/new text "
+            "edits; line ranges or full-content replacements are not accepted."
+        )
+
+    edits: list[dict[str, Any]] = []
+    discovered_paths: set[str] = set()
+    for item in raw_edits:
+        if not isinstance(item, dict):
+            raise ValueError("Every editor change must be an object.")
+        item_path = (
+            item.get("path")
+            or item.get("file_path")
+            or item.get("file")
+            or item.get("target")
+        )
+        if item_path:
+            discovered_paths.add(str(item_path))
+        old = item.get("old")
+        if old is None:
+            old = item.get("old_content")
+        if old is None:
+            old = item.get("search_pattern")
+        new = item.get("new")
+        if new is None:
+            new = item.get("new_content")
+        if new is None:
+            new = item.get("replacement_text")
+        if old is None or new is None:
+            raise ValueError(
+                "Editor changes must include exact old and new text. "
+                "Read the file first, then use apply_patch."
+            )
+        edit: dict[str, Any] = {"old": str(old), "new": str(new)}
+        if "replace_all" in item:
+            edit["replace_all"] = bool(item.get("replace_all"))
+        edits.append(edit)
+
+    if not path and len(discovered_paths) == 1:
+        path = next(iter(discovered_paths))
+    if not path:
+        raise ValueError("Editor payload requires a project-relative file path.")
+    return {"path": str(path), "edits": edits}
+
+
+def _coerce_model_action(raw: dict[str, Any]) -> dict[str, Any]:
+    name = raw.get("tool") or raw.get("action") or raw.get("name") or ""
+    key = str(name).strip().casefold()
+    canonical = _canonical_tool_name(name)
+    if canonical in TOOL_NAMES:
+        result = dict(raw)
+        result["tool"] = canonical
+        result["action"] = canonical
+        return result
+
+    arguments = _action_arguments(raw)
+    if key in VALIDATION_ACTION_ALIASES:
+        command = arguments.get("command") or arguments.get("validation_command")
+        if not isinstance(command, str) or not command.strip():
+            raise ValueError(
+                "run_validation requires a command; use run_terminal with "
+                "a bounded validation command."
+            )
+        mapped = dict(arguments)
+        mapped["command"] = command.strip()
+        mapped.setdefault("cwd", ".")
+        result = dict(raw)
+        result["tool"] = "run_terminal"
+        result["action"] = "run_terminal"
+        result["arguments"] = mapped
+        result["args"] = mapped
+        return result
+
+    if key in MODEL_ACTION_ALIASES:
+        mapped = _normalise_model_edit_arguments(arguments)
+        result = dict(raw)
+        result["tool"] = "apply_patch"
+        result["action"] = "apply_patch"
+        result["arguments"] = mapped
+        result["args"] = mapped
+        return result
+
+    return raw
+
+
+def _normalize_tool_call(raw: dict[str, Any]) -> dict[str, Any]:
+    raw = _unwrap_model_action(raw)
+    if not isinstance(raw, dict):
+        raise ValueError("Tool call must be a JSON object.")
+    raw_name = raw.get("tool") or raw.get("action") or ""
+    tool = _canonical_tool_name(raw_name)
     arguments = raw.get("arguments")
     if arguments is None:
         arguments = raw.get("args") or {}
 
     if tool not in TOOL_NAMES:
-        raise ValueError(f"Unsupported Agent tool: {tool}")
+        raise ValueError(f"Unsupported Agent tool: {str(raw_name).strip()}")
     if not isinstance(arguments, dict):
         raise ValueError("Tool arguments must be a JSON object.")
 
@@ -342,13 +477,14 @@ def _normalize_tool_call(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _unwrap_model_action(raw: dict[str, Any]) -> dict[str, Any]:
-    if raw.get("tool") or raw.get("action"):
+    if not isinstance(raw, dict):
         return raw
+
+    if raw.get("tool") or raw.get("action"):
+        return _coerce_model_action(raw)
 
     # Qwen-compatible gateways occasionally wrap the selected function in a
     # tool_call object instead of returning the public agent_action envelope.
-    # Accept only unambiguous known tools; policy and argument validation still
-    # run through _normalize_tool_call afterwards.
     nested_call = raw.get("tool_call")
     if isinstance(nested_call, dict):
         nested_name = str(
@@ -360,49 +496,74 @@ def _unwrap_model_action(raw: dict[str, Any]) -> dict[str, Any]:
         nested_arguments = nested_call.get("arguments")
         if nested_arguments is None:
             nested_arguments = nested_call.get("args")
-        if nested_name in TOOL_NAMES:
-            return {
-                "tool": nested_name,
-                "arguments": nested_arguments if isinstance(nested_arguments, dict) else {},
-                "reason": str(raw.get("reason") or nested_call.get("reason") or ""),
-                "expected_result": str(raw.get("expected_result") or ""),
-            }
-        for candidate_name, candidate_arguments in nested_call.items():
-            if str(candidate_name) in TOOL_NAMES:
-                return {
-                    "tool": str(candidate_name),
-                    "arguments": candidate_arguments if isinstance(candidate_arguments, dict) else {},
-                    "reason": str(raw.get("reason") or ""),
+        if nested_name.casefold() == "agent_action" and isinstance(
+            nested_arguments, dict
+        ):
+            return _coerce_model_action(nested_arguments)
+        if nested_name:
+            return _coerce_model_action(
+                {
+                    "tool": nested_name,
+                    "arguments": (
+                        nested_arguments if isinstance(nested_arguments, dict) else {}
+                    ),
+                    "reason": str(raw.get("reason") or nested_call.get("reason") or ""),
                     "expected_result": str(raw.get("expected_result") or ""),
                 }
+            )
+        for candidate_name, candidate_arguments in nested_call.items():
+            candidate_key = str(candidate_name).strip().casefold()
+            if (
+                candidate_key in TOOL_NAMES
+                or candidate_key in TOOL_ALIASES
+                or candidate_key in MODEL_ACTION_ALIASES
+                or candidate_key in VALIDATION_ACTION_ALIASES
+            ):
+                return _coerce_model_action(
+                    {
+                        "tool": str(candidate_name),
+                        "arguments": (
+                            candidate_arguments
+                            if isinstance(candidate_arguments, dict)
+                            else {}
+                        ),
+                        "reason": str(raw.get("reason") or ""),
+                        "expected_result": str(raw.get("expected_result") or ""),
+                    }
+                )
 
     name = str(raw.get("name") or "").strip()
     arguments = raw.get("arguments")
-    if name == "agent_action" and isinstance(arguments, dict):
+    if name.casefold() == "agent_action" and isinstance(arguments, dict):
         if arguments.get("tool") or arguments.get("action"):
-            return arguments
+            return _coerce_model_action(arguments)
         tool_arguments = arguments.get("tool_arguments")
-        if (
-            isinstance(tool_arguments, list)
-            and tool_arguments
-            and str(tool_arguments[0]) in TOOL_NAMES
-        ):
-            return {
-                "tool": str(tool_arguments[0]),
-                "arguments": {},
-                "reason": str(arguments.get("reason") or ""),
-                "expected_result": str(arguments.get("expected_result") or ""),
-            }
+        if isinstance(tool_arguments, list) and tool_arguments:
+            tool_name = str(tool_arguments[0])
+            tool_args = (
+                tool_arguments[1] if len(tool_arguments) > 1 else {}
+            )
+            return _coerce_model_action(
+                {
+                    "tool": tool_name,
+                    "arguments": tool_args if isinstance(tool_args, dict) else {},
+                    "reason": str(arguments.get("reason") or ""),
+                    "expected_result": str(arguments.get("expected_result") or ""),
+                }
+            )
 
-    if name in TOOL_NAMES:
-        return {
-            "tool": name,
-            "arguments": arguments if isinstance(arguments, dict) else {},
-            "reason": str(raw.get("reason") or ""),
-            "expected_result": str(raw.get("expected_result") or ""),
-        }
+    if name:
+        return _coerce_model_action(
+            {
+                "tool": name,
+                "arguments": arguments if isinstance(arguments, dict) else {},
+                "reason": str(raw.get("reason") or ""),
+                "expected_result": str(raw.get("expected_result") or ""),
+            }
+        )
 
     return raw
+
 
 _WINDOWS_DEVICE_NAMES = {
     "con",
@@ -2364,7 +2525,7 @@ Choose the next tool that implements the requested visible outcome. Do not make 
         },
     }
 
-    attempt_limit = 2 if autonomous else MAX_MODEL_RETRIES
+    attempt_limit = 3 if autonomous else MAX_MODEL_RETRIES
     model_timeout = min(
         max(int(getattr(settings, "autonomous_model_timeout_seconds", 90)), 15),
         300,
@@ -2374,7 +2535,15 @@ Choose the next tool that implements the requested visible outcome. Do not make 
         content = ""
         if feedback:
             correction = "Return corrected strict JSON only."
-            if feedback.startswith("Duplicate read_file blocked"):
+            feedback_lower = feedback.casefold()
+            if "unsupported agent tool" in feedback_lower or "editor payload" in feedback_lower:
+                correction = (
+                    "Use one canonical tool name from the tool list. Do not use "
+                    "edit_file, file_editor, code_editor, code_change, or "
+                    "run_validation. For edits, read the file and call "
+                    "apply_patch with exact old/new text edits."
+                )
+            elif feedback.startswith("Duplicate read_file blocked"):
                 correction = (
                     "Do not call read_file again. Use the existing file content. "
                     "If code changes are still missing, the next tool MUST be "

@@ -12,6 +12,7 @@ from app.agent_service import (
     _apply_subagent_requirements,
     _deterministic_autonomous_recovery_step,
     _normalize_autonomous_validation_step,
+    _normalize_tool_call,
     _model_reported_verified_noop,
     _read_file,
     _unwrap_model_action,
@@ -165,6 +166,50 @@ LEARNED MEMORY:
         })
         self.assertEqual(action["tool"], "apply_patch")
         self.assertEqual(action["arguments"]["edits"][0]["path"], "x.py")
+
+    def test_editor_alias_with_exact_changes_is_normalized(self):
+        action = _unwrap_model_action(
+            {
+                "tool_call": {
+                    "name": "edit_file",
+                    "arguments": {
+                        "file_path": "services/example.py",
+                        "changes": [
+                            {"old_content": "before", "new_content": "after"}
+                        ],
+                    },
+                }
+            }
+        )
+        normalized = _normalize_tool_call(action)
+        self.assertEqual(normalized["tool"], "apply_patch")
+        self.assertEqual(
+            normalized["arguments"]["edits"],
+            [{"old": "before", "new": "after"}],
+        )
+
+    def test_validation_alias_maps_to_terminal(self):
+        normalized = _normalize_tool_call(
+            {
+                "action": "run_validation",
+                "arguments": {"command": "python -m unittest"},
+            }
+        )
+        self.assertEqual(normalized["tool"], "run_terminal")
+        self.assertEqual(normalized["arguments"]["command"], "python -m unittest")
+        self.assertEqual(normalized["arguments"]["cwd"], ".")
+
+    def test_line_based_editor_alias_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "exact old and new"):
+            _unwrap_model_action(
+                {
+                    "action": "edit_file",
+                    "arguments": {
+                        "file_path": "services/example.py",
+                        "changes": [{"start_line": 1, "code": "replacement"}],
+                    },
+                }
+            )
 
     def test_model_validation_command_uses_service_virtualenv(self):
         step = {

@@ -595,7 +595,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
     task_ids = list(run.get("task_ids") or [])
     update_autonomy_run(run_id, status="running", error=None)
 
-    roles = configured_subagent_roles(settings.autonomous_subagents)
+    configured_roles = configured_subagent_roles(settings.autonomous_subagents)
     section_value = ""
     for line in str(run.get("goal") or "").splitlines():
         if line.strip().casefold().startswith("section:"):
@@ -611,11 +611,32 @@ async def run_autonomous_cycles(run_id: str) -> None:
         ),
         None,
     )
-    if section_role and section_role.key not in {role.key for role in roles}:
-        roles = [section_role, *roles]
-    # The deterministic monitor is the parent supervisor, not a child worker.
-    roles = [role for role in roles if role.key != "monitor"]
-    roles = roles[: max(int(settings.autonomous_max_subagents), 1)]
+    # Keep the writer and at least one validation-capable reader inside the
+    # bounded role budget. Optional specialists fill remaining slots instead of
+    # displacing the safety-critical handoff.
+    configured_roles = [role for role in configured_roles if role.key != "monitor"]
+    max_roles = max(int(settings.autonomous_max_subagents), 1)
+    writers = [role for role in configured_roles if not role.read_only]
+    validators = [
+        role for role in configured_roles if role.read_only and role.validation_required
+    ]
+    observers = [
+        role
+        for role in configured_roles
+        if role.read_only and not role.validation_required
+    ]
+    selected_roles: list[object] = []
+    for role in [*writers, *validators]:
+        if role.key not in {item.key for item in selected_roles}:
+            selected_roles.append(role)
+    if section_role and len(selected_roles) < max_roles:
+        selected_roles.insert(0, section_role)
+    for role in observers:
+        if len(selected_roles) >= max_roles:
+            break
+        if role.key not in {item.key for item in selected_roles}:
+            selected_roles.append(role)
+    roles = selected_roles[:max_roles]
     if not roles:
         roles = configured_subagent_roles("implementer")
     previous_handoff_ids: list[str] = []
@@ -737,12 +758,15 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     *(execute_item(item) for item in phase_items)
                 )
                 phase_failed = False
+                writer_failed = False
                 for item, finished, problem in outcomes:
                     role, task, handoff = item
                     handoff_id = handoff["id"]
                     previous_handoff_ids.append(handoff_id)
                     if problem:
                         phase_failed = True
+                        if not role.read_only:
+                            writer_failed = True
                         if finished and finished.get("status") not in {"failed", "completed"}:
                             update_task(
                                 task["id"],
@@ -782,8 +806,8 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         confidence=0.85 if payload["blockers"] == [] else 0.55,
                     )
 
-                if phase_failed:
-                    error = "One or more specialists failed; later phases were held behind the writer barrier."
+                if phase_failed and writer_failed:
+                    error = "The writer specialist failed; later phases were held behind the writer barrier."
                     update_autonomy_run(
                         run_id,
                         task_ids=task_ids,
@@ -792,6 +816,13 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         error=error,
                     )
                     return
+                if phase_failed:
+                    logger.warning(
+                        "One or more read-only specialists failed in phase %s/%s; "
+                        "continuing with the writer and validation evidence.",
+                        phase_index,
+                        len(phases),
+                    )
 
             completed_cycles = cycle
             update_autonomy_run(
