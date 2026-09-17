@@ -1,75 +1,74 @@
-# گزارش مشتری — وضعیت پروژه و مسیر تکمیل
+# گزارش ممیزی فنی AI-Engineer  گزارش مشتری
 
-| مشخصه | مقدار |
+| فیلد | مقدار |
 |---|---|
-| پروژه | AI Engineer |
-| نوع گزارش | گزارش مشتری |
+| پروژه | AI-Engineer |
+| نوع گزارش | گزارش نقطه‌ای ممیزی مشتری |
 | زبان | فارسی |
-| تاریخ شمسی | ۱۴۰۵/۰۶/۰۸ |
-| تاریخ میلادی | ۳۰ اوت ۲۰۲۶ |
-| آخرین revision مشاهده‌شده | `e872ace` — ۳۰ اوت ۲۰۲۶ |
-| وضعیت تحویل | قابل اجرای محلی، اما هنوز نسخهٔ نهایی و Production نیست |
+| تاریخ هجری شمسی | 1405-06-27 |
+| تاریخ میلادی | 2026-09-18 |
+| وضعیت تحویل | ممیزی کامل شد؛ ادامه پیاده‌سازی منتظر دستور بعدی است |
+| دامنه | مخزن موجود و سرویس‌های محلی در حال اجرا |
 
-## خلاصهٔ مدیریتی
+## خلاصه مدیریتی
 
-AI Engineer از یک اسکلت چندسرویسی به یک هستهٔ Local-First برای مدیریت پروژه، اجرای Task، نگهداری حافظهٔ پروژه و خودتوسعهٔ کنترل‌شده رسیده است. سرویس‌های اصلی روی سیستم محلی اجرا می‌شوند و پیش از تغییر، محدودیت Workspace، checkpoint، backup و validation اعمال می‌شود.
+ممیزی فنی تازه‌ای از مخزن موجود AI-Engineer انجام شد. مرزهای UI/Desktop  Orchestrator  Local Agent و Model Gateway حفظ شدند و در این مرحله بازنویسی عمده‌ای در کد منبع انجام نشد. مخزن فعلی چرخه اجرای خودکار، نقش‌های تخصصی، ذخیره‌سازی SQLite، checkpoint/rollback و کنترل‌سنتر React را دارد؛ اما هنوز یک سازمان مهندسی خودکار کامل و آماده تولید نیست. رفتار فعلی بیشتر یک چرخه محدود بهبود خودکار است، نه سامانه کامل مدیریت پروژه توسط Supervisor.
 
-این وضعیت برای آزمایش و ادامهٔ توسعه قابل استفاده است، اما هنوز معادل یک محصول کامل برای دریافت هر پروژه، توسعهٔ مستقل تا انتها، رفع خطا و صدور تأیید نهایی نیست.
+در زمان ممیزی endpointهای سلامت Orchestrator، Local Agent و Model Gateway سالم بودند. دو بررسی build/test به‌دلیل نبود وابستگی‌های JavaScript مسدود شدند و endpoint محلی Provider Router در حال گوش‌دادن نبود.
 
-## موارد واقعاً پیاده‌سازی‌شده
+## قابلیت‌های موجود که در مخزن تأیید شد
 
-- Orchestrator برای Project، Task، autonomy run، memory و handoffهای specialist.
-- Supervisor زمان‌بندی‌شده با انتخاب هدف مشخص، readerهای محدود و یک writer متوالی.
-- checkpoint و کنترل مسیر Workspace پیش از mutation، به‌همراه ثبت نتیجه و validation.
-- Local Agent برای فایل، terminal، process و Git با محدودیت مسیر، طول ورودی، timeout و فرمان.
-- Model Gateway محلی با Ollama، provider pool، fallback و محدودیت اندازهٔ پاسخ.
-- Provider Router سازگار با APIهای OpenAI/Responses و مسیرهای provider اختیاری.
-- Control Center و Desktop از نظر build قابل تولید هستند.
-- حافظه و وضعیت Task/run در SQLite ثبت می‌شود و سرویس‌ها health endpoint دارند.
-- در آخرین اجرای validation: ۴۸ تست Orchestrator موفق، تست‌های Model Gateway موفق، compile سرویس Local Agent موفق و buildهای Control Center و Desktop موفق بودند.
+- Orchestrator مبتنی بر FastAPI با endpointهای task، autonomy-run، handoff، memory، project، health و developer.
+- ابزارهای Local Agent برای عملیات کنترل‌شده فایل، ترمینال، پردازش و Git.
+- Model Gateway با مسیریابی provider و بررسی health/readiness.
+- کد منبع Electron Desktop و React Control Center.
+- ذخیره‌سازی SQLite برای پروژه‌ها، taskها، memoryها، اجرای خودکار و handoffها.
+- ثبت نقش‌های تخصصی و فازهای محدود خواندنی/نوشتاری.
+- کنترل checkpoint و rollback پیرامون تغییرات workspace.
+- اسکریپت‌های Windows Server برای راه‌اندازی و health-check.
 
-## تغییرات این بازه
+این موارد قابلیت‌های مشاهده‌شده فعلی هستند و به‌معنای تکمیل معماری هدف نیستند.
 
-از revision مبنا در ۱۵ اوت تا revision فعلی، ۴۷ فایل در لایه‌های Orchestrator، Local Agent، Model Gateway، Provider Router، UI و تست‌ها تغییر کرده‌اند؛ حاصل آن ۱۳۴۹ خط افزوده و ۲۵۵ خط حذف‌شده است. تمرکز تغییرات روی ایمنی مسیر و فرمان، سقف ورودی/خروجی، fallback، health، حافظه، قرارداد subagent و تست regression بوده است.
+## کارهای باقی‌مانده
 
-## وضعیت عملیاتی فعلی
+### الزامی پیش از تحویل خودکار تولیدمحور
 
-- Orchestrator، Model Gateway، Local Agent، Provider Router و Ollama در زمان تهیهٔ گزارش فعال و health آن‌ها موفق است.
-- Supervisor داخلی فعال است و با فاصلهٔ یک‌دقیقه‌ای، یک چرخه در هر run و حداکثر چهار specialist کار می‌کند.
-- در snapshot صد اجرای اخیر، ۹۴ اجرا موفق و ۶ اجرا ناموفق ثبت شده و ۱۴ هدف backlog حداقل یک‌بار انتخاب شده‌اند.
-- آخرین تلاش چهار هدف (`integration-health`، `recovery-coverage`، `requirements-contract` و `security-boundary`) ناموفق بوده و نیاز به retry یا رفع علت دارد.
-- رابط Control Center در زمان گزارش عمداً اجرا نشده است؛ build آن موفق است اما smoke test زندهٔ UI انجام نشده است.
+- ایجاد control plane واقعی برای Supervisor/مدیر مهندسی، شامل intake پروژه، تجزیه هدف، Task DAG، زمان‌بندی وابستگی‌محور و معیار پذیرش.
+- ایجاد پیام‌رسانی پایدار بین agentها برای سؤال، چالش، درخواست بازبینی، ثبت تصمیم و حل اختلاف توسط Supervisor.
+- ایجاد lease/lock و checkpoint قابل ادامه برای جلوگیری از تداخل agentهای نویسنده.
+- تعریف دروازه‌های تکمیل برای requirements، پیاده‌سازی، تست، review، امنیت، integration و release verification.
+- اعمال authentication و authorization سمت سرور، مرزبندی مالکیت/tenant و کنترل سوءاستفاده.
+- غیرفعال‌کردن auto-push گیت به‌صورت پیش‌فرض و الزام سیاست صریح release.
+- کاهش خطاهای timeout/max-step و افزودن پوشش regression برای recovery و idempotency.
 
-## کارهای باقی‌مانده تا تکمیل هدف اصلی
+### پیگیری‌های مهم
 
-### الزامی برای MVP موردنظر
+- شکستن agent_service با 3,270 خط به ماژول‌های مستقل ابزار، policy، اجرا و recovery.
+- همسان‌سازی مستندات قدیمی (ازجمله اشاره به Tauri) با پیاده‌سازی واقعی Electron.
+- فراهم‌کردن نصب تکرارپذیر وابستگی‌های JavaScript برای اعتبارسنجی Desktop و Provider Router.
+- جایگزینی مسیر hard-coded دسکتاپ با پیکربندی معتبر.
 
-1. ورود امن یک پروژهٔ موجود به Workspace و ثبت metadata آن؛ در حال حاضر API فقط Workspaceهای زیر `F:/AI-Engineer/workspaces` یا مخزن خودش را می‌پذیرد.
-2. تشخیص محیط پروژه از روی manifestها و انتخاب build/test مناسب.
-3. تبدیل Prompt/نیازمندی به plan، patch، اجرای تست، تحلیل failure و چرخهٔ اصلاح با سقف و نتیجهٔ قابل اتکا.
-4. تجمیع چند validation، گزارش نهایی، توقف امن و resume پس از restart.
-5. رفع خطاهای پایدار autonomy و تست‌های Provider Router، سپس اجرای smoke test واقعی روی یک پروژهٔ نمونه.
+## خلاصه اعتبارسنجی
 
-### تکمیل محصول Production
+| حوزه | نتیجه |
+|---|---|
+| تست واحد Orchestrator | PASS  تعداد 62 تست |
+| تست Local Agent | PASS  تعداد 2 تست |
+| تست Model Gateway | PASS  تعداد 26 تست |
+| compile پایتون | PASS برای هر سه سرویس |
+| build تولیدی React Control Center | PASS |
+| build Electron Desktop | NOT_RUN/مسدود  وابستگی Vite موجود نیست |
+| تست Provider Router | NOT_RUN/مسدود  وابستگی Vitest موجود نیست |
+| سلامت سرویس‌های 8010، 8011، 8012 | PASS |
+| سلامت Provider Router در 8020 | NOT_RUN  endpoint در حال گوش‌دادن نبود |
+| lint کامل، audit امنیتی و E2E مرورگر | NOT_RUN |
 
-- احراز هویت و authorization کامل برای همهٔ مسیرهای محصول.
-- Browser/UI validation و تست responsive/accessibility.
-- VS Code integration، CI/CD، migration/backup/restore و runbook عملیاتی.
-- watchdog یا سرویس‌مدیری برای restart قابل اعتماد و observability کامل.
-- تعیین معیار پذیرش محصول، versioning و بستهٔ انتشار.
+در snapshot پایگاه‌داده 498 اجرای خودکار ثبت شده بود (335 تکمیل‌شده و 163 ناموفق). این سابقه فعالیت مفید است، اما به‌تنهایی آمادگی انتشار را ثابت نمی‌کند.
 
-## ریسک‌ها و محدودیت‌های فعلی
+## وضعیت امنیت و استقرار
 
-- چهار هدف خودتوسعه در آخرین تلاش fail شده‌اند؛ بخشی از failureها ناشی از خروجی نامعتبر مدل محلی در انتخاب tool است.
-- Provider Router در تست کامل ۱۷۰ فایل و ۱۷۵۴ تست، ۴ failure دارد: دو مورد permission فایل SQLite در Windows و دو مورد بودجهٔ performance فشرده‌سازی.
-- launcher headless Provider Router در حالت نبودن process قبلی با خطای PowerShell مربوط به property `Count` متوقف می‌شود؛ سرویس را فعلاً می‌توان مستقیم اجرا کرد.
-- سرویس‌ها در این محیط به‌صورت process محلی اجرا می‌شوند و تضمین ۲۴/۷ یا production deployment وجود ندارد.
-- Stage gate رسمی و `project-state.json` در مخزن فعلی ثبت نشده‌اند؛ بنابراین وضعیت نهایی هنوز release-certified نیست.
+در این ممیزی hardening امنیتی یا استقرار production انجام نشد. موارد مهم برای پیگیری عبارت‌اند از: نبود middleware احراز هویت در API Orchestrator، CORS توسعه‌ای باز، schema ضعیف درخواست task، فعال‌بودن پیش‌فرض autonomous push در deployment و مسیر hard-coded دسکتاپ. اسکریپت‌های راه‌اندازی Windows Server موجودند و سه سرویس اصلی health-check موفق داشتند؛ اما فرآیند Provider Router و build کامل Desktop نیازمند رفع مشکل عملیاتی و وابستگی هستند.
 
-## آمادگی برای Production
+## تحویل ممیزی
 
-**آماده نیست.** وضعیت فعلی برای توسعه و آزمایش محلی مناسب است. پیش از استفادهٔ Production باید failureهای ذکرشده، intake پروژه، چرخهٔ end-to-end، smoke/UI، backup/restore و استقرار امن تکمیل و با معیار پذیرش قابل تکرار تأیید شوند.
-
-## جمع‌بندی کوتاه
-
-هستهٔ اجرایی و ایمنی ساخته شده و همین حالا برای ادامهٔ توسعهٔ محلی قابل استفاده است؛ اما مسیر «هر پروژه را تحویل بگیرد، کامل توسعه دهد و تست نهایی معتبر صادر کند» هنوز یک بخش مستقل و تکمیل‌نشده است. تکمیل نهایی باید بر اساس MVP و معیارهای پذیرش مشخص سنجیده شود، نه صرفاً بر اساس تعداد checkpointهای خودکار.
+برنامه پیاده‌سازی در docs/implementation-plan-autonomous-multi-agent.md ثبت شده است. این سند معماری و workflow فعلی، شکاف‌ها، ماژول‌های دقیق پیشنهادی، معماری هدف مبتنی بر Supervisor و دروازه‌های فازبندی‌شده را مشخص می‌کند. در این ممیزی هیچ push به مخزن remote انجام نشد.

@@ -1,113 +1,107 @@
-# گزارش فنی — وضعیت و مسیر تکمیل AI Engineer
+# گزارش فنی ممیزی AI-Engineer
 
 | فیلد | مقدار |
 |---|---|
-| پروژه | AI Engineer |
-| نوع گزارش | گزارش فنی |
+| پروژه | AI-Engineer |
+| نوع گزارش | تحویل فنی مهندسی |
 | زبان | فارسی |
-| تاریخ شمسی | ۱۴۰۵/۰۶/۰۸ |
-| تاریخ میلادی | ۳۰ اوت ۲۰۲۶ |
-| آخرین revision مشاهده‌شده | `e872ace` — ۳۰ اوت ۲۰۲۶ |
-| وضعیت تحویل | قابل اجرای محلی؛ آمادهٔ انتشار نهایی Production نیست |
+| تاریخ هجری شمسی | 1405-06-27 |
+| تاریخ میلادی | 2026-09-18 |
+| snapshot مخزن | شاخه main؛ در ممیزی commit بازیابی fd80c52 و یک commit محلی جلوتر از origin مشاهده شد |
+| دامنه ممیزی | درخت منبع، تست‌ها، snapshot SQLite، اسکریپت‌های deployment و probe سرویس‌های محلی |
 
-## دامنه و مبنای بررسی
+## دامنه و شواهد
 
-این گزارش بر اساس وضعیت واقعی مخزن در ۳۰ اوت ۲۰۲۶، اجرای سرویس‌ها، اجرای تست‌های موجود و بررسی تاریخچهٔ Git تهیه شده است. از revision مبنا `32a7c69` در ۱۵ اوت تا وضعیت فعلی، ۴۷ فایل با ۱۳۴۹ خط افزوده و ۲۵۵ خط حذف‌شده مشاهده شد. شاخه `main` و working tree پیش از ایجاد همین گزارش‌ها پاک بود. در مخزن فعلاً `project-state.json` و `project-integrity-manifest.md` وجود ندارد؛ بنابراین وضعیت‌های رسمی دوازده‌مرحله‌ای هنوز به‌صورت قابل ردیابی ثبت نشده‌اند.
+این سند نتیجه ممیزی source-first از checkout فعلی است. خود ممیزی تغییر عمده‌ای در source برنامه ایجاد نکرد؛ برنامه پیاده‌سازی و گزارش‌های دوزبانه ممیزی ایجاد/به‌روزرسانی شدند. در زمان ممیزی supervisor در حال اجرا یک commit بازیابی ایجاد کرد که فقط README.md را تغییر داد؛ این commit برگردانده نشد.
 
-## معماری موجود
+## معماری فعلی
 
-| لایه | مؤلفه | وضعیت مشاهده‌شده |
-|---|---|---|
-| ارکستراسیون | `services/orchestrator` | API پروژه، task، memory و autonomy؛ workspace guard و checkpoint/backup دارد |
-| عامل محلی | `services/local-agent` | اجرای عامل محلی و endpoint سلامت؛ compile موفق |
-| درگاه مدل | `services/model-gateway` | درگاه مدل با provider پیکربندی‌شده؛ تست‌ها موفق |
-| مسیریاب provider | `services/provider-router` | سرویس Node/SQLite و unified provider API؛ بخشی از تست‌های سخت‌سازی و فشرده‌سازی شکست دارد |
-| رابط کنترل | `apps/control-center` | build تولیدی با Vite موفق؛ runtime عمداً راه‌اندازی نشده است |
-| اپ دسکتاپ | `apps/desktop` | build تولیدی با Vite موفق |
-| مدل محلی | Ollama | endpoint `/api/tags` پاسخ ۲۰۰ دارد و مدل محلی موجود است |
+مرز تأییدشده فعلی:
 
-## تغییرات واقعی مشاهده‌شده
+UI/Desktop  Orchestrator  Local Agent (workspace، فایل، Git، terminal و process)
+   Model Gateway (مسیریابی provider/model)
 
-- چرخهٔ autonomy دارای backlog چرخشی ۱۴ کلید است و planner، implementer، verifier، checkpoint/push policy و single-writer barrier دارد.
-- workspace guard مسیرهای مطلق و خروج از ریشهٔ workspace را رد می‌کند؛ نام مستعار `ai-engineer` برای خود مخزن تعریف شده است.
-- عامل سرویس ابزارهای مجاز، ابزارهای approval، سقف ۳۰ گام و retry برای فراخوانی مدل دارد.
-- کنترل‌های مربوط به محدودسازی طول آرگومان فرایندها، هم‌ترازی نسخهٔ health، پوشش recovery و قراردادهای نقش/نیازمندی در تاریخچهٔ اخیر دیده شد.
-- مدارک قدیمی پیشرفت، هستهٔ local-first را فعال می‌دانند؛ همان مدارک تصریح می‌کنند که parity کامل با Codex و چرخهٔ عمومی پروژه هنوز تکمیل نشده است.
+Orchestrator زمان‌بندی task، اجرای خودکار، نقش‌ها، memory، ذخیره handoff و routeهای health/developer را مدیریت می‌کند. Local Agent عملیات محافظت‌شده ماشین را ارائه می‌دهد. Model Gateway جلوی adapterهای provider و readiness check قرار دارد. React Control Center endpointهای تایپ‌شده Orchestrator را مصرف می‌کند. پیاده‌سازی Desktop در source، Electron است؛ درحالی‌که بخش‌هایی از مستندات هنوز معماری آینده Tauri/Rust را توصیف می‌کنند.
 
-## شواهد اجرای autonomy
+## workflow فعلی agentها
 
-در زمان بررسی، endpoint `/v1/agent/autonomy/runs?limit=100` تعداد ۱۰۰ اجرای اخیر را برگرداند: ۹۴ مورد `completed`، شش مورد `failed`، صفر مورد active و ۱۴ کلید backlog یکتا. آخرین بازهٔ مشاهده‌شده از ۲۶ تا ۳۰ اوت بود. آخرین وضعیت هر کلید نشان می‌دهد `control-center-observability`، `desktop-health`، `gateway-routing`، `local-agent-policy`، `memory-safety`، `operations-docs`، `role-contracts`، `supervisor-resume`، `task-observability` و `test-coverage` آخرین اجرای موفق داشتند؛ آخرین اجرای `integration-health`، `recovery-coverage`، `requirements-contract` و `security-boundary` ناموفق بود.
+چرخه فعلی یک هدف را از backlog ثابت 14‌تایی انتخاب می‌کند، goal و فرمان validation محدود می‌سازد و فازهای specialist را اجرا می‌کند. specialistهای read-only در batchهای موازی محدود اجرا می‌شوند و roleهای نویسنده جدا و سریالی هستند. پس از موفقیت validation، mutation می‌تواند checkpoint شود. handoffها به‌صورت رکورد ساختاریافته ذخیره و memoryها از نتایج terminal فشرده می‌شوند. scheduler پنج‌دقیقه‌ای run فعال را رد و کار stale را reconcile می‌کند.
 
-علت ثبت‌شدهٔ شکست‌های autonomy، ناتوانی مدل در تولید tool call معتبر پس از دو تلاش است (`Unsupported Agent tool: .`). این مورد شکست پروتکل اجرای مدل است و نباید به‌عنوان قبولی validation کد گزارش شود.
+این چرخه برای automation محدود مفید است، اما workflow سطح پروژه برای Supervisor نیست: intake پایدار پروژه، baseline نیازمندی، DAG وابستگی‌محور، lease کار، دروازه پذیرش و تصمیم نهایی release وجود ندارد.
 
-## ماتریس اعتبارسنجی اجراشده
+## نقش‌ها و قراردادهای موجود
 
-| بررسی | فرمان/شاهد | نتیجه |
-|---|---|---|
-| تست ارکستریتور | `services/orchestrator/.venv/Scripts/python.exe -m unittest discover -s tests -q` | PASS — ۴۸ تست، ۱۶٫۶۳۷ ثانیه |
-| تست Model Gateway | `services/model-gateway/.venv/Scripts/python.exe -m pytest -q` | PASS — خروجی pytest موفق؛ فقط warning وابستگی |
-| compile عامل محلی | `services/local-agent/.venv/Scripts/python.exe -m compileall -q app` | PASS |
-| build Control Center | `apps/control-center npm run build` | PASS — Vite 7.3.6 |
-| build Desktop | `apps/desktop npm run build` | PASS — Vite 8.2.0 |
-| تست Provider Router | `services/provider-router npm test` | FAIL — ۱۶۸/۱۷۰ فایل تست و ۱۷۵۰/۱۷۵۴ تست موفق؛ ۴ شکست |
-| health مدل gateway | `GET http://127.0.0.1:8010/health` | PASS — HTTP 200 |
-| health عامل محلی | `GET http://127.0.0.1:8011/health` | PASS — HTTP 200 |
-| health ارکستریتور | `GET http://127.0.0.1:8012/health` | PASS — HTTP 200 |
-| قابلیت‌های ارکستریتور | `GET http://127.0.0.1:8012/capabilities` | PASS — supervisor فعال، interval یک دقیقه، workspace guarded |
-| سرویس Provider Router | `GET http://127.0.0.1:8020` | PASS — HTTP 200 |
-| Ollama | `GET http://127.0.0.1:11434/api/tags` | PASS — HTTP 200 |
-| runtime رابط کنترل | پورت `5175` | NOT_RUN — طبق دستور عدم تمرکز/بازکردن UI اجرا نشد |
+registry شامل inspector، planner، implementer، verifier، reviewer، monitor/Supervisor Manager، requirements، architect، orchestrator، gateway، local-agent، UI، desktop، tests، security، docs، debugger و integration است و aliasهای scout/local-agent/test-verifier/manager را دارد. metadata نقش‌ها read-only یا writer/validation را مشخص می‌کند. قرارداد فعلی عمدتاً prompt و metadata handoff است و semantics اجباری inbox، سؤال، challenge، revision یا decision سازمانی ندارد.
 
-چهار شکست Provider Router دو دسته‌اند: دو assertion مربوط به mode فایل DB/WAL روی Windows که مقدار مورد انتظار صفر و مقدار دریافتی ۵۴ بود، و دو تست کارایی فشرده‌سازی که p50 برابر ۱۸٫۴۴۳ms در برابر سقف ۸ms و payload adversarial برابر ۶۲۲٫۸۶ms در برابر سقف ۲۵۰ms اندازه‌گیری شد.
+## مدل persistence
 
-## وضعیت رسمی دوازده مرحله
+SQLite با WAL، foreign key و busy timeout فعال است. جدول‌های فعلی projects، agent_tasks، agent_memories، autonomy_runs و subagent_handoffs هستند و indexهای status/project دارند. نتیجه task، فرمان validation، مسیرهای تغییرکرده، جزئیات محدود terminal، memory و handoff ذخیره می‌شود. primitiveهای مفقود شامل جدول message/event، dependency task، lease/lock، decision پایدار، evidence پذیرش و state قابل resume است.
 
-این جدول وضعیت gate رسمی را نشان می‌دهد، نه صرفاً وجود بخشی از کد:
+snapshot فعلی شامل 1 پروژه، 1,110 task، 1,110 memory، 498 autonomy run و 1,110 handoff بود. نتیجه runها 335 تکمیل و 163 ناموفق؛ handoffها 947 تکمیل، 157 ناموفق و 6 در حال اجرا بودند. بازه داده مشاهده‌شده 2026-09-15T08:35:40Z تا 2026-09-17T20:57:43Z بود.
 
-| مرحله | وضعیت رسمی | توضیح کوتاه |
-|---:|---|---|
-| ۰۱ تحلیل و نیازمندی | NOT_RUN | artifact و `project-state.json` رسمی موجود نیست |
-| ۰۲ طراحی سیستم و UI | NOT_RUN | مستندات کامل gate موجود نیست |
-| ۰۳ معماری frontend | NOT_RUN | build موجود است، اما gate مرحله‌ای ثبت نشده |
-| ۰۴ معماری backend | NOT_RUN | کد backend موجود است، artifact مرحله‌ای ثبت نشده |
-| ۰۵ معماری database | NOT_RUN | persistence موجود است، gate مستقل ثبت نشده |
-| ۰۶ API و integration | NOT_RUN | endpointها موجودند، contract gate کامل ثبت نشده |
-| ۰۷ احراز هویت و مجوز | NOT_RUN | کنترل‌های موجود به معنای تکمیل gate نیستند |
-| ۰۸ امنیت کاربرد | NOT_RUN | گزارش امنیت رسمی و gate مستقل موجود نیست |
-| ۰۹ تست نرم‌افزار | NOT_RUN | بخشی از تست‌ها اجرا شده، اما ماتریس رسمی کامل نیست |
-| ۱۰ QA و debugging | NOT_RUN | بررسی محصول‌محور کامل اجرا نشده |
-| ۱۱ deployment و production | NOT_RUN | deployment واقعی انجام نشده و runbook کامل gate نشده |
-| ۱۲ final review | NOT_RUN | بازبینی مستقل نهایی اجرا نشده |
+## بدهی فنی و ریسک اصلی
 
-## ریسک‌ها و blockerهای فعلی
+- agent_service.py با 3,270 خط policy ابزار، ایمنی mutation، action مدل، اجرا، recovery و orchestration را مخلوط کرده است.
+- autonomy.py با 944 خط backlog، scheduling، retry، reconciliation و checkpoint push را در خود دارد.
+- Orchestrator middleware احراز هویت یا مدل authorization ندارد.
+- CORS برای originهای loopback تمام method/headerها را مجاز می‌کند و extraهای schema task پذیرفته می‌شوند.
+- deployment مقدار AUTONOMOUS_AUTO_PUSH=true دارد و مسیر push به origin main commit/push می‌کند.
+- electron/main.cjs مسیر F:\AI-Engineer را hard-code کرده است.
+- درخت وابستگی Provider Router و Desktop در checkout موجود نیست و بررسی runnable آن‌ها کامل نمی‌شود.
+- مستندات و گزارش‌های تاریخی ادعاهای قدیمی درباره stage/status و Tauri دارند.
+- رکورد خطاها شامل timeoutهای 360 ثانیه‌ای، اتمام max-step، reconciliation پس از restart و actionهای نامعتبر model-tool است.
 
-1. چهار failure در تست Provider Router مانع اعلام سبز بودن کامل تست‌هاست.
-2. چهار کلید autonomy آخرین اجرای ناموفق دارند و خطای tool-call مدل می‌تواند چرخهٔ خودکار را متوقف کند.
-3. launcher اسکریپتی Provider Router در حالت نبودن process با دسترسی به `Count` روی مقدار null شکست می‌خورد؛ سرویس برای این بررسی با Node مستقیم بالا نگه داشته شد.
-4. autonomy backlog چرخه‌ای است و شرط پایان نهایی ندارد؛ صرفاً روشن‌ماندن supervisor به‌تنهایی پروژه را به محصول نهایی تبدیل نمی‌کند.
-5. Control Center runtime و سناریوهای end-to-end مرورگر در این بررسی اجرا نشدند.
-6. فرایندهای فعلی محلی‌اند و تضمین ۲۴/۷ برای restart، watchdog، CI/CD، backup/restore و observability تولیدی هنوز اثبات نشده است.
-7. نبود `project-state.json` و integrity baseline، ردیابی gateها و تشخیص regression را ناقص می‌کند.
+## شکاف ارتباطی
 
-## مسیر باقی‌مانده تا تکمیل نهایی
+handoff فعلی summary ساختاریافته‌ای با evidence، changed files، validation، blocker، confidence و previous handoff ID است. entity پیام/inbox، سؤال خطاب‌شده، challenge/rebuttal، تصمیم Supervisor، درخواست revision، acknowledgement یا event stream پایدار وجود ندارد. فازهای موازی محدودند، اما جلوگیری از تداخل writer عمدتاً با جداسازی فاز انجام می‌شود، نه lease در سطح task.
 
-مسیر تکمیل «محصول قابل استفاده برای دریافت پروژهٔ دلخواه و تحویل نتیجهٔ تست‌شده» به این ترتیب است:
+## baseline تست و probe سرویس
 
-1. **P0 — تثبیت اجرا:** رفع failureهای Provider Router، اصلاح launcher، و رفع خطای invalid tool call یا افزودن fallback/abort شفاف برای آن.
-2. **P0 — intake واقعی پروژه:** تعریف ورودی پروژهٔ خارجی، تشخیص stack و محیط، ایجاد workspace ایزوله، snapshot/backup و policy مجوز.
-3. **P0 — چرخهٔ کامل تحویل:** plan → patch → targeted test → full test → debug/retry → approval در موارد پرریسک → گزارش و rollback.
-4. **P1 — validation و resilience:** جمع‌آوری نتیجهٔ همهٔ سرویس‌ها، resume پس از restart، جلوگیری از duplicate run، timeout/retry محدود و telemetry قابل جست‌وجو.
-5. **P1 — تجربهٔ استفاده:** اتصال واقعی Control Center و Desktop، نمایش task/run/log/approval، خطا و پیشرفت؛ سپس اجرای E2E و accessibility.
-6. **P1 — امنیت و عملیات:** احراز هویت/مجوز چندکاربره، tenant/ownership isolation، مدیریت secret، audit، rate limit، CI/CD، container، health/readiness و backup/restore آزموده‌شده.
-7. **P2 — پوشش محصول:** متخصص‌های عمیق‌تر (debugger، test/fix، security review، release)، contractهای رسمی و sample-project smoke tests.
-8. **P2 — gate نهایی:** ایجاد artifacts دوازده مرحله، `project-state.json` و integrity manifest، اجرای full review مستقل و بسته‌بندی release.
+| بررسی | نتیجه |
+|---|---|
+| unittest Orchestrator | PASS  62 |
+| unittest Local Agent | PASS  2 |
+| pytest Model Gateway | PASS  26 |
+| compileall پایتون | PASS  هر سه سرویس |
+| npm build کنترل‌سنتر | PASS |
+| npm build Desktop | NOT_RUN/مسدود  Vite/dependencies موجود نیست |
+| npm test Provider Router | NOT_RUN/مسدود  Vitest/dependencies موجود نیست |
+| health/capabilities در 8012 | PASS |
+| health در 8011 | PASS |
+| health/readiness در 8010 | PASS |
+| Provider Router در 8020 | NOT_RUN  اتصال رد شد |
+| lint/type/security audit کامل و browser E2E | NOT_RUN |
 
-برآورد زمانی قابل اتکا بدون اجرای این گام‌ها ممکن نیست؛ چون backlog فعلی زمان‌محور و چرخشی است، نه برنامهٔ دارای شرط اتمام. بنابراین «چند ساعت روشن‌بودن» یا «تعداد اجرای supervisor» معیار تکمیل نهایی نیست.
+گزارش‌های تاریخی با تعداد تست یا موفقیت Desktop متفاوت، به‌عنوان شواهد فعلی استفاده نشدند.
 
-## وضعیت آمادگی Production
+## معماری هدف پیشنهادی
 
-**NOT_READY.** هستهٔ سرویس‌ها در محیط محلی قابل اجراست و چندین validation سبز است، اما failureهای تستی، نبود gate رسمی، نبود intake/چرخهٔ کامل پروژه، نبود اثبات عملیات ۲۴/۷ و اجرا نشدن review نهایی، انتشار Production را توجیه نمی‌کند.
+مرز سرویس‌های فعلی حفظ می‌شود و قابلیت‌های ماژولار به Orchestrator افزوده می‌گردد:
 
-## جمع‌بندی فنی
+1. intake پروژه و baseline نیازمندی.
+2. control plane Supervisor با role assignment، policy، decision log و acceptance gate.
+3. task DAG پایدار با dependency، priority، retry، lease و checkpoint قابل resume.
+4. subsystem پیام/event برای assignment، question، challenge، evidence، revision، acknowledgement و تصمیم Supervisor.
+5. adapter اجرای specialist که همچنان از public interfaceهای Local Agent و Model Gateway استفاده کند.
+6. pipeline integration/review/release با evidence اجباری تست، امنیت، مستندات و verification.
+7. API احراز هویت‌شده و مجاز با observability عملیاتی.
+8. سیاست امن Git با commit محلی checkpoint به‌صورت پیش‌فرض و مجوز صریح برای push release.
 
-تا این نقطه یک هستهٔ local-first با ارکستراسیون، عامل محلی، gateway مدل، provider router، UI buildشدنی و supervisor خودکار ساخته شده و شواهد اجرایی واقعی دارد. برای رسیدن به چیزی که بتوان پروژهٔ دلخواه را بگیرد و نتیجهٔ نهایی تست‌شده تحویل دهد، هنوز یک مسیر چندبخشی P0/P1 شامل تثبیت failureها، intake ایزوله، چرخهٔ کامل تغییر و تست، امنیت، UI عملیاتی و gate نهایی باقی است.
+## فازهای پیشنهادی اجرا
+
+| فاز | خروجی اصلی |
+|---|---|
+| 0 | baseline، integrity manifest و flagهای ایمنی؛ خاموش‌کردن auto-push پیش‌فرض |
+| 1 | تفکیک agent service به policy/tool/execution/recovery بدون تغییر قرارداد |
+| 2 | DAG پایدار task، dependency، lease، idempotency و resume |
+| 3 | mailbox بین agentها، سؤال/challenge، evidence، revision و تصمیم Supervisor |
+| 4 | intake پروژه، تخصیص role، زمان‌بندی و acceptance gate توسط Supervisor |
+| 5 | authentication، authorization، audit event و regression امنیتی |
+| 6 | observability در frontend/desktop و حذف path hard-coded و drift پیکربندی |
+| 7 | integration، release verification، hardening deployment، مستندات و QA کامل |
+
+فهرست دقیق فایل‌های پیشنهادی در docs/implementation-plan-autonomous-multi-agent.md ثبت شده و شامل افزودنی‌های متمرکز در services/orchestrator/app (workflow، messaging، supervisor، policy، lease، acceptance و auth)، تغییر schema/migration، استخراج agent_service، پیکربندی deployment و تست‌هاست.
+
+## ارزیابی validation و release
+
+سرویس‌های اصلی Python و build کنترل‌سنتر قابل‌تأیید هستند. بررسی Desktop و Provider Router به‌علت نبود dependency مسدود است؛ lint، security audit کامل و browser E2E اجرا نشدند. دروازه release production تا زمان پیاده‌سازی و اعتبارسنجی authentication/authorization، سیاست auto-push، معیار تکمیل workflow، نصب dependency و primitiveهای ارتباطی Supervisor قابل عبور نیست.
