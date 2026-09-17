@@ -40,123 +40,242 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def connect() -> sqlite3.Connection:
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DATABASE_PATH, timeout=30)
+SCHEMA_VERSION = 2
+_SCHEMA_VERSION_TABLE = "schema_version"
+
+
+class _ManagedConnection(sqlite3.Connection):
+    """Commit/rollback and close when used as a context manager.
+
+    sqlite3.Connection.__exit__ does not close the handle, which leaves
+    temporary database files locked on Windows and makes test isolation flaky.
+    """
+
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
+        try:
+            super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
+def _database_path(value: str | os.PathLike[str] | None = None) -> Path:
+    """Resolve a database path without changing the public DATABASE_PATH hook."""
+    return Path(value if value is not None else DATABASE_PATH).expanduser()
+
+
+def connect(
+    database_path: str | os.PathLike[str] | None = None,
+) -> sqlite3.Connection:
+    """Open a configured SQLite connection.
+
+    ``database_path`` is optional so production callers keep using
+    ``DATABASE_PATH`` while tests can create isolated databases without
+    mutating process-wide configuration.
+    """
+    path = _database_path(database_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(str(path), timeout=30, factory=_ManagedConnection)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA busy_timeout=5000")
     connection.execute("PRAGMA foreign_keys=ON")
     return connection
 
 
-def initialize_database() -> None:
-    with connect() as database:
+def _migration_1(database: sqlite3.Connection) -> None:
+    """Create the original durable schema."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            workspace TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_tasks (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            instruction TEXT NOT NULL,
+            status TEXT NOT NULL,
+            plan_json TEXT NOT NULL DEFAULT '[]',
+            current_step INTEGER NOT NULL DEFAULT 0,
+            results_json TEXT NOT NULL DEFAULT '[]',
+            approved_steps_json TEXT NOT NULL DEFAULT '[]',
+            pending_json TEXT,
+            final_output TEXT,
+            error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_memories (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            task_id TEXT,
+            kind TEXT NOT NULL,
+            summary TEXT NOT NULL,
+            detail_json TEXT NOT NULL DEFAULT '{}',
+            confidence REAL NOT NULL DEFAULT 0.5,
+            created_at TEXT NOT NULL,
+            last_used_at TEXT,
+            use_count INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS autonomy_runs (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            goal TEXT NOT NULL,
+            requested_cycles INTEGER NOT NULL,
+            completed_cycles INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            task_ids_json TEXT NOT NULL DEFAULT '[]',
+            error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS subagent_handoffs (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            task_id TEXT,
+            role TEXT NOT NULL,
+            section TEXT NOT NULL,
+            schema_version TEXT NOT NULL DEFAULT '1.0',
+            status TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            changed_files_json TEXT NOT NULL DEFAULT '[]',
+            validations_json TEXT NOT NULL DEFAULT '[]',
+            blockers_json TEXT NOT NULL DEFAULT '[]',
+            next_action TEXT,
+            confidence REAL NOT NULL DEFAULT 0,
+            previous_handoff_ids_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        """
+    )
+
+
+def _migration_2(database: sqlite3.Connection) -> None:
+    """Add task execution mode and indexes introduced after the initial schema."""
+    task_columns = {
+        str(row[1])
+        for row in database.execute("PRAGMA table_info(agent_tasks)").fetchall()
+    }
+    if "mode" not in task_columns:
+        database.execute(
+            "ALTER TABLE agent_tasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'interactive'"
+        )
+    database.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_agent_tasks_project
+            ON agent_tasks(project_id);
+        CREATE INDEX IF NOT EXISTS idx_agent_tasks_status
+            ON agent_tasks(status);
+        CREATE INDEX IF NOT EXISTS idx_agent_memories_project
+            ON agent_memories(project_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_run
+            ON subagent_handoffs(run_id, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_project
+            ON subagent_handoffs(project_id, updated_at DESC);
+        """
+    )
+
+
+def _schema_version(database: sqlite3.Connection) -> int:
+    columns = {
+        str(row[1])
+        for row in database.execute(
+            f"PRAGMA table_info({_SCHEMA_VERSION_TABLE})"
+        ).fetchall()
+    }
+    if "version" not in columns:
+        return 0
+    query = (
+        "SELECT version FROM schema_version WHERE id = 1"
+        if "id" in columns
+        else "SELECT version FROM schema_version ORDER BY rowid DESC LIMIT 1"
+    )
+    row = database.execute(query).fetchone()
+    try:
+        return max(int(row[0]), 0) if row else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _record_schema_version(database: sqlite3.Connection, version: int) -> None:
+    now = utc_now()
+    columns = {
+        str(row[1])
+        for row in database.execute(
+            f"PRAGMA table_info({_SCHEMA_VERSION_TABLE})"
+        ).fetchall()
+    }
+    if "id" in columns:
+        updated = database.execute(
+            "UPDATE schema_version SET version = ?, applied_at = ? WHERE id = 1",
+            (version, now),
+        )
+        if updated.rowcount == 0:
+            database.execute(
+                "INSERT INTO schema_version(id, version, applied_at) VALUES (1, ?, ?)",
+                (version, now),
+            )
+        return
+    database.execute("DELETE FROM schema_version")
+    database.execute(
+        "INSERT INTO schema_version(version, applied_at) VALUES (?, ?)",
+        (version, now),
+    )
+
+
+def initialize_database(
+    database_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Initialize or upgrade SQLite deterministically and without data loss.
+
+    Migrations are additive and idempotent. Existing databases that predate
+    ``schema_version`` are upgraded in place after their data is preserved.
+    """
+    with connect(database_path) as database:
         database.execute("PRAGMA journal_mode=WAL")
-        database.executescript(
+        database.execute(
             """
-            CREATE TABLE IF NOT EXISTS projects (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                workspace TEXT NOT NULL UNIQUE,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS agent_tasks (
-                id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL,
-                instruction TEXT NOT NULL,
-                mode TEXT NOT NULL DEFAULT 'interactive',
-                status TEXT NOT NULL,
-                plan_json TEXT NOT NULL DEFAULT '[]',
-                current_step INTEGER NOT NULL DEFAULT 0,
-                results_json TEXT NOT NULL DEFAULT '[]',
-                approved_steps_json TEXT NOT NULL DEFAULT '[]',
-                pending_json TEXT,
-                final_output TEXT,
-                error TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(project_id) REFERENCES projects(id)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_agent_tasks_project
-                ON agent_tasks(project_id);
-
-            CREATE INDEX IF NOT EXISTS idx_agent_tasks_status
-                ON agent_tasks(status);
-
-            CREATE TABLE IF NOT EXISTS agent_memories (
-                id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL,
-                task_id TEXT,
-                kind TEXT NOT NULL,
-                summary TEXT NOT NULL,
-                detail_json TEXT NOT NULL DEFAULT '{}',
-                confidence REAL NOT NULL DEFAULT 0.5,
-                created_at TEXT NOT NULL,
-                last_used_at TEXT,
-                use_count INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY(project_id) REFERENCES projects(id)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_agent_memories_project
-                ON agent_memories(project_id, created_at DESC);
-
-            CREATE TABLE IF NOT EXISTS autonomy_runs (
-                id TEXT PRIMARY KEY,
-                project_id TEXT NOT NULL,
-                goal TEXT NOT NULL,
-                requested_cycles INTEGER NOT NULL,
-                completed_cycles INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL,
-                task_ids_json TEXT NOT NULL DEFAULT '[]',
-                error TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(project_id) REFERENCES projects(id)
-            );
-
-            CREATE TABLE IF NOT EXISTS subagent_handoffs (
-                id TEXT PRIMARY KEY,
-                run_id TEXT NOT NULL,
-                project_id TEXT NOT NULL,
-                task_id TEXT,
-                role TEXT NOT NULL,
-                section TEXT NOT NULL,
-                schema_version TEXT NOT NULL DEFAULT '1.0',
-                status TEXT NOT NULL,
-                summary TEXT NOT NULL DEFAULT '',
-                evidence_json TEXT NOT NULL DEFAULT '[]',
-                changed_files_json TEXT NOT NULL DEFAULT '[]',
-                validations_json TEXT NOT NULL DEFAULT '[]',
-                blockers_json TEXT NOT NULL DEFAULT '[]',
-                next_action TEXT,
-                confidence REAL NOT NULL DEFAULT 0,
-                previous_handoff_ids_json TEXT NOT NULL DEFAULT '[]',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
-                FOREIGN KEY(project_id) REFERENCES projects(id)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_run
-                ON subagent_handoffs(run_id, created_at ASC);
-
-            CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_project
-                ON subagent_handoffs(project_id, updated_at DESC);
+            CREATE TABLE IF NOT EXISTS schema_version (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                version INTEGER NOT NULL,
+                applied_at TEXT NOT NULL
+            )
             """
         )
-
-        task_columns = {
-            str(row[1])
-            for row in database.execute("PRAGMA table_info(agent_tasks)").fetchall()
-        }
-        if "mode" not in task_columns:
-            database.execute(
-                "ALTER TABLE agent_tasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'interactive'"
+        current = _schema_version(database)
+        if current > SCHEMA_VERSION:
+            raise RuntimeError(
+                f"Database schema version {current} is newer than supported "
+                f"version {SCHEMA_VERSION}."
             )
 
+        migrations = ((1, _migration_1), (2, _migration_2))
+        for version, migration in migrations:
+            if current < version:
+                migration(database)
+                _record_schema_version(database, version)
+                current = version
+
+        # Re-run additive definitions to repair partially-created databases even
+        # when a previous process recorded a version early.
+        _migration_1(database)
+        _migration_2(database)
+        if current < SCHEMA_VERSION:
+            _record_schema_version(database, SCHEMA_VERSION)
 
 def _row_to_project(row: sqlite3.Row) -> dict[str, Any]:
     return {
