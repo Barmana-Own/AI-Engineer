@@ -1,7 +1,13 @@
+import os
+import tempfile
 import unittest
+
+from pathlib import Path
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
+from app import config
 from app.config import Settings
 
 
@@ -11,6 +17,7 @@ class SettingsBoundsTests(unittest.TestCase):
         self.assertEqual(settings.port, 8012)
         self.assertEqual(settings.autonomous_max_subagents, 5)
         self.assertEqual(settings.autonomous_read_parallelism, 2)
+        self.assertFalse(settings.autonomous_auto_push)
 
     def test_rejects_out_of_range_runtime_values(self) -> None:
         invalid = {
@@ -31,5 +38,17 @@ class SettingsBoundsTests(unittest.TestCase):
                     Settings(_env_file=None, **{field: value})
 
 
+    def test_project_root_env_override_is_portable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            expected = Path(temporary).resolve()
+            with patch.dict(
+                os.environ,
+                {
+                    "AI_ENGINE_PROJECT_ROOT": str(expected),
+                    "PROJECT_ROOT": str(expected.parent / "other"),
+                },
+                clear=False,
+            ):
+                self.assertEqual(config._project_root(), expected)
 if __name__ == "__main__":
     unittest.main()
