@@ -130,6 +130,7 @@ $agentRoot = Join-Path $Root "services\local-agent"
 $orchestratorRoot = Join-Path $Root "services\orchestrator"
 
 $gatewayEnvironment = @{
+    AI_ENGINE_PROJECT_ROOT = $Root
     APP_ENVIRONMENT = "production"
     GATEWAY_HOST = "127.0.0.1"
     GATEWAY_PORT = "8010"
@@ -146,6 +147,7 @@ $gatewayEnvironment = @{
 }
 
 $agentEnvironment = @{
+    AI_ENGINE_PROJECT_ROOT = $Root
     ENVIRONMENT = "production"
     HOST = "127.0.0.1"
     PORT = "8011"
@@ -157,6 +159,7 @@ $agentEnvironment = @{
 }
 
 $orchestratorEnvironment = @{
+    AI_ENGINE_PROJECT_ROOT = $Root
     ENVIRONMENT = "production"
     HOST = "127.0.0.1"
     PORT = "8012"
