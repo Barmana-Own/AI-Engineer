@@ -13,8 +13,14 @@ from app.providers.base import ProviderProfile
 
 
 def _project_root() -> Path:
-    # app/config.py -> model-gateway -> services -> AI-Engineer
-    return Path(__file__).resolve().parents[3]
+    configured = os.getenv('AI_ENGINE_PROJECT_ROOT') or os.getenv('PROJECT_ROOT')
+    if configured and configured.strip():
+        return Path(configured).expanduser().resolve()
+    current = Path(__file__).resolve()
+    for parent in (current.parent, *current.parents):
+        if (parent / 'services').is_dir() and (parent / 'apps').is_dir():
+            return parent
+    return current.parents[3]
 
 
 def _default_cache_path() -> Path:

@@ -8,17 +8,23 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 if ([string]::IsNullOrWhiteSpace($Root)) {
-    $scriptRoot = $PSScriptRoot
-    if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
-        $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $configuredRoot = if (-not [string]::IsNullOrWhiteSpace($env:AI_ENGINE_PROJECT_ROOT)) { $env:AI_ENGINE_PROJECT_ROOT } elseif (-not [string]::IsNullOrWhiteSpace($env:PROJECT_ROOT)) { $env:PROJECT_ROOT } else { $null }
+    if (-not [string]::IsNullOrWhiteSpace($configuredRoot)) {
+        $Root = $configuredRoot
+    } else {
+        $scriptRoot = $PSScriptRoot
+        if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
+            $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+        }
+        if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
+            throw "Could not resolve the deployment script directory. Pass -Root explicitly."
+        }
+        $Root = (Resolve-Path (Join-Path $scriptRoot "..\..")).Path
     }
-    if ([string]::IsNullOrWhiteSpace($scriptRoot)) {
-        throw "Could not resolve the deployment script directory. Pass -Root explicitly."
-    }
-    $Root = (Resolve-Path (Join-Path $scriptRoot "..\..")).Path
 }
 
 $Root = [System.IO.Path]::GetFullPath($Root)
+$env:AI_ENGINE_PROJECT_ROOT = $Root
 $Model = "qwen3:8b"
 $LogRoot = Join-Path $Root "logs\server"
 $DataRoot = Join-Path $Root "data"
@@ -173,7 +179,7 @@ $orchestratorEnvironment = @{
     AUTONOMOUS_MAX_SUBAGENTS = "2"
     AUTONOMOUS_INCLUDE_SECTION_SPECIALIST = "false"
     AUTONOMOUS_WORKSPACE = "ai-engineer"
-    AUTONOMOUS_AUTO_PUSH = "true"
+    AUTONOMOUS_AUTO_PUSH = "false"
     AUTONOMOUS_REPO_ROOT = $Root
 }
 

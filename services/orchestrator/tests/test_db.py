@@ -104,6 +104,8 @@ class DatabaseMigrationTests(unittest.TestCase):
                 (run_id, project_id, "preserve me", 2, "queued", "2026-01-01", "2026-01-01"),
             )
 
+        connection.close()
+
         db.initialize_database(self.database_path)
 
         with db.connect(self.database_path) as connection:

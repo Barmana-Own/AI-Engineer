@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 
+import os
 from pathlib import Path
 
 from pydantic import Field
@@ -7,7 +9,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    configured = os.getenv('AI_ENGINE_PROJECT_ROOT') or os.getenv('PROJECT_ROOT')
+    if configured and configured.strip():
+        return Path(configured).expanduser().resolve()
+    current = Path(__file__).resolve()
+    for parent in (current.parent, *current.parents):
+        if (parent / 'services').is_dir() and (parent / 'apps').is_dir():
+            return parent
+    return current.parents[3]
 
 
 class Settings(BaseSettings):
@@ -52,7 +61,7 @@ class Settings(BaseSettings):
     autonomous_model_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     # Push only clean, verified checkpoints to the configured GitHub remote.
     # The supervisor never publishes an uncommitted or foreign-repository tree.
-    autonomous_auto_push: bool = True
+    autonomous_auto_push: bool = False
     autonomous_repo_root: str = Field(
         default_factory=lambda: str(_project_root()),
         min_length=1,
