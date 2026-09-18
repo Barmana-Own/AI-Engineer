@@ -201,7 +201,7 @@ class EngineeringDemoRunner:
         assert self.trace and self.run_id and self.project_id and self.workspace
         status=self.supervisor.status(self.run_id); memories=MemoryStore(self.database_path).retrieve(project_id=self.project_id,query="",run_id=self.run_id,include_candidate=True,limit=100); lessons=[x for x in memories if x.get("lifecycle") in {"validated","trusted"}]
         if not lessons:
-            memory=MemoryStore(self.database_path).create(project_id=self.project_id,run_id=self.run_id,memory_type="lessons_learned",summary="Repair implementation rather than weakening assertions.",content={"workflow":"tester -> debugger -> tester -> reviewer","pattern":"preserve failing test evidence"},evidence=[{"type":"tests","summary":"fixture tests returned 0"},{"type":"review","summary":"review accepted after revision"}],role="supervisor",task_type="e2e_validation")
+            memory=MemoryStore(self.database_path).create(project_id=self.project_id,run_id=self.run_id,memory_type="lesson",summary="Repair implementation rather than weakening assertions.",content={"workflow":"tester -> debugger -> tester -> reviewer","pattern":"preserve failing test evidence"},evidence=[{"type":"tests","summary":"fixture tests returned 0"},{"type":"review","summary":"review accepted after revision"}],role="supervisor",task_type="e2e_validation")
             lessons=[MemoryStore(self.database_path).promote(str(memory["id"]),evidence=[{"type":"tests","summary":"tests passed after repair"},{"type":"review","summary":"review gate accepted"}],target="validated")]
         self.trace.event("final_result",actor_role="supervisor",payload={"completed":bool(status.get("complete")),"run_status":status.get("run_status"),"lesson_ids":[x.get("id") for x in lessons],"evidence":["messages","handoffs","dependencies","parallel execution","write lock","real tests","restart recovery","validated lesson"]})
         trace=self.trace.snapshot(); trace.update({"project_id":self.project_id,"run_id":self.run_id,"objective":self.objective,"tasks":status.get("tasks",[]),"agent_assignments":[{"task_id":t.get("id"),"role":t.get("role"),"assigned_agent":t.get("assigned_agent"),"state":t.get("state")} for t in status.get("tasks",[])],"messages":store.list_messages(run_id=self.run_id,limit=500,database_path=self.database_path),"handoffs":store.list_handoffs(run_id=self.run_id,limit=500,database_path=self.database_path),"lessons":lessons,"files":self.workspace.files(),"final_result":{"completed":bool(status.get("complete")),"run_status":status.get("run_status"),"evidence":["all required files exist","tests returned 0","review accepted after revision"]},"trace_path":self.trace.trace_path})
@@ -231,5 +231,6 @@ def get_trace_for_run(run_id: str, *, database_path: str|os.PathLike[str]|None=N
     with connect(database_path) as database:
         if not database.execute("SELECT 1 FROM autonomy_runs WHERE id=?",(run_id,)).fetchone(): raise KeyError(run_id)
     return load_trace(database_path,run_id)
+
 
 
