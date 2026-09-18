@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import json
 import sqlite3
 from typing import Mapping
@@ -35,7 +35,7 @@ def list_tasks(*, project_id: str | None=None, run_id: str | None=None, states: 
     where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
     with connect(database_path) as db: rows=db.execute("SELECT * FROM coordination_tasks"+where+" ORDER BY priority DESC, created_at ASC LIMIT ?",(*values,safe)).fetchall()
     return [_task(row) for row in rows]
-_ALLOWED = {"pending": {"ready","cancelled"}, "ready": {"assigned","blocked","cancelled"}, "assigned": {"running","waiting","blocked","cancelled"}, "running": {"waiting","review","failed","completed","blocked"}, "waiting": {"ready","running","blocked","cancelled"}, "blocked": {"ready","cancelled"}, "review": {"completed","failed","waiting"}, "failed": {"ready","cancelled"}, "completed": set(), "cancelled": set()}
+_ALLOWED = {"pending": {"ready","blocked","cancelled"}, "ready": {"assigned","blocked","cancelled"}, "assigned": {"running","waiting","blocked","cancelled"}, "running": {"waiting","review","failed","completed","blocked"}, "waiting": {"ready","running","blocked","cancelled"}, "blocked": {"ready","cancelled"}, "review": {"completed","failed","waiting"}, "failed": {"ready","cancelled"}, "completed": set(), "cancelled": set()}
 def transition(task_id: str, state: TaskState | str, *, failure_reason: str | None=None, assigned_agent: str | None=None, database_path: str | None=None) -> dict[str, object]:
     initialize_database(database_path); target=state.value if isinstance(state,TaskState) else str(state)
     with connect(database_path) as db:
@@ -96,3 +96,4 @@ def list_dependencies(task_id: str | None=None, *, database_path: str | None=Non
         if task_id: rows=db.execute("SELECT task_id,depends_on_task_id FROM coordination_task_dependencies WHERE task_id=?",(task_id,)).fetchall()
         else: rows=db.execute("SELECT task_id,depends_on_task_id FROM coordination_task_dependencies ORDER BY task_id").fetchall()
     return [{"task_id":row["task_id"],"depends_on_task_id":row["depends_on_task_id"]} for row in rows]
+

@@ -68,8 +68,7 @@ class Supervisor:
         return result
 
     def record_failure(self, task_id: str, *, reason: str) -> dict[str, object]:
-        task=store.get_task(task_id,database_path=self.database_path)
-        if not task: raise KeyError(task_id)
+        task=self._ensure_running(task_id)
         result=store.transition(task_id,TaskState.FAILED,failure_reason=reason,database_path=self.database_path)
         self.bus.publish(sender_role=str(task["role"]),message_type=MessageType.BLOCKER,subject=str(task["title"]),body=reason,run_id=str(task["run_id"] or ""),project_id=str(task["project_id"]),task_id=task_id)
         from .scheduler import DependencyScheduler
@@ -96,6 +95,7 @@ class Supervisor:
         tasks=store.list_tasks(run_id=run_id,limit=500,database_path=self.database_path); messages=self.bus.relevant(run_id=run_id,limit=100); handoffs=self.handoffs.list(run_id=run_id,limit=100)
         states={state:sum(1 for t in tasks if str(t["state"])==state) for state in [item.value for item in TaskState]}
         return {"run_id":run_id,"tasks":tasks,"states":states,"messages":messages,"handoffs":handoffs,"complete":bool(tasks) and states["completed"]==len(tasks),"blocked":states["blocked"],"failed":states["failed"]}
+
 
 
 
