@@ -53,6 +53,8 @@ class CoordinationEngineTests(unittest.TestCase):
         self.assertFalse(store.acquire_lock("src/api", "other-task", "backend", database_path=self.db))
         scheduler.finish(parent.id, success=True)
         scheduler.complete_review(parent.id, True)
+        self.assertTrue(store.acquire_lock("src/api", "other-task", "backend", database_path=self.db))
+        store.release_lock("src/api", "other-task", database_path=self.db)
         refreshed = scheduler.refresh(project_id=self.project_id)
         self.assertTrue(any(str(item["id"]) == child.id and item["state"] == TaskState.READY.value for item in refreshed))
 
@@ -105,6 +107,7 @@ class CoordinationEngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 
