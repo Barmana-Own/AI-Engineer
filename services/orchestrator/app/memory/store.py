@@ -190,7 +190,8 @@ class MemoryStore:
                 score += max(0, 0.5 - age_days * 0.01)
             except (TypeError, ValueError):
                 pass
-            if query_terms and matched == 0 and file_matched == 0 and not role and not task_type:
+            scope_match = bool((role and str(row["role"] or "").casefold() == role.casefold()) or (task_type and str(row["task_type"] or "").casefold() == task_type.casefold()))
+            if query_terms and matched == 0 and file_matched == 0 and not scope_match:
                 continue
             ranked.append((score, row))
         ranked.sort(key=lambda item: item[0], reverse=True)
@@ -406,5 +407,7 @@ class MemoryStore:
             retries=retry_count, duration_seconds=duration_seconds,
         )
         return memory
+
+
 
 
