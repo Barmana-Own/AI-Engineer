@@ -189,7 +189,9 @@ class Supervisor:
         if not run_id:
             return
         tasks = store.list_tasks(run_id=run_id, limit=500, database_path=self.database_path)
-        status = "completed" if tasks and all(str(item["state"]) == TaskState.COMPLETED.value for item in tasks) else "failed" if any(str(item["state"]) == TaskState.FAILED.value and int(item["retry_count"]) > int(item["max_retries"]) for item in tasks) else "running"
+        terminal_failed = any(str(item["state"]) == TaskState.FAILED.value and int(item["retry_count"]) > int(item["max_retries"]) for item in tasks)
+        blocked = any(str(item["state"]) == TaskState.BLOCKED.value for item in tasks)
+        status = "completed" if tasks and all(str(item["state"]) == TaskState.COMPLETED.value for item in tasks) else "failed" if terminal_failed else "blocked" if blocked else "running"
         with connect(self.database_path) as database:
             database.execute("UPDATE autonomy_runs SET status=?,completed_cycles=?,updated_at=? WHERE id=?", (status, 1 if status == "completed" else 0, utc_now(), run_id))
 
@@ -198,4 +200,6 @@ class Supervisor:
         messages = self.bus.relevant(run_id=run_id, limit=100)
         handoffs = self.handoffs.list(run_id=run_id, limit=100)
         states = {state.value: sum(1 for item in tasks if str(item["state"]) == state.value) for state in TaskState}
-        return {"run_id": run_id, "tasks": tasks, "states": states, "messages": messages, "handoffs": handoffs, "complete": bool(tasks) and states[TaskState.COMPLETED.value] == len(tasks), "blocked": states[TaskState.BLOCKED.value], "failed": states[TaskState.FAILED.value]}
+        with connect(self.database_path) as database:
+            run_row = database.execute("SELECT status FROM autonomy_runs WHERE id=?", (run_id,)).fetchone()
+        return {"run_id": run_id, "run_status": run_row["status"] if run_row else "unknown", "tasks": tasks, "states": states, "messages": messages, "handoffs": handoffs, "complete": bool(tasks) and states[TaskState.COMPLETED.value] == len(tasks), "blocked": states[TaskState.BLOCKED.value], "failed": states[TaskState.FAILED.value]}

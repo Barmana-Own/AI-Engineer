@@ -200,3 +200,7 @@ class CoordinationResultRequest(BaseModel):
 
 class CoordinationFailureRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=20_000)
+
+class CoordinationRevisionRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=20_000)
+

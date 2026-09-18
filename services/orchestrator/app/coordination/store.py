@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 import json
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from typing import Mapping
 from app.db import connect, initialize_database, utc_now
 from .models import AgentHandoff, AgentMessage, CoordinationTask, MessageType, TaskState
@@ -78,13 +79,34 @@ def list_handoffs(*, run_id: str | None=None, project_id: str | None=None, task_
     where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
     with connect(database_path) as db: rows=db.execute("SELECT * FROM coordination_handoffs"+where+" ORDER BY created_at ASC LIMIT ?",(*values,min(max(int(limit),1),500))).fetchall()
     return [_handoff(row) for row in rows]
-def acquire_lock(resource: str, task_id: str, role: str, *, mode: str="write", database_path: str | None=None) -> bool:
+def acquire_lock(resource: str, task_id: str, role: str, *, mode: str="write", lease_seconds: int=1800, database_path: str | None=None) -> bool:
     initialize_database(database_path)
+    safe_lease=min(max(int(lease_seconds),60),86400)
+    now=datetime.now(timezone.utc)
+    expires=(now+timedelta(seconds=safe_lease)).isoformat()
     with connect(database_path) as db:
-        existing=db.execute("SELECT owner_task_id,mode FROM coordination_locks WHERE resource=?",(resource,)).fetchone()
-        if existing and existing["owner_task_id"] != task_id: return False
-        db.execute("INSERT OR REPLACE INTO coordination_locks(resource,owner_task_id,owner_role,mode,acquired_at) VALUES (?,?,?,?,?)",(resource,task_id,resolve_role(role),mode,utc_now()))
+        # Serialize acquisition so two writers cannot both observe a free resource.
+        db.execute("BEGIN IMMEDIATE")
+        existing=db.execute("SELECT owner_task_id,mode,expires_at FROM coordination_locks WHERE resource=?",(resource,)).fetchone()
+        if existing and existing["owner_task_id"] != task_id:
+            expired=False
+            raw_expiry=existing["expires_at"]
+            if raw_expiry:
+                try:
+                    expiry=datetime.fromisoformat(str(raw_expiry).replace("Z", "+00:00"))
+                    if expiry.tzinfo is None:
+                        expiry=expiry.replace(tzinfo=timezone.utc)
+                    expired=expiry <= now
+                except ValueError:
+                    expired=False
+            if expired:
+                db.execute("DELETE FROM coordination_locks WHERE resource=?",(resource,))
+                existing=None
+        if existing and existing["owner_task_id"] != task_id:
+            return False
+        db.execute("INSERT OR REPLACE INTO coordination_locks(resource,owner_task_id,owner_role,mode,acquired_at,expires_at) VALUES (?,?,?,?,?,?)",(resource,task_id,resolve_role(role),mode,now.isoformat(),expires))
     return True
+
 def release_lock(resource: str, task_id: str, *, database_path: str | None=None) -> bool:
     initialize_database(database_path)
     with connect(database_path) as db:

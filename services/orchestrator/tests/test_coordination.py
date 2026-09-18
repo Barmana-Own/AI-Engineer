@@ -15,6 +15,8 @@ from app.coordination import (
 from app.coordination import store
 from app.coordination.supervisor import Supervisor
 from app.coordination.bus import DiscussionController, MessageBus
+from app.coordination.context import ContextBuilder
+from app.coordination.models import AgentMessage
 from app.coordination.models import CoordinationTask
 from app.coordination.scheduler import DependencyScheduler
 
@@ -50,11 +52,11 @@ class CoordinationEngineTests(unittest.TestCase):
         self.assertEqual(store.get_task(child.id, database_path=self.db)["state"], TaskState.PENDING.value)
         scheduler.assign(parent.id, "architect")
         scheduler.start(parent.id)
-        self.assertFalse(store.acquire_lock("src/api", "other-task", "backend", database_path=self.db))
+        self.assertFalse(store.acquire_lock("src/api", child.id, "backend", database_path=self.db))
         scheduler.finish(parent.id, success=True)
         scheduler.complete_review(parent.id, True)
-        self.assertTrue(store.acquire_lock("src/api", "other-task", "backend", database_path=self.db))
-        store.release_lock("src/api", "other-task", database_path=self.db)
+        self.assertTrue(store.acquire_lock("src/api", child.id, "backend", database_path=self.db))
+        store.release_lock("src/api", child.id, database_path=self.db)
         refreshed = scheduler.refresh(project_id=self.project_id)
         self.assertTrue(any(str(item["id"]) == child.id and item["state"] == TaskState.READY.value for item in refreshed))
 
@@ -63,6 +65,7 @@ class CoordinationEngineTests(unittest.TestCase):
         message = bus.publish(sender_role="architect", recipient_role="reviewer", message_type=MessageType.PROPOSAL, subject="API", body="Use a versioned route", project_id=self.project_id)
         self.assertEqual(message["message_type"], MessageType.PROPOSAL.value)
         discussion = DiscussionController(bus, max_rounds=2)
+        self.assertFalse(DiscussionController(bus, max_rounds=3, timeout_seconds=1).can_continue([{"discussion_round": 1, "created_at": "2000-01-01T00:00:00+00:00"}]))
         run_id = str(Supervisor(self.db).start_objective(project_id=self.project_id, objective="Discuss an API")["run_id"])
         discussion.submit(sender_role="architect", message_type=MessageType.PROPOSAL, subject="choice", body="A", run_id=run_id, project_id=self.project_id)
         discussion.submit(sender_role="reviewer", message_type=MessageType.CHALLENGE, subject="choice", body="B", run_id=run_id, project_id=self.project_id)
@@ -103,10 +106,33 @@ class CoordinationEngineTests(unittest.TestCase):
         retried = supervisor.next_ready(run_id=str(started["run_id"]), project_id=self.project_id)
         self.assertTrue(retried)
         self.assertEqual(retried[0][0]["id"], task["id"])
+        terminal = Supervisor(self.db, max_retries=0)
+        terminal_run = terminal.start_objective(project_id=self.project_id, objective="Terminal failure")
+        terminal_task = terminal.next_ready(run_id=str(terminal_run["run_id"]), project_id=self.project_id)[0][0]
+        terminal.record_failure(str(terminal_task["id"]), reason="permanent failure")
+        terminal_status = terminal.status(str(terminal_run["run_id"]))
+        self.assertEqual(terminal_status["run_status"], "failed")
+        self.assertGreater(terminal_status["blocked"], 0)
+
+    def test_context_builder_scopes_task_context(self) -> None:
+        task = CoordinationTask(project_id=self.project_id, title="context", description="build context", role="architect")
+        store.create_task(task, database_path=self.db)
+        MessageBus(self.db).publish(sender_role="researcher", recipient_role="architect", message_type=MessageType.EVIDENCE, subject="finding", body="validated", project_id=self.project_id, task_id=task.id)
+        store.create_handoff(AgentHandoff(sender_role="researcher", recipient_role="architect", summary="inspection complete", task_id=task.id, project_id=self.project_id), database_path=self.db)
+        context = ContextBuilder(self.db, max_chars=8000).build(task_id=task.id, role="architect", validated_memory=[{"summary": "known-good"}])
+        self.assertEqual(context["task"]["id"], task.id)
+        self.assertEqual(context["role_contract"]["id"], "architect")
+        self.assertEqual(len(context["messages"]), 1)
+        self.assertEqual(len(context["recent_handoffs"]), 1)
+        self.assertEqual(context["validated_memory"][0]["summary"], "known-good")
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+
 
 
 

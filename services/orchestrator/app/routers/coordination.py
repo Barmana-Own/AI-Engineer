@@ -1,8 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 from collections import Counter
 from fastapi import APIRouter, HTTPException, Query
 from app.db import get_project
-from app.schemas import CoordinationFailureRequest, CoordinationHandoffRequest, CoordinationMessageRequest, CoordinationResultRequest, CoordinationRunRequest
+from app.schemas import CoordinationFailureRequest, CoordinationHandoffRequest, CoordinationMessageRequest, CoordinationResultRequest, CoordinationRevisionRequest, CoordinationRunRequest
 from app.coordination.bus import MessageBus
 from app.coordination.models import AgentHandoff, MessageType
 from app.coordination.roles import list_role_contracts
@@ -47,7 +47,15 @@ def agent_status(run_id: str|None=None, project_id: str|None=None) -> dict[str,o
 def task_result(task_id: str,payload: CoordinationResultRequest) -> dict[str,object]:
     try: return _supervisor().record_result(task_id,summary=payload.summary,evidence=payload.evidence,approved=payload.approved)
     except KeyError as exc: raise HTTPException(status_code=404,detail="Task not found") from exc
+    except ValueError as exc: raise HTTPException(status_code=409,detail=str(exc)) from exc
+@router.post("/tasks/{task_id}/revision")
+def task_revision(task_id: str,payload: CoordinationRevisionRequest) -> dict[str,object]:
+    try: return _supervisor().request_revision(task_id,reason=payload.reason)
+    except KeyError as exc: raise HTTPException(status_code=404,detail="Task not found") from exc
+    except ValueError as exc: raise HTTPException(status_code=409,detail=str(exc)) from exc
 @router.post("/tasks/{task_id}/failure")
 def task_failure(task_id: str,payload: CoordinationFailureRequest) -> dict[str,object]:
     try: return _supervisor().record_failure(task_id,reason=payload.reason)
     except KeyError as exc: raise HTTPException(status_code=404,detail="Task not found") from exc
+
+
