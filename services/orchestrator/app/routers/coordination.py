@@ -134,3 +134,12 @@ def experience_failure_patterns(
     return {"failure_patterns": _memory_store.failure_patterns(
         project_id=project_id, query=query, limit=limit,
     )}
+
+@router.get("/runs/{run_id}/trace")
+def run_trace(run_id: str) -> dict[str, object]:
+    from app.coordination.e2e import get_trace_for_run
+    try:
+        return get_trace_for_run(run_id)
+    except (KeyError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Trace not found") from exc
+
