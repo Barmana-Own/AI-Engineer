@@ -40,7 +40,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 _SCHEMA_VERSION_TABLE = "schema_version"
 
 
@@ -190,6 +190,105 @@ def _migration_2(database: sqlite3.Connection) -> None:
     )
 
 
+
+def _migration_3(database: sqlite3.Connection) -> None:
+    """Create additive durable coordination tables for the multi-agent engine."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS coordination_tasks (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            parent_task_id TEXT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            role TEXT NOT NULL,
+            assigned_agent TEXT,
+            state TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER NOT NULL DEFAULT 50,
+            dependencies_json TEXT NOT NULL DEFAULT '[]',
+            blocked_by_json TEXT NOT NULL DEFAULT '[]',
+            inputs_json TEXT NOT NULL DEFAULT '{}',
+            expected_outputs_json TEXT NOT NULL DEFAULT '[]',
+            acceptance_criteria_json TEXT NOT NULL DEFAULT '[]',
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            max_retries INTEGER NOT NULL DEFAULT 2,
+            failure_reason TEXT,
+            scope_json TEXT NOT NULL DEFAULT '[]',
+            writer INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            started_at TEXT,
+            completed_at TEXT,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(parent_task_id) REFERENCES coordination_tasks(id)
+        );
+        CREATE TABLE IF NOT EXISTS coordination_task_dependencies (
+            task_id TEXT NOT NULL,
+            depends_on_task_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY(task_id, depends_on_task_id),
+            FOREIGN KEY(task_id) REFERENCES coordination_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY(depends_on_task_id) REFERENCES coordination_tasks(id) ON DELETE CASCADE,
+            CHECK(task_id <> depends_on_task_id)
+        );
+        CREATE TABLE IF NOT EXISTS agent_messages (
+            message_id TEXT PRIMARY KEY,
+            run_id TEXT,
+            project_id TEXT,
+            task_id TEXT,
+            sender_role TEXT NOT NULL,
+            recipient_role TEXT,
+            message_type TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL,
+            references_json TEXT NOT NULL DEFAULT '[]',
+            discussion_round INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(task_id) REFERENCES coordination_tasks(id)
+        );
+        CREATE TABLE IF NOT EXISTS coordination_handoffs (
+            handoff_id TEXT PRIMARY KEY,
+            run_id TEXT,
+            project_id TEXT,
+            task_id TEXT,
+            sender_role TEXT NOT NULL,
+            recipient_role TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'submitted',
+            summary TEXT NOT NULL,
+            completed_json TEXT NOT NULL DEFAULT '[]',
+            artifacts_json TEXT NOT NULL DEFAULT '[]',
+            changed_files_json TEXT NOT NULL DEFAULT '[]',
+            decisions_json TEXT NOT NULL DEFAULT '[]',
+            risks_json TEXT NOT NULL DEFAULT '[]',
+            remaining_work_json TEXT NOT NULL DEFAULT '[]',
+            verification_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(task_id) REFERENCES coordination_tasks(id)
+        );
+        CREATE TABLE IF NOT EXISTS coordination_locks (
+            resource TEXT PRIMARY KEY,
+            owner_task_id TEXT NOT NULL,
+            owner_role TEXT NOT NULL,
+            mode TEXT NOT NULL DEFAULT 'write',
+            acquired_at TEXT NOT NULL,
+            expires_at TEXT,
+            FOREIGN KEY(owner_task_id) REFERENCES coordination_tasks(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_coord_tasks_run_state ON coordination_tasks(run_id, state, priority DESC);
+        CREATE INDEX IF NOT EXISTS idx_coord_tasks_project ON coordination_tasks(project_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_coord_messages_scope ON agent_messages(run_id, project_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_coord_handoffs_scope ON coordination_handoffs(run_id, project_id, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_coord_deps_dependency ON coordination_task_dependencies(depends_on_task_id);
+        """
+    )
+
 def _schema_version(database: sqlite3.Connection) -> int:
     columns = {
         str(row[1])
@@ -263,7 +362,7 @@ def initialize_database(
                 f"version {SCHEMA_VERSION}."
             )
 
-        migrations = ((1, _migration_1), (2, _migration_2))
+        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3))
         for version, migration in migrations:
             if current < version:
                 migration(database)
