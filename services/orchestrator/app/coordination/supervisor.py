@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import json
 from uuid import uuid4
 from app.db import connect, initialize_database, utc_now
@@ -33,15 +33,41 @@ class Supervisor:
     def next_ready(self, *, run_id: str, project_id: str|None=None) -> list[list[dict[str,object]]]:
         from .scheduler import DependencyScheduler
         return DependencyScheduler(self.database_path).ready_batches(run_id=run_id,project_id=project_id)
-    def record_result(self, task_id: str, *, summary: str, evidence: list[str]=(), approved: bool=True) -> dict[str,object]:
-        task=store.get_task(task_id,database_path=self.database_path)
-        if not task: raise KeyError(task_id)
-        state=TaskState.COMPLETED if approved else TaskState.REVIEW
-        result=store.transition(task_id,state,database_path=self.database_path)
-        self.bus.publish(sender_role=str(task["role"]),message_type=MessageType.RESULT,subject=str(task["title"]),body=summary,run_id=str(task["run_id"] or ""),project_id=str(task["project_id"]),task_id=task_id,references=evidence)
+    def _ensure_running(self, task_id: str) -> dict[str, object]:
+        from .scheduler import DependencyScheduler
+        task = store.get_task(task_id, database_path=self.database_path)
+        if not task:
+            raise KeyError(task_id)
+        scheduler = DependencyScheduler(self.database_path)
+        if str(task["state"]) == TaskState.PENDING.value:
+            scheduler.refresh(run_id=str(task["run_id"] or ""))
+            task = store.get_task(task_id, database_path=self.database_path)
+        if not task:
+            raise KeyError(task_id)
+        state = str(task["state"])
+        if state == TaskState.READY.value:
+            scheduler.assign(task_id, str(task["role"]))
+            task = store.get_task(task_id, database_path=self.database_path)
+            state = str(task["state"]) if task else ""
+        if state == TaskState.ASSIGNED.value:
+            task = scheduler.start(task_id)
+            state = str(task["state"])
+        elif state == TaskState.WAITING.value:
+            task = store.transition(task_id, TaskState.RUNNING, database_path=self.database_path)
+            state = str(task["state"])
+        if state != TaskState.RUNNING.value:
+            raise ValueError(f"task {task_id} is not runnable: {state}")
+        return task
+
+    def record_result(self, task_id: str, *, summary: str, evidence: list[str] = (), approved: bool = True) -> dict[str, object]:
+        task = self._ensure_running(task_id)
+        state = TaskState.COMPLETED if approved else TaskState.REVIEW
+        result = store.transition(task_id, state, database_path=self.database_path)
+        self.bus.publish(sender_role=str(task["role"]), message_type=MessageType.RESULT, subject=str(task["title"]), body=summary, run_id=str(task["run_id"] or ""), project_id=str(task["project_id"]), task_id=task_id, references=evidence)
         self._refresh_run(str(task["run_id"] or ""))
         return result
-    def record_failure(self, task_id: str, *, reason: str) -> dict[str,object]:
+
+    def record_failure(self, task_id: str, *, reason: str) -> dict[str, object]:
         task=store.get_task(task_id,database_path=self.database_path)
         if not task: raise KeyError(task_id)
         result=store.transition(task_id,TaskState.FAILED,failure_reason=reason,database_path=self.database_path)
@@ -70,3 +96,8 @@ class Supervisor:
         tasks=store.list_tasks(run_id=run_id,limit=500,database_path=self.database_path); messages=self.bus.relevant(run_id=run_id,limit=100); handoffs=self.handoffs.list(run_id=run_id,limit=100)
         states={state:sum(1 for t in tasks if str(t["state"])==state) for state in [item.value for item in TaskState]}
         return {"run_id":run_id,"tasks":tasks,"states":states,"messages":messages,"handoffs":handoffs,"complete":bool(tasks) and states["completed"]==len(tasks),"blocked":states["blocked"],"failed":states["failed"]}
+
+
+
+
+
