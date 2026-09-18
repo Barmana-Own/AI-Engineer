@@ -140,7 +140,7 @@ class EngineeringDemoRunner:
     def _lock_probe(self):
         assert self.trace
         first,second,res=str(uuid4()),str(uuid4()),"shared/conflict-probe.py"
-        acquired=store.acquire_lock(res,first,"backend",database_path=self.database_path); denied=not store.acquire_lock(res,second,"frontend",database_path=self.database_path); store.release_lock(res,first,database_path=self.database_path)
+        owner_a=self.task_ids["backend"]; owner_b=self.task_ids["frontend"]; acquired=store.acquire_lock(res,owner_a,"backend",database_path=self.database_path); denied=not store.acquire_lock(res,owner_b,"frontend",database_path=self.database_path); store.release_lock(res,owner_a,database_path=self.database_path)
         self.trace.event("write_conflict_protection",actor_role="supervisor",payload={"resource":res,"first_acquired":acquired,"second_denied":denied})
         if not (acquired and denied): raise RuntimeError("single-writer conflict protection failed")
     def _tester(self, retry: bool):
@@ -231,4 +231,5 @@ def get_trace_for_run(run_id: str, *, database_path: str|os.PathLike[str]|None=N
     with connect(database_path) as database:
         if not database.execute("SELECT 1 FROM autonomy_runs WHERE id=?",(run_id,)).fetchone(): raise KeyError(run_id)
     return load_trace(database_path,run_id)
+
 

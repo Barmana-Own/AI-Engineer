@@ -175,6 +175,9 @@ class Supervisor:
             references=evidence,
         )
         self._record_experience(task, summary, success=approved, evidence=evidence, failure_reason=None if approved else summary)
+        from .scheduler import DependencyScheduler
+
+        DependencyScheduler(self.database_path).refresh(run_id=str(task["run_id"] or ""))
         self._refresh_run(str(task["run_id"] or ""))
         return result
 
@@ -244,5 +247,7 @@ class Supervisor:
             run_row = database.execute("SELECT status,project_id FROM autonomy_runs WHERE id=?", (run_id,)).fetchone()
         project_id = run_row["project_id"] if run_row else None
         return {"run_id": run_id, "run_status": run_row["status"] if run_row else "unknown", "tasks": tasks, "states": states, "messages": messages, "handoffs": handoffs, "experience": self.memory.retrieve(project_id=project_id, query="", run_id=run_id, limit=12, include_candidate=True), "performance": self.memory.performance(limit=20), "complete": bool(tasks) and states[TaskState.COMPLETED.value] == len(tasks), "blocked": states[TaskState.BLOCKED.value], "failed": states[TaskState.FAILED.value]}
+
+
 
 
