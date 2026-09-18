@@ -1,193 +1,129 @@
-# گزارش وضعیت پروژه و نقشه‌راه / Project Status and Roadmap
+﻿# گزارش وضعیت پروژه و نقشهراه / Project Status and Roadmap
 
 | فیلد / Field | مقدار / Value |
 |---|---|
-| پروژه / Project | AI Engineer |
-| تاریخ شمسی / Jalali date | ۱۴۰۵/۰۶/۰۸ / 1405/06/08 |
-| تاریخ میلادی / Gregorian date | ۳۰ اوت ۲۰۲۶ / 30 August 2026 |
-| آخرین revision مشاهده‌شده / Latest observed revision | `e872ace` — ۳۰ اوت ۲۰۲۶ / 30 August 2026 |
-| وضعیت تحویل / Delivery status | قابل اجرای محلی؛ آمادهٔ Production نهایی نیست / Locally runnable; not ready for final Production |
+| پروژه / Project | AI-Engineer |
+| تاریخ جلالی / Jalali date | 1405-06-27 |
+| تاریخ میلادی / Gregorian date | 2026-09-18 |
+| ریویژن مشاهدهشده / Revision | `8130980` |
+| وضعیت تحویل / Delivery | هسته مهندسی آماده انتشار Production مشروط |
 
 ## بخش فارسی
 
-### ۱. خلاصه وضعیت فعلی پروژه
+### . خلاصه وضعیت فعلی پروژه
 
-AI Engineer اکنون یک هستهٔ local-first قابل اجرای محلی دارد: ارکستریتور، عامل محلی، Model Gateway، Provider Router، Control Center، Desktop و Ollama. supervisor خودکار فعال است و backlog چرخشی ۱۴ کلیدی را اجرا می‌کند، اما این چرخه شرط پایان ندارد و به‌تنهایی به معنای تکمیل محصول نیست.
+هسته Orchestrator هماهنگی چندعاملی حافظه مهندسی خودبهبود کنترلشده و بازیابی پس از restart پیادهسازی و با تستهای قطعی بررسی شدهاند. معماری فعلی Electron Desktop و React Control Center را به FastAPI Orchestrator و سرویسهای جداگانه Model Gateway و Local Agent متصل میکند.
 
-از revision مبنای `32a7c69` در ۱۵ اوت تا وضعیت فعلی، ۴۷ فایل با ۱۳۴۹ خط افزوده و ۲۵۵ خط حذف‌شده مشاهده شد. health سرویس‌های backend، Provider Router و Ollama در بررسی فعلی HTTP 200 بود. Control Center عمداً برای رعایت دستور عدم بازکردن/تمرکز UI اجرا نشد.
+### . مواردی که واقعا پیادهسازی شدهاند
 
-### ۲. مواردی که واقعاً پیاده‌سازی شده‌اند
+- نسخه  شمای SQLite با migrationهای افزایشی و deterministic.
+- registry پانزده نقش Supervisor و گراف وظایف وابسته با وضعیتهای پایدار.
+- پیامهای نوعدار handoff قفل فضایکار و trace قابل بازرسی.
+- حافظههای working episodic project lesson و failure با lifecycle مبتنی بر شواهد و redaction.
+- چرخه self-improvement از observe تا learn با checkpoint محلی و بدون push خودکار.
+- lease heartbeat recovery event و ثبت خطاهای provider.
+- تست E2E قطعی health سرویسها و build موفق Control Center.
+- کشف قابلحمل ریشه پروژه با `AI_ENGINE_PROJECT_ROOT`/`PROJECT_ROOT`.
 
-- APIهای پروژه، task، memory و autonomy در ارکستریتور.
-- workspace guard برای محدودکردن مسیرها به workspace و checkpoint/backup پیش از mutation.
-- supervisor زمان‌بندی‌شده با planner، implementer، verifier، retry مدل، single-writer barrier و سیاست checkpoint/push.
-- عامل محلی با ابزارهای مجاز، approval tools و سقف گام.
-- Model Gateway و Provider Router قابل اجرا، به‌همراه مدل محلی Ollama.
-- build تولیدی Control Center و Desktop.
-- تست ارکستریتور (۴۸ تست) و Model Gateway، compile عامل محلی و health checkهای سرویس‌ها.
-- اصلاحات اخیر در محدودسازی طول آرگومان فرایند، نسخهٔ health، recovery coverage و قراردادهای نقش/نیازمندی.
+### . کارهای باقیمانده
 
-### ۳. بخش‌ها، قابلیت‌ها یا کارهایی که هنوز باقی مانده‌اند
+**MUST-FIX پیش از انتشار:** نصب و pin وابستگیهای Desktop و Provider Router اصلاح تشخیص تعارض reader/writer مستقل از ترتیب adapter تستشده برای dispatch نقشها از Supervisor به Model Gateway.
 
-**الزامی (MUST-FIX):**
+**بهبودهای بعدی:** fixture ارتقای migrationهای قدیمی metrics/correlation بحث subject-scoped semantic retrieval و templateهای دامنهای.
 
-- رفع چهار شکست تست Provider Router و اصلاح launcher اسکریپتی آن.
-- پایدارسازی خطای invalid tool call مدل که چهار کلید autonomy را شکست داده است.
-- intake واقعی پروژهٔ خارجی، تشخیص stack/environment و workspace ایزوله با snapshot/backup.
-- چرخهٔ کامل plan، patch، test، debug/retry، approval، report و rollback.
-- تجمیع validation همهٔ سرویس‌ها و resume امن پس از restart.
-- اجرای واقعی و E2E رابط‌ها، سپس تست accessibility و سناریوهای خطا.
-- احراز هویت/مجوز چندکاربره، tenant/ownership isolation، audit، مدیریت secret و rate limiting.
-- CI/CD، container، health/readiness، watchdog و backup/restore آزموده‌شده.
-- ایجاد artifactهای رسمی دوازده مرحله، `project-state.json` و integrity manifest و انجام final review.
+### . موارد ناقص مسدود FAIL یا NOT_RUN
 
-**اختیاری (OPTIONAL):**
+- Desktop build: **NOT_RUN/BLOCKED** چون `vite` در dependencyهای نصبشده موجود نیست.
+- Provider Router tests: **NOT_RUN/BLOCKED** چون `vitest` موجود نیست.
+- استقرار Production واقعی: **NOT_PERFORMED** اعتبار یا هدف استقرار ارائه نشده است.
+- SQLite چندپردازشی worker مستقل برای هر نقش و vector memory: **NOT_READY**.
 
-- متخصص‌های عمیق‌تر برای debugger، test/fix، security review و release.
-- contractهای رسمی API و sample-project smoke tests گسترده‌تر.
-- telemetry و داشبوردهای عملیاتی غنی‌تر پس از تثبیت مسیر اصلی.
+### . مشکلات یا ریسکهای فعلی پروژه
 
-### ۴. موارد ناقص، مسدود، FAIL یا NOT_RUN
+تعارض بالقوه reader/writer در یک مسیر scheduler به ترتیب iteration وابسته است. SQLite و recovery برای یک process طراحی شدهاند. confidence بحث فعلا advisory است و specialist workerها هنوز adapter مستقل ندارند. این موارد در گزارش فنی ثبت شدهاند.
 
-- Provider Router: **FAIL** — چهار failure از ۱۷۵۴ تست؛ دو assertion مربوط به mode فایل DB/WAL در Windows و دو تست کارایی compression.
-- Autonomy: ۹۴ اجرای موفق و شش اجرای ناموفق از ۱۰۰ اجرای اخیر؛ آخرین failure برای `integration-health`، `recovery-coverage`، `requirements-contract` و `security-boundary` ثبت شده است.
-- علت failureهای autonomy: مدل پس از دو تلاش tool call معتبر تولید نکرد (`Unsupported Agent tool: .`).
-- Control Center runtime و browser E2E: **NOT_RUN** به دلیل عدم بازکردن/تمرکز UI.
-- دوازده gate رسمی: **NOT_RUN**؛ مستندات مرحله‌ای کامل، `project-state.json` و integrity manifest در مخزن موجود نیستند.
-- استقرار Production واقعی: **NOT_PERFORMED**؛ هیچ حساب یا هدف ابری مجاز برای انتشار ارائه نشده است.
+### . پیشنهادهای مفید برای ادامه توسعه پروژه
 
-### ۵. مشکلات یا ریسک‌های فعلی پروژه
+. ابتدا gateهای build/test جاوااسکریپت و scheduler را سبز کنید. . سپس adapter نقشها و trace correlation را اضافه کنید. . بعد migration upgrade و تست چندفرآیندی را تثبیت کنید. . تنها پس از این شواهد semantic retrieval و templateهای جدید را بررسی کنید.
 
-1. تست‌ها کاملاً سبز نیستند و شکست‌های performance و Windows permission باقی است.
-2. supervisor چرخشی است و completion criterion ندارد؛ روشن‌ماندن آن deadline یا تضمین تکمیل نیست.
-3. پروتکل tool-call مدل می‌تواند چرخهٔ خودکار را متوقف کند.
-4. launcher Provider Router در حالت بدون process به null.Count دسترسی می‌زند.
-5. عملیات ۲۴/۷، restart، watchdog، observability و restore هنوز اثبات نشده‌اند.
-6. مسیر دریافت و تحویل یک پروژهٔ دلخواه هنوز به‌صورت end-to-end پیاده‌سازی نشده است.
-7. نبود state و integrity baseline رسمی، تشخیص regression و گزارش gateها را ناقص می‌کند.
+### . قابلیتها یا بهبودهای ارزشمند برای این نوع کسبوکار
 
-### ۶. پیشنهادهای مفید برای ادامه توسعه
+- مسیر end-to-end قابلردیابی برای هر تغییر کد.
+- evidence و review اجباری برای self-improvement.
+- recovery امن پس از قطع مدل/worker/ماشین.
+- metrics هزینه زمان retry و نرخ پذیرش review.
+- catalog پروژه و conventions قابلبازیابی برای کوتاهکردن زمان تحویل.
 
-- ابتدا failureهای Provider Router و launcher را به‌صورت regression fix مستقل ببندید.
-- برای invalid tool call، schema validation، retry محدود، fallback شفاف و ثبت علت شکست اضافه کنید تا supervisor در loop مبهم نماند.
-- یک sample project کوچک و ایزوله بسازید و کل مسیر intake تا گزارش نهایی را روی آن اجرا کنید.
-- نتیجهٔ هر مرحله را با شناسهٔ requirement، artifact، log correlation و checkpoint ذخیره کنید.
-- قبل از اتصال UI کامل، قرارداد API و stateهای loading/error/permission/retry را ثابت کنید.
-- backup/restore را روی محیط disposable آزمایش کنید و سپس watchdog و health/readiness را اضافه کنید.
+### . اولویت پیشنهادی اقدامات بعدی
 
-### ۷. قابلیت‌ها یا بهبودهایی که برای این نوع کسب‌وکار ارزش واقعی ایجاد می‌کنند
+- **P0:** وابستگیهای build تعارض scheduler adapter واقعی Supervisor/Model Gateway.
+- **P1:** migration fixtures observability policy بحث و تست چندپردازشی.
+- **P2:** semantic memory و task templateهای تخصصی.
 
-- اجرای قابل اعتماد پروژه‌های واقعی با workspace ایزوله و rollback، نه فقط اجرای taskهای داخلی.
-- گزارش قابل ممیزی از تغییر فایل، تست، تصمیم approval و علت شکست برای اعتماد تیم فنی.
-- صف‌بندی و اولویت‌بندی پروژه‌ها با برآورد ریسک، محدودیت منابع و جلوگیری از اجرای تکراری.
-- داشبوردی که وضعیت run، test، approval، cost/latency و health را یکجا نشان دهد.
-- policyهای سازمانی برای secret، مجوز repository، دادهٔ خصوصی و retention.
-- الگوهای پروژه و sample smoke test برای کوتاه‌کردن زمان راه‌اندازی مشتری.
+### . وضعیت آمادگی برای Production
 
-### ۸. اولویت پیشنهادی اقدامات بعدی
+**مشروط / Core-engine ready.** هسته محلی و APIهای اصلی آماده بررسی عملیاتی هستند اما به علت gateهای JavaScript اجرا نشده محدودیت single-process و بدهی worker مستقل release عمومی Production هنوز تأیید نمیشود.
 
-1. **P0:** Provider Router tests/launcher، invalid tool-call handling و ثبت failure قابل resume.
-2. **P0:** intake ایزولهٔ پروژهٔ دلخواه و چرخهٔ plan-to-tested-result با backup/rollback.
-3. **P1:** validation aggregation، idempotency، restart recovery، telemetry و E2E.
-4. **P1:** auth/authorization چندکاربره، audit، secret/rate-limit و deployment hygiene.
-5. **P2:** متخصص‌های بیشتر، contractهای رسمی، performance tuning و داشبوردهای پیشرفته.
+### . جمعبندی مدیریتی کوتاه
 
-### ۹. وضعیت آمادگی برای Production
-
-**NOT_READY.** سرویس‌های هسته محلی قابل اجرا هستند، اما failureهای تستی، نبود intake و چرخهٔ عمومی پروژه، نبود اثبات عملیات ۲۴/۷، نبود gateهای رسمی و اجرا نشدن final review مانع انتشار Production است.
-
-### ۱۰. جمع‌بندی مدیریتی کوتاه
-
-پروژه از مرحلهٔ هستهٔ فنی قابل اجرا عبور کرده، اما هنوز محصول نهاییِ قابل اتکا برای دریافت هر پروژه و تحویل نتیجهٔ تست‌شده نیست. مسیر باقی‌مانده مشخص است و با بستن دو blocker اصلی (پایداری اجرا و intake/چرخهٔ کامل) می‌توان به ارزیابی release نزدیک شد؛ تعداد runهای supervisor معیار تکمیل نیست.
+سامانه از چند سرویس و چند prompt پراکنده به یک هسته قابلردیابی و قابلبازیابی برای مهندسی خودکار ارتقا یافته است. مسیر بعدی باید روی اثبات عملیاتی و حذف سه مانع P0 متمرکز باشد نه افزودن نقشهای نمایشی جدید.
 
 ## English section
 
 ### 1. Current Project Status
 
-AI Engineer now has a locally runnable local-first core: orchestrator, local agent, Model Gateway, Provider Router, Control Center, Desktop, and Ollama. The autonomous supervisor is enabled and rotates through a 14-key backlog, but the cycle has no terminal completion condition and does not by itself mean the product is finished.
-
-Relative to baseline revision `32a7c69` on 15 August, 47 files changed with 1,349 additions and 255 deletions. Backend services, Provider Router, and Ollama returned HTTP 200 health responses in the current review. Control Center was intentionally not started to comply with the instruction not to open or focus the UI.
+The Orchestrator core, multi-agent coordination, engineering memory, controlled self-improvement and restart recovery are implemented and covered by deterministic tests. The current architecture connects Electron Desktop and React Control Center to a FastAPI Orchestrator with separate Model Gateway and Local Agent services.
 
 ### 2. Implemented Items
 
-- Project, task, memory, and autonomy APIs in the orchestrator.
-- Workspace guarding that confines paths to the workspace, plus checkpoint/backup before mutation.
-- A scheduled supervisor with planner, implementer, verifier, model retry, single-writer barrier, and checkpoint/push policy.
-- A local agent with an allow-listed tool surface, approval tools, and a step ceiling.
-- Runnable Model Gateway and Provider Router, together with a local Ollama model.
-- Production builds for Control Center and Desktop.
-- Orchestrator tests (48 tests), Model Gateway tests, Local Agent compilation, and service health checks.
-- Recent fixes for managed-process argument length, health-version alignment, recovery coverage, and role/requirements contracts.
+- SQLite schema version 6 with deterministic additive migrations.
+- Fifteen-role registry, Supervisor and dependency-aware persisted task graph.
+- Typed messages, handoffs, workspace locks and inspectable run trace.
+- Working, episodic, project, lesson and failure memories with evidence lifecycle and redaction.
+- Self-improvement from observe through learn with local checkpoint and no automatic push.
+- Leases, heartbeats, recovery events and provider-failure records.
+- Deterministic E2E tests, service health checks and successful Control Center build.
+- Portable root discovery through `AI_ENGINE_PROJECT_ROOT`/`PROJECT_ROOT`.
 
 ### 3. Remaining Work
 
-**MUST-FIX:**
+**MUST-FIX before release:** install and pin Desktop/Provider Router dependencies; make reader/writer conflict detection order-independent; deliver a tested Supervisor-to-Model-Gateway role dispatch adapter.
 
-- Fix the four Provider Router test failures and repair its launcher.
-- Stabilize invalid model tool-call handling, which has failed four autonomy keys.
-- Implement real external-project intake, stack/environment detection, and isolated workspace snapshot/backup.
-- Implement the complete plan, patch, test, debug/retry, approval, report, and rollback loop.
-- Aggregate validation from all services and resume safely after restart.
-- Run the actual UI and end-to-end flows, followed by accessibility and failure-path testing.
-- Implement multi-user authentication/authorization, tenant/ownership isolation, audit, secret management, and rate limiting.
-- Add CI/CD, containers, health/readiness, watchdog behavior, and tested backup/restore.
-- Create formal twelve-stage artifacts, `project-state.json`, and an integrity manifest, then perform the final review.
-
-**OPTIONAL:**
-
-- Deeper specialists for debugger, test/fix, security review, and release.
-- Broader formal API contracts and sample-project smoke tests.
-- Richer telemetry and operational dashboards after the primary path is stable.
+**Later improvements:** migration-upgrade fixtures, metrics/correlation, subject-scoped discussion, semantic retrieval and domain templates.
 
 ### 4. Incomplete, Blocked, FAIL, or NOT_RUN Items
 
-- Provider Router: **FAIL** — four failures out of 1,754 tests: two Windows DB/WAL file-mode assertions and two compression-performance tests.
-- Autonomy: 94 completed and six failed runs in the latest 100; the latest failed keys are `integration-health`, `recovery-coverage`, `requirements-contract`, and `security-boundary`.
-- Autonomy failure cause: after two attempts, the model did not produce a valid tool call (`Unsupported Agent tool: .`).
-- Control Center runtime and browser E2E: **NOT_RUN** because the UI was not opened or focused.
-- Twelve formal gates: **NOT_RUN**; complete stage documents, `project-state.json`, and the integrity manifest are absent.
-- Real Production deployment: **NOT_PERFORMED**; no authorized cloud account or deployment target was provided.
+- Desktop build: **NOT_RUN/BLOCKED** because `vite` is absent from installed dependencies.
+- Provider Router tests: **NOT_RUN/BLOCKED** because `vitest` is absent.
+- Real production deployment: **NOT_PERFORMED**; no authorized deployment target was supplied.
+- Multi-process SQLite, independent role workers and vector memory: **NOT_READY**.
 
 ### 5. Current Risks / Problems
 
-1. Validation is not fully green; performance and Windows permission failures remain.
-2. The supervisor is rotating and has no completion criterion; keeping it on is not a deadline or completion guarantee.
-3. Model tool-call protocol failures can stop an automated cycle.
-4. The Provider Router launcher accesses `null.Count` when no process exists.
-5. 24/7 operation, restart, watchdog, observability, and restore behavior are unproven.
-6. End-to-end intake and delivery of an arbitrary project are not implemented.
-7. Missing formal state and integrity baseline weaken regression detection and stage reporting.
+One scheduler batching path depends on iteration order for reader/writer conflict detection. SQLite and recovery are single-process oriented. Discussion confidence is advisory and specialist workers do not yet have an independent dispatch adapter. These are documented in the technical review.
 
 ### 6. Recommended Next Improvements
 
-- Close Provider Router test and launcher failures as an isolated regression fix first.
-- Add schema validation, bounded retry, explicit fallback, and failure recording for invalid tool calls so the supervisor cannot remain in an ambiguous loop.
-- Create a small isolated sample project and run the complete intake-to-final-report path against it.
-- Persist each step with requirement IDs, artifacts, correlated logs, and checkpoints.
-- Stabilize API contracts and loading/error/permission/retry states before completing the UI integration.
-- Test backup/restore on a disposable environment, then add watchdog and health/readiness behavior.
+First close the JavaScript build/test and scheduler gates. Next add role dispatch and trace correlation. Then stabilize migration upgrades and multi-process tests. Only after that evaluate semantic retrieval and new domain templates.
 
 ### 7. Valuable Product / Engineering Enhancements
 
-- Reliable execution of real projects with isolated workspaces and rollback, rather than only internal task execution.
-- An auditable record of file changes, tests, approvals, and failure causes for engineering trust.
-- Project queueing and prioritization based on risk, resource limits, and duplicate-run prevention.
-- A dashboard that unifies run, test, approval, cost/latency, and health status.
-- Organizational policies for secrets, repository permissions, private data, and retention.
-- Project templates and sample smoke tests that shorten customer onboarding.
+- Traceable end-to-end evidence for every code change.
+- Mandatory evidence and review gates for self-improvement.
+- Safe recovery after model, worker or machine interruption.
+- Cost, duration, retry and review-acceptance metrics.
+- Reusable project conventions to reduce delivery time.
 
 ### 8. Recommended Priority Order
 
-1. **P0:** Provider Router tests/launcher, invalid tool-call handling, and resumable failure recording.
-2. **P0:** Isolated arbitrary-project intake and the plan-to-tested-result flow with backup/rollback.
-3. **P1:** Validation aggregation, idempotency, restart recovery, telemetry, and E2E.
-4. **P1:** Multi-user auth/authorization, audit, secret/rate-limit controls, and deployment hygiene.
-5. **P2:** More specialists, formal contracts, performance tuning, and advanced dashboards.
+- **P0:** build dependencies, scheduler conflict safety, real Supervisor/Model Gateway adapter.
+- **P1:** migration fixtures, observability, discussion policy and multi-process tests.
+- **P2:** semantic memory and specialized task templates.
 
 ### 9. Production Readiness
 
-**NOT_READY.** Core services run locally, but test failures, the missing intake and general project lifecycle, unproven 24/7 operations, missing formal gates, and the absent final review block Production release.
+**Conditional / Core-engine ready.** The local core and primary APIs are ready for operational review, but public production release is not approved until the unrun JavaScript gates, single-process constraint and independent worker debt are addressed.
 
 ### 10. Short Management Summary
 
-The project has moved beyond a runnable technical core, but it is not yet a dependable product that can accept any project and return a tested result. The remaining path is clear; closing the two primary blockers—execution stability and the complete intake/lifecycle—will bring it closer to release assessment. Supervisor run count is not a completion metric.
+The system has progressed from isolated prompts to a traceable, durable and recoverable autonomous-engineering core. The next phase should prove operations and remove the three P0 blockers rather than add more nominal roles.
