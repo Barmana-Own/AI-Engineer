@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     # Push only clean, verified checkpoints to the configured GitHub remote.
     # The supervisor never publishes an uncommitted or foreign-repository tree.
     autonomous_auto_push: bool = False
+    # Controlled self-improvement is opt-in and never pushes to remotes.
+    autonomous_improvement_enabled: bool = False
+    autonomous_max_changes_per_run: int = Field(default=1, ge=1, le=10)
+    autonomous_max_retries: int = Field(default=2, ge=0, le=10)
+    autonomous_max_runtime_seconds: int = Field(default=1800, ge=60, le=86400)
+    autonomous_max_files_changed: int = Field(default=8, ge=1, le=100)
+    autonomous_allowed_project_roots: str = Field(default="", max_length=2000)
+    autonomous_allowed_commands: str = Field(default="", max_length=4000)
+    autonomous_rollback_enabled: bool = False
     autonomous_repo_root: str = Field(
         default_factory=lambda: str(_project_root()),
         min_length=1,

@@ -231,3 +231,39 @@ class ExperienceOutcomeRequest(BaseModel):
     rework_required: bool = False
     notes: dict[str, Any] = Field(default_factory=dict)
     evidence: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+
+
+
+class ImprovementObserveRequest(BaseModel):
+    project_id: str = Field(min_length=1, max_length=120)
+    repo_root: str | None = Field(default=None, max_length=500)
+
+
+class ImprovementStartRequest(BaseModel):
+    expected_files: list[str] = Field(default_factory=list, max_length=100)
+    expected_tests: list[str] = Field(default_factory=list, max_length=100)
+
+
+class ImprovementTestsRequest(BaseModel):
+    tests_before: dict[str, Any] = Field(default_factory=dict)
+    tests_after: dict[str, Any] = Field(default_factory=dict)
+    regressions: list[str] = Field(default_factory=list, max_length=100)
+    passed: bool | None = None
+
+
+class ImprovementReviewRequest(BaseModel):
+    tests_passed: bool = False
+    review_accepted: bool = False
+    acceptance_met: bool = False
+    regressions: list[str] = Field(default_factory=list, max_length=100)
+    notes: dict[str, Any] = Field(default_factory=dict)
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    follow_up_tasks: list[str] = Field(default_factory=list, max_length=50)
+
+
+class ImprovementInterruptRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=4000)
+
+
+class ImprovementRollbackRequest(BaseModel):
+    execute: bool = False

@@ -11,6 +11,7 @@ from app.db import initialize_database
 from app.routers.agent import router as agent_router
 from app.routers.developer import router as developer_router
 from app.routers.coordination import router as coordination_router
+from app.routers.self_improvement import router as self_improvement_router
 from app.routers.health import router as health_router
 from app.routers.projects import router as projects_router
 from app.routers.tasks import router as tasks_router
@@ -76,6 +77,7 @@ app.include_router(projects_router)
 app.include_router(agent_router)
 app.include_router(developer_router)
 app.include_router(coordination_router)
+app.include_router(self_improvement_router)
 
 
 @app.get("/")

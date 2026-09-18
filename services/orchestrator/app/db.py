@@ -40,7 +40,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
 _SCHEMA_VERSION_TABLE = "schema_version"
 
 
@@ -390,6 +390,178 @@ def _migration_4(database: sqlite3.Connection) -> None:
         """
     )
 
+def _migration_5(database: sqlite3.Connection) -> None:
+    """Create persisted, resumable controlled self-improvement state."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS improvement_candidates (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            problem TEXT NOT NULL,
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            severity TEXT NOT NULL DEFAULT 'medium',
+            affected_modules_json TEXT NOT NULL DEFAULT '[]',
+            proposed_outcome TEXT NOT NULL,
+            estimated_risk TEXT NOT NULL DEFAULT 'medium',
+            expected_verification_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'candidate',
+            priority_score REAL NOT NULL DEFAULT 0,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_attempt_at TEXT,
+            next_attempt_after TEXT,
+            failure_signature TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_improvement_candidates_priority
+            ON improvement_candidates(project_id, status, priority_score DESC, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_improvement_candidates_signature
+            ON improvement_candidates(project_id, failure_signature);
+        CREATE TABLE IF NOT EXISTS improvement_cycles (
+            id TEXT PRIMARY KEY,
+            candidate_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            stage TEXT NOT NULL DEFAULT 'planned',
+            baseline_commit TEXT,
+            baseline_status TEXT NOT NULL DEFAULT '',
+            checkpoint_ref TEXT,
+            expected_files_json TEXT NOT NULL DEFAULT '[]',
+            expected_tests_json TEXT NOT NULL DEFAULT '[]',
+            tests_before_json TEXT NOT NULL DEFAULT '{}',
+            tests_after_json TEXT NOT NULL DEFAULT '{}',
+            review_result_json TEXT NOT NULL DEFAULT '{}',
+            regressions_json TEXT NOT NULL DEFAULT '[]',
+            assessment_json TEXT NOT NULL DEFAULT '{}',
+            lesson_memory_id TEXT,
+            confidence REAL NOT NULL DEFAULT 0,
+            follow_up_tasks_json TEXT NOT NULL DEFAULT '[]',
+            error TEXT,
+            started_at TEXT NOT NULL,
+            finished_at TEXT,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(candidate_id) REFERENCES improvement_candidates(id),
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(lesson_memory_id) REFERENCES experience_memories(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_improvement_cycles_candidate
+            ON improvement_cycles(candidate_id, started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_improvement_cycles_project
+            ON improvement_cycles(project_id, stage, updated_at DESC);
+        """
+    )
+
+
+def _migration_6(database: sqlite3.Connection) -> None:
+    """Add durable execution leases, recovery metadata, and dependency events."""
+    def add_column(table: str, column: str, definition: str) -> None:
+        columns = {
+            str(row[1])
+            for row in database.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            database.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    task_columns = {
+        "run_id": "TEXT",
+        "lease_owner": "TEXT",
+        "lease_token": "TEXT",
+        "lease_expires_at": "TEXT",
+        "heartbeat_at": "TEXT",
+        "attempt_count": "INTEGER NOT NULL DEFAULT 0",
+        "recovery_state": "TEXT NOT NULL DEFAULT 'new'",
+        "failure_kind": "TEXT",
+        "provider": "TEXT",
+        "fallback_provider": "TEXT",
+        "retry_after": "TEXT",
+        "last_checkpoint_ref": "TEXT",
+    }
+    for column, definition in task_columns.items():
+        add_column("agent_tasks", column, definition)
+
+    run_columns = {
+        "current_stage": "TEXT NOT NULL DEFAULT 'queued'",
+        "recovery_state": "TEXT NOT NULL DEFAULT 'new'",
+        "lease_owner": "TEXT",
+        "lease_token": "TEXT",
+        "lease_expires_at": "TEXT",
+        "heartbeat_at": "TEXT",
+        "retry_count": "INTEGER NOT NULL DEFAULT 0",
+        "failure_kind": "TEXT",
+        "provider": "TEXT",
+        "fallback_provider": "TEXT",
+        "checkpoint_ref": "TEXT",
+        "pending_approval_json": "TEXT",
+        "last_recovery_at": "TEXT",
+    }
+    for column, definition in run_columns.items():
+        add_column("autonomy_runs", column, definition)
+
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS execution_leases (
+            resource TEXT PRIMARY KEY,
+            task_id TEXT UNIQUE,
+            run_id TEXT,
+            owner_id TEXT NOT NULL,
+            lease_token TEXT NOT NULL UNIQUE,
+            state TEXT NOT NULL DEFAULT 'active',
+            acquired_at TEXT NOT NULL,
+            heartbeat_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            released_at TEXT,
+            last_error TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            FOREIGN KEY(task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_execution_leases_expiry
+            ON execution_leases(state, expires_at);
+        CREATE INDEX IF NOT EXISTS idx_execution_leases_run
+            ON execution_leases(run_id, state);
+
+        CREATE TABLE IF NOT EXISTS recovery_events (
+            id TEXT PRIMARY KEY,
+            idempotency_key TEXT NOT NULL UNIQUE,
+            run_id TEXT,
+            task_id TEXT,
+            event_type TEXT NOT NULL,
+            from_state TEXT,
+            to_state TEXT,
+            classification TEXT,
+            detail_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id) ON DELETE CASCADE,
+            FOREIGN KEY(task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_recovery_events_scope
+            ON recovery_events(run_id, task_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS provider_failures (
+            id TEXT PRIMARY KEY,
+            run_id TEXT,
+            task_id TEXT,
+            dependency TEXT NOT NULL,
+            provider TEXT,
+            model TEXT,
+            error_code TEXT,
+            error_detail TEXT NOT NULL DEFAULT '',
+            fallback_provider TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            resolved_at TEXT,
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id) ON DELETE CASCADE,
+            FOREIGN KEY(task_id) REFERENCES agent_tasks(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_provider_failures_scope
+            ON provider_failures(run_id, task_id, created_at DESC);
+        """
+    )
+
 def _schema_version(database: sqlite3.Connection) -> int:
     columns = {
         str(row[1])
@@ -463,7 +635,7 @@ def initialize_database(
                 f"version {SCHEMA_VERSION}."
             )
 
-        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4))
+        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4), (5, _migration_5), (6, _migration_6))
         for version, migration in migrations:
             if current < version:
                 migration(database)
@@ -474,7 +646,10 @@ def initialize_database(
         # when a previous process recorded a version early.
         _migration_1(database)
         _migration_2(database)
+        _migration_3(database)
         _migration_4(database)
+        _migration_5(database)
+        _migration_6(database)
         if current < SCHEMA_VERSION:
             _record_schema_version(database, SCHEMA_VERSION)
 
