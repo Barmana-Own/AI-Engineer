@@ -41,7 +41,7 @@ Database schema version 3 adds `coordination_tasks`, `coordination_task_dependen
 
 ## API surface
 
-The additive `/v1/coordination` router exposes role contracts, run creation/status, task and dependency inspection, messages, handoffs, agent status aggregation, and task result/failure callbacks. Existing routes remain unchanged.
+The additive `/v1/coordination` router exposes role contracts, run creation/status, task and dependency inspection, messages, handoffs, agent status aggregation, and task result/failure/revision callbacks. Existing routes remain unchanged.
 
 ## Validation
 
@@ -51,4 +51,5 @@ The deterministic coordination suite covers role aliases, dependency gating, rea
 
 - Agent model invocation and filesystem execution still occur through the existing worker services; a future phase may connect each DAG task to a dedicated worker queue.
 - API authentication/authorization continues to follow the existing Orchestrator policy and should be extended before exposing coordination mutation endpoints outside a trusted control plane.
-- Lock expiry/recovery is persisted for observability; automatic lease renewal is not yet implemented.
+- Writer leases have bounded expiry and stale locks can be reclaimed transactionally; long-running workers should reacquire before expiry because no background heartbeat is provided.
+
