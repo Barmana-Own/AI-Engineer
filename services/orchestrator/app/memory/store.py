@@ -105,8 +105,8 @@ class MemoryStore:
             row = database.execute("SELECT * FROM experience_memories WHERE id=?", (memory_id,)).fetchone()
         return _memory_dict(row) if row else None
 
-    def promote(self, memory_id: str, *, evidence: Iterable[dict[str, Any]], target: str = "validated") -> dict[str, Any]:
-        target = str(target).casefold()
+    def promote(self, memory_id: str, *, evidence: Iterable[dict[str, Any]], target: str | MemoryLifecycle = MemoryLifecycle.VALIDATED) -> dict[str, Any]:
+        target = str(target.value if isinstance(target, MemoryLifecycle) else target).casefold()
         evidence = [item for item in evidence if isinstance(item, dict) and any(str(item.get(k) or "").strip() for k in ("type", "command", "artifact", "summary"))][:20]
         if target not in {"validated", "trusted"} or not evidence:
             raise ValueError("Promotion requires validated evidence")
@@ -406,4 +406,5 @@ class MemoryStore:
             retries=retry_count, duration_seconds=duration_seconds,
         )
         return memory
+
 
