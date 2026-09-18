@@ -34,9 +34,9 @@ ContextBuilder، Supervisor و اجرای خودکار، حافظه‌های م�
 
 ## نتایج آزمون
 
-- Orchestrator: موفق — ۷۸ تست unittest.
-- تست حافظه: موفق — ۶ تست قطعی.
-- Model Gateway: موفق — ۲۶ تست pytest.
+- Orchestrator: موفق — ۷۹ تست unittest.
+- تست حافظه: موفق — ۷ تست قطعی.
+- Model Gateway: موفق — ۲۷ تست pytest.
 - Local Agent: موفق — ۲ تست unittest؛ اجرای pytest NOT_RUN است چون pytest در آن محیط نصب نیست.
 - compileall پایتون: موفق.
 - تست مهاجرت روی SQLite موقت: موفق — نسخه ۴.
