@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import re
@@ -73,7 +73,14 @@ class MemoryStore:
         state = str(lifecycle.value if isinstance(lifecycle, MemoryLifecycle) else lifecycle).casefold()
         if kind not in _TYPES or state not in _LIFECYCLES:
             raise ValueError("Unsupported memory type or lifecycle")
-        clean_summary, clean_content, clean_evidence, redacted = sanitize_memory(summary, content or {}, list(evidence))
+        raw_evidence = list(evidence)
+        if state == MemoryLifecycle.TRUSTED.value:
+            raise ValueError("Trusted memories require evidence-gated promotion")
+        if state == MemoryLifecycle.VALIDATED.value and not raw_evidence:
+            raise ValueError("Validated memory requires evidence")
+        clean_summary, clean_content, clean_evidence, redacted = sanitize_memory(
+            summary, content or {}, raw_evidence)
+
         if not clean_summary.strip():
             raise ValueError("Memory summary is required")
         if redacted:

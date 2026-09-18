@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import tempfile
 import unittest
@@ -192,6 +192,32 @@ class EngineeringMemoryTests(unittest.TestCase):
         self.assertEqual(rows[0]["tasks_completed"], 1)
         self.assertEqual(memory["lifecycle"], MemoryLifecycle.CANDIDATE.value)
 
+
+
+    def test_raw_memories_cannot_be_created_as_trusted(self) -> None:
+        with self.assertRaises(ValueError):
+            self.store.create(
+                project_id=self.project_id,
+                memory_type="lesson",
+                summary="Direct trusted memory is forbidden",
+                lifecycle=MemoryLifecycle.TRUSTED,
+                evidence=[{"type": "test", "command": "pytest"}],
+            )
+        with self.assertRaises(ValueError):
+            self.store.create(
+                project_id=self.project_id,
+                memory_type="lesson",
+                summary="Validated memory needs evidence",
+                lifecycle=MemoryLifecycle.VALIDATED,
+            )
+        validated = self.store.create(
+            project_id=self.project_id,
+            memory_type="lesson",
+            summary="Validated memory has evidence",
+            lifecycle=MemoryLifecycle.VALIDATED,
+            evidence=[{"type": "review", "summary": "accepted"}],
+        )
+        self.assertEqual(validated["lifecycle"], MemoryLifecycle.VALIDATED.value)
 
 if __name__ == "__main__":
     unittest.main()

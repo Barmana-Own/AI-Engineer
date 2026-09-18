@@ -210,7 +210,7 @@ class ExperienceMemoryCreateRequest(BaseModel):
     run_id: str | None = Field(default=None, max_length=120)
     task_id: str | None = Field(default=None, max_length=120)
     memory_type: Literal["working", "episodic", "project", "lesson", "failure"] = "episodic"
-    lifecycle: Literal["candidate", "validated", "trusted"] = "candidate"
+    lifecycle: Literal["candidate", "validated"] = "candidate"
     role: str | None = Field(default=None, max_length=128)
     task_type: str | None = Field(default=None, max_length=256)
     summary: str = Field(min_length=3, max_length=4_000)
