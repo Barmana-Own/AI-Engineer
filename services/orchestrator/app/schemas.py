@@ -74,6 +74,18 @@ class AgentTaskResponse(BaseModel):
     error: str | None
     created_at: str
     updated_at: str
+    run_id: str | None = None
+    lease_owner: str | None = None
+    lease_token: str | None = None
+    lease_expires_at: str | None = None
+    heartbeat_at: str | None = None
+    attempt_count: int = 0
+    recovery_state: str = "new"
+    failure_kind: str | None = None
+    provider: str | None = None
+    fallback_provider: str | None = None
+    retry_after: str | None = None
+    last_checkpoint_ref: str | None = None
 
 
 class SelfImproveRequest(BaseModel):
@@ -96,6 +108,19 @@ class AutonomyRunResponse(BaseModel):
     error: str | None
     created_at: str
     updated_at: str
+    current_stage: str = "queued"
+    recovery_state: str = "new"
+    lease_owner: str | None = None
+    lease_token: str | None = None
+    lease_expires_at: str | None = None
+    heartbeat_at: str | None = None
+    retry_count: int = 0
+    failure_kind: str | None = None
+    provider: str | None = None
+    fallback_provider: str | None = None
+    checkpoint_ref: str | None = None
+    pending_approval: dict[str, Any] | None = None
+    last_recovery_at: str | None = None
 
 
 class SubagentHandoffResponse(BaseModel):
@@ -267,3 +292,23 @@ class ImprovementInterruptRequest(BaseModel):
 
 class ImprovementRollbackRequest(BaseModel):
     execute: bool = False
+
+
+class RecoveryResumeRequest(BaseModel):
+    verify: bool = False
+
+
+class RecoveryLeaseRequest(BaseModel):
+    owner_id: str | None = Field(default=None, max_length=200)
+    run_id: str | None = Field(default=None, max_length=100)
+    ttl_seconds: int = Field(default=600, ge=30, le=86400)
+
+
+class RecoveryHeartbeatRequest(BaseModel):
+    lease_token: str = Field(min_length=8, max_length=200)
+    ttl_seconds: int = Field(default=600, ge=30, le=86400)
+
+
+class RecoveryReleaseRequest(BaseModel):
+    lease_token: str = Field(min_length=8, max_length=200)
+    error: str | None = Field(default=None, max_length=2000)

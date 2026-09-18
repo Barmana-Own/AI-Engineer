@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections import deque
@@ -10,6 +11,15 @@ from urllib.parse import quote
 from app.clients import request_json
 from app.config import settings
 from app.db import get_project, get_task, search_memories, update_task
+from app.recovery import (
+    LeaseConflictError,
+    RecoveryRequiredError,
+    acquire_task_lease,
+    classify_dependency_error,
+    heartbeat_task_lease,
+    pause_task_for_dependency,
+    release_task_lease,
+)
 from app.subagents import role_from_instruction
 from app.agent.parser import (
     APPROVAL_TOOLS,
@@ -2676,7 +2686,7 @@ async def _initial_inspection(
     })
 
 
-async def run_agent_task(task_id: str) -> None:
+async def _run_agent_task_inner(task_id: str) -> None:
     task = get_task(task_id)
     if not task:
         return
@@ -3140,3 +3150,77 @@ async def run_agent_task(task_id: str) -> None:
             pending=None,
             error=str(exc),
         )
+
+
+async def _lease_heartbeat_loop(task_id: str, lease_token: str, ttl_seconds: int) -> None:
+    interval = max(5, min(30, int(ttl_seconds) // 3))
+    while True:
+        await asyncio.sleep(interval)
+        if not heartbeat_task_lease(task_id, lease_token, ttl_seconds=ttl_seconds):
+            return
+
+
+async def run_agent_task(task_id: str) -> None:
+    """Run a task under a durable lease and preserve transient dependency failures."""
+    task = get_task(task_id)
+    if not task or str(task.get("status")) in {"completed", "cancelled"}:
+        return
+    if (
+        str(task.get("recovery_state") or "") == "needs_verification"
+        and str(task.get("status")) != "queued"
+    ):
+        return
+    ttl = max(int(settings.autonomous_lease_seconds), 30)
+    lease: dict[str, Any] | None = None
+    heartbeat_task: asyncio.Task[None] | None = None
+    try:
+        lease = acquire_task_lease(
+            task_id,
+            ttl_seconds=ttl,
+            run_id=task.get("run_id"),
+        )
+        update_task(
+            task_id,
+            status="running",
+            recovery_state="active",
+            run_id=task.get("run_id"),
+            error=None,
+        )
+        heartbeat_task = asyncio.create_task(
+            _lease_heartbeat_loop(task_id, str(lease["lease_token"]), ttl)
+        )
+        await _run_agent_task_inner(task_id)
+        final = get_task(task_id)
+        if final and str(final.get("status")) == "failed":
+            dependency = classify_dependency_error(str(final.get("error") or ""))
+            if dependency:
+                pause_task_for_dependency(
+                    task_id,
+                    dependency[0],
+                    dependency[2],
+                    run_id=final.get("run_id"),
+                )
+    except LeaseConflictError:
+        return
+    except RecoveryRequiredError:
+        return
+    except Exception as exc:
+        dependency = classify_dependency_error(exc)
+        if dependency:
+            pause_task_for_dependency(
+                task_id,
+                dependency[0],
+                dependency[2],
+                run_id=task.get("run_id"),
+            )
+        else:
+            update_task(task_id, status="failed", error=str(exc), recovery_state="failed")
+    finally:
+        if heartbeat_task:
+            heartbeat_task.cancel()
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
+        if lease:
+            release_task_lease(task_id, str(lease["lease_token"]))

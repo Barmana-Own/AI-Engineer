@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.autonomy import run_autonomy_scheduler
 from app.db import initialize_database
+from app.recovery import recover_incomplete_runs
 from app.routers.agent import router as agent_router
 from app.routers.developer import router as developer_router
 from app.routers.coordination import router as coordination_router
@@ -15,8 +16,12 @@ from app.routers.self_improvement import router as self_improvement_router
 from app.routers.health import router as health_router
 from app.routers.projects import router as projects_router
 from app.routers.tasks import router as tasks_router
+from app.routers.recovery import router as recovery_router
 
 initialize_database()
+STARTUP_RECOVERY_REPORT = recover_incomplete_runs(
+    stale_after_seconds=settings.autonomous_recovery_stale_seconds
+)
 
 
 def _start_scheduler_thread(stop_holder: dict[str, object]) -> threading.Timer:
@@ -78,6 +83,7 @@ app.include_router(agent_router)
 app.include_router(developer_router)
 app.include_router(coordination_router)
 app.include_router(self_improvement_router)
+app.include_router(recovery_router)
 
 
 @app.get("/")
@@ -99,6 +105,11 @@ def capabilities() -> dict:
             "enabled": bool(settings.autonomous_mode_enabled),
             "interval_minutes": settings.autonomous_interval_minutes,
             "cycles_per_run": settings.autonomous_cycles_per_run,
+        },
+        "recovery": {
+            "enabled": bool(settings.autonomous_recovery_enabled),
+            "recovered_runs": len(STARTUP_RECOVERY_REPORT),
+            "status_endpoint": "/v1/recovery/status",
         },
     }
 

@@ -679,6 +679,18 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "error": row["error"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+        "run_id": row["run_id"] if "run_id" in row.keys() else None,
+        "lease_owner": row["lease_owner"] if "lease_owner" in row.keys() else None,
+        "lease_token": row["lease_token"] if "lease_token" in row.keys() else None,
+        "lease_expires_at": row["lease_expires_at"] if "lease_expires_at" in row.keys() else None,
+        "heartbeat_at": row["heartbeat_at"] if "heartbeat_at" in row.keys() else None,
+        "attempt_count": row["attempt_count"] if "attempt_count" in row.keys() else 0,
+        "recovery_state": row["recovery_state"] if "recovery_state" in row.keys() else "new",
+        "failure_kind": row["failure_kind"] if "failure_kind" in row.keys() else None,
+        "provider": row["provider"] if "provider" in row.keys() else None,
+        "fallback_provider": row["fallback_provider"] if "fallback_provider" in row.keys() else None,
+        "retry_after": row["retry_after"] if "retry_after" in row.keys() else None,
+        "last_checkpoint_ref": row["last_checkpoint_ref"] if "last_checkpoint_ref" in row.keys() else None,
     }
 
 
@@ -784,6 +796,18 @@ def update_task(task_id: str, **changes: Any) -> dict[str, Any]:
         "pending",
         "final_output",
         "error",
+        "run_id",
+        "lease_owner",
+        "lease_token",
+        "lease_expires_at",
+        "heartbeat_at",
+        "attempt_count",
+        "recovery_state",
+        "failure_kind",
+        "provider",
+        "fallback_provider",
+        "retry_after",
+        "last_checkpoint_ref",
     }
 
     assignments: list[str] = []
@@ -1033,6 +1057,19 @@ def get_autonomy_run(run_id: str) -> dict[str, Any] | None:
         "error": row["error"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+        "current_stage": row["current_stage"] if "current_stage" in row.keys() else "queued",
+        "recovery_state": row["recovery_state"] if "recovery_state" in row.keys() else "new",
+        "lease_owner": row["lease_owner"] if "lease_owner" in row.keys() else None,
+        "lease_token": row["lease_token"] if "lease_token" in row.keys() else None,
+        "lease_expires_at": row["lease_expires_at"] if "lease_expires_at" in row.keys() else None,
+        "heartbeat_at": row["heartbeat_at"] if "heartbeat_at" in row.keys() else None,
+        "retry_count": row["retry_count"] if "retry_count" in row.keys() else 0,
+        "failure_kind": row["failure_kind"] if "failure_kind" in row.keys() else None,
+        "provider": row["provider"] if "provider" in row.keys() else None,
+        "fallback_provider": row["fallback_provider"] if "fallback_provider" in row.keys() else None,
+        "checkpoint_ref": row["checkpoint_ref"] if "checkpoint_ref" in row.keys() else None,
+        "pending_approval": json.loads(row["pending_approval_json"] or "{}") if "pending_approval_json" in row.keys() and row["pending_approval_json"] else None,
+        "last_recovery_at": row["last_recovery_at"] if "last_recovery_at" in row.keys() else None,
     }
 
 
@@ -1076,20 +1113,42 @@ def list_autonomy_runs(
             "error": row["error"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+            "current_stage": row["current_stage"] if "current_stage" in row.keys() else "queued",
+            "recovery_state": row["recovery_state"] if "recovery_state" in row.keys() else "new",
+            "lease_owner": row["lease_owner"] if "lease_owner" in row.keys() else None,
+            "lease_token": row["lease_token"] if "lease_token" in row.keys() else None,
+            "lease_expires_at": row["lease_expires_at"] if "lease_expires_at" in row.keys() else None,
+            "heartbeat_at": row["heartbeat_at"] if "heartbeat_at" in row.keys() else None,
+            "retry_count": row["retry_count"] if "retry_count" in row.keys() else 0,
+            "failure_kind": row["failure_kind"] if "failure_kind" in row.keys() else None,
+            "provider": row["provider"] if "provider" in row.keys() else None,
+            "fallback_provider": row["fallback_provider"] if "fallback_provider" in row.keys() else None,
+            "checkpoint_ref": row["checkpoint_ref"] if "checkpoint_ref" in row.keys() else None,
+            "pending_approval": json.loads(row["pending_approval_json"] or "{}") if "pending_approval_json" in row.keys() and row["pending_approval_json"] else None,
+            "last_recovery_at": row["last_recovery_at"] if "last_recovery_at" in row.keys() else None,
         }
         for row in rows
     ]
 
 
 def update_autonomy_run(run_id: str, **changes: Any) -> dict[str, Any]:
-    allowed = {"completed_cycles", "status", "task_ids", "error"}
+    allowed = {
+        "completed_cycles", "status", "task_ids", "error",
+        "current_stage", "recovery_state", "lease_owner", "lease_token",
+        "lease_expires_at", "heartbeat_at", "retry_count", "failure_kind",
+        "provider", "fallback_provider", "checkpoint_ref",
+        "pending_approval", "last_recovery_at",
+    }
     assignments: list[str] = []
     values: list[Any] = []
     for key, value in changes.items():
         if key not in allowed:
             continue
-        column = "task_ids_json" if key == "task_ids" else key
-        if key == "task_ids":
+        column = {
+            "task_ids": "task_ids_json",
+            "pending_approval": "pending_approval_json",
+        }.get(key, key)
+        if key in {"task_ids", "pending_approval"}:
             value = json.dumps(value, ensure_ascii=False)
         assignments.append(f"{column} = ?")
         values.append(value)

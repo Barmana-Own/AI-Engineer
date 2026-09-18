@@ -1,4 +1,4 @@
-﻿"""Bounded autonomous self-improvement cycles.
+"""Bounded autonomous self-improvement cycles.
 
 The supervisor deliberately creates ordinary Agent tasks. This keeps the
 existing checkpoint, policy, validation, and recovery guarantees in one place
@@ -38,6 +38,13 @@ from app.config import settings
 from app.memory import MemoryStore
 from app.subagents import SUBAGENT_ROLES, build_execution_phases, build_role_instruction, configured_subagent_roles
 from app.self_improvement import SelfImprovementEngine
+from app.recovery import (
+    WAITING_TASK_STATUSES,
+    pause_task_for_dependency,
+    recover_incomplete_runs,
+    record_run_heartbeat,
+    requeue_waiting_task,
+)
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
@@ -610,12 +617,24 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 timeout=task_timeout,
             )
         except asyncio.TimeoutError:
+            pause_task_for_dependency(
+                task_id,
+                "worker",
+                f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds.",
+                run_id=run_id,
+                retry_after_seconds=60,
+            )
             return (
                 item,
                 get_task(task_id),
                 f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds.",
             )
         except Exception as exc:
+            dependency = getattr(exc, "dependency", None)
+            if dependency:
+                pause_task_for_dependency(
+                    task_id, str(dependency), exc, run_id=run_id
+                )
             return item, get_task(task_id), str(exc)
         finished = get_task(task_id)
         if not finished or finished.get("status") != "completed":
@@ -628,7 +647,17 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
     completed_cycles = 0
     try:
+        record_run_heartbeat(
+            run_id,
+            stage="running",
+            ttl_seconds=max(int(getattr(settings, "autonomous_lease_seconds", 600)), 30),
+        )
         for cycle in range(1, int(run["requested_cycles"]) + 1):
+            record_run_heartbeat(
+                run_id,
+                stage=f"cycle:{cycle}",
+                ttl_seconds=max(int(getattr(settings, "autonomous_lease_seconds", 600)), 30),
+            )
             cycle_memories = search_memories(
                 run["project_id"],
                 query=str(run["goal"]),
@@ -678,6 +707,11 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         instruction=instruction,
                         mode="autonomous",
                     )
+                    update_task(
+                        task["id"],
+                        run_id=run_id,
+                        recovery_state="queued",
+                    )
                     task_ids.append(task["id"])
                     cycle_task_ids.append(task["id"])
                     handoff = create_subagent_handoff(
@@ -718,6 +752,25 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     handoff_id = handoff["id"]
                     previous_handoff_ids.append(handoff_id)
                     if problem:
+                        if finished and finished.get("status") in WAITING_TASK_STATUSES:
+                            update_subagent_handoff(
+                                handoff_id,
+                                status="waiting",
+                                summary=problem[:4_000],
+                                blockers=[problem],
+                                next_action="Retry after the dependency lease becomes available.",
+                                confidence=0.0,
+                            )
+                            update_autonomy_run(
+                                run_id,
+                                task_ids=task_ids,
+                                completed_cycles=cycle - 1,
+                                status="waiting_dependency",
+                                error=problem[:2_000],
+                                current_stage="waiting_dependency",
+                                recovery_state="waiting_for_dependency",
+                            )
+                            return
                         phase_failed = True
                         if not role.read_only:
                             writer_failed = True
@@ -854,10 +907,19 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
     """Wake periodically for the configured workspace and reconcile stale workers."""
     interval_seconds = max(int(settings.autonomous_interval_minutes), 1) * 60
     target_workspace = str(settings.autonomous_workspace or "").strip().casefold()
-    active_statuses = {"queued", "planning", "running", "awaiting_approval"}
+    active_statuses = {
+        "queued", "planning", "running", "awaiting_approval", "needs_verification"
+    }
     reconciliation_grace = _reconciliation_grace_seconds()
 
     while not stop_event.is_set():
+        if bool(getattr(settings, "autonomous_recovery_enabled", True)):
+            recover_incomplete_runs(
+                stale_after_seconds=max(
+                    int(getattr(settings, "autonomous_recovery_stale_seconds", 900)),
+                    30,
+                )
+            )
         projects = list_projects()
         if target_workspace and not any(
             project["workspace"].casefold() == target_workspace
@@ -874,23 +936,45 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
                 continue
 
             project_tasks = list_tasks(project["id"])
-            active_tasks = [
-                task for task in project_tasks
-                if task.get("mode") == "autonomous"
-                and task.get("status") in active_statuses
-            ]
-            # A task left active by a dead worker must not block the next run,
-            # but a recently updated task may still belong to a worker that is
-            # finishing during a restart.  Use a grace period to avoid killing
-            # healthy work or creating duplicate runs.
-            for task in active_tasks:
-                if _record_age_seconds(task.get("updated_at")) < reconciliation_grace:
+            for task in project_tasks:
+                if task.get("mode") == "autonomous" and task.get("status") in WAITING_TASK_STATUSES:
+                    requeue_waiting_task(task["id"])
+
+            # Resume durable queued work before considering a fresh autonomous
+            # cycle. This keeps provider/local-agent recovery from losing the
+            # task graph after a scheduler or machine restart.
+            open_runs = list_autonomy_runs(project["id"], limit=100)
+            resumed_existing_work = False
+            for run in open_runs:
+                if run.get("status") not in {
+                    "queued", "planning", "running", "awaiting_approval",
+                    "waiting_dependency",
+                }:
                     continue
-                update_task(
-                    task["id"],
-                    status="failed",
-                    error="Reconciled after restart before a new autonomous cycle.",
-                )
+                run_task_ids = {
+                    str(task_id) for task_id in (run.get("task_ids") or [])
+                }
+                queued_tasks = [
+                    task for task in list_tasks(project["id"])
+                    if str(task.get("id")) in run_task_ids
+                    and task.get("mode") == "autonomous"
+                    and task.get("status") == "queued"
+                ]
+                if not queued_tasks:
+                    continue
+                from app.agent_service import run_agent_task
+                for task in queued_tasks:
+                    try:
+                        await run_agent_task(str(task["id"]))
+                    except Exception:
+                        logger.exception(
+                            "Durable task resume failed",
+                            extra={"task_id": task.get("id"), "run_id": run.get("id")},
+                        )
+                resumed_existing_work = True
+                break
+            if resumed_existing_work:
+                continue
 
             remaining_active_tasks = [
                 task for task in list_tasks(project["id"])
@@ -900,30 +984,11 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
             if remaining_active_tasks:
                 continue
 
-            # Re-read after task reconciliation so the run that owned the stale
-            # task is closed before a fresh cycle is created.
             open_runs = list_autonomy_runs(project["id"], limit=100)
-            active_ids = {
-                task["id"]
-                for task in list_tasks(project["id"])
-                if task.get("mode") == "autonomous"
-                and task.get("status") in active_statuses
-            }
-            for run in open_runs:
-                if run["status"] not in {"queued", "planning", "running", "awaiting_approval"}:
-                    continue
-                if active_ids.intersection(set(run.get("task_ids") or [])):
-                    continue
-                if _record_age_seconds(run.get("updated_at")) < reconciliation_grace:
-                    continue
-                update_autonomy_run(
-                    run["id"],
-                    status="failed",
-                    error="Reconciled after restart: no active autonomous task was found.",
-                )
-
-            open_runs = list_autonomy_runs(project["id"], limit=100)
-            if any(run["status"] in {"queued", "planning", "running", "awaiting_approval"} for run in open_runs):
+            if any(run.get("status") in {
+                "queued", "planning", "running", "awaiting_approval",
+                "waiting_dependency", "recovery_required",
+            } for run in open_runs):
                 continue
 
             improvement_engine = SelfImprovementEngine()

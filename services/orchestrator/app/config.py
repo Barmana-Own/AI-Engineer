@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # Read-only specialists may overlap on one immutable snapshot; writers remain serialized.
     autonomous_read_parallelism: int = Field(default=2, ge=1, le=8)
     autonomous_reconciliation_grace_seconds: int = Field(default=900, ge=0, le=86400)
+    # Durable execution recovery is enabled by default; leases are renewed by workers.
+    autonomous_recovery_enabled: bool = True
+    autonomous_lease_seconds: int = Field(default=600, ge=30, le=86400)
+    autonomous_recovery_stale_seconds: int = Field(default=900, ge=30, le=86400)
     autonomous_task_timeout_seconds: int = Field(default=360, ge=1, le=3600)
     autonomous_model_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     # Push only clean, verified checkpoints to the configured GitHub remote.
