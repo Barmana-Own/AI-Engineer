@@ -160,3 +160,43 @@ class ManagedProcessStartRequest(BaseModel):
 class ManagedProcessStopRequest(BaseModel):
     process_id: str = Field(min_length=1, max_length=100)
     approved: bool = False
+
+
+class CoordinationRunRequest(BaseModel):
+    project_id: str = Field(min_length=1, max_length=120)
+    objective: str = Field(min_length=3, max_length=20_000)
+
+class CoordinationMessageRequest(BaseModel):
+    sender_role: str = Field(min_length=1, max_length=64)
+    recipient_role: str | None = Field(default=None, max_length=64)
+    message_type: str = Field(min_length=1, max_length=32)
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1, max_length=20_000)
+    run_id: str | None = Field(default=None, max_length=120)
+    project_id: str | None = Field(default=None, max_length=120)
+    task_id: str | None = Field(default=None, max_length=120)
+    references: list[str] = Field(default_factory=list, max_length=100)
+    discussion_round: int = Field(default=0, ge=0, le=20)
+
+class CoordinationHandoffRequest(BaseModel):
+    sender_role: str = Field(min_length=1, max_length=64)
+    recipient_role: str = Field(min_length=1, max_length=64)
+    summary: str = Field(min_length=1, max_length=20_000)
+    completed: list[str] = Field(default_factory=list, max_length=100)
+    artifacts: list[str] = Field(default_factory=list, max_length=100)
+    changed_files: list[str] = Field(default_factory=list, max_length=100)
+    decisions: list[str] = Field(default_factory=list, max_length=100)
+    risks: list[str] = Field(default_factory=list, max_length=100)
+    remaining_work: list[str] = Field(default_factory=list, max_length=100)
+    verification: list[str] = Field(default_factory=list, max_length=100)
+    run_id: str | None = Field(default=None, max_length=120)
+    project_id: str | None = Field(default=None, max_length=120)
+    task_id: str | None = Field(default=None, max_length=120)
+
+class CoordinationResultRequest(BaseModel):
+    summary: str = Field(min_length=1, max_length=20_000)
+    evidence: list[str] = Field(default_factory=list, max_length=100)
+    approved: bool = True
+
+class CoordinationFailureRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=20_000)

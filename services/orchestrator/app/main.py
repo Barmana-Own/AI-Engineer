@@ -9,7 +9,7 @@ from app.config import settings
 from app.autonomy import run_autonomy_scheduler
 from app.db import initialize_database
 from app.routers.agent import router as agent_router
-from app.routers.developer import router as developer_router
+from app.routers.developer import router as developer_router`nfrom app.routers.coordination import router as coordination_router
 from app.routers.health import router as health_router
 from app.routers.projects import router as projects_router
 from app.routers.tasks import router as tasks_router
@@ -73,7 +73,7 @@ app.include_router(health_router)
 app.include_router(tasks_router)
 app.include_router(projects_router)
 app.include_router(agent_router)
-app.include_router(developer_router)
+app.include_router(developer_router)`napp.include_router(coordination_router)
 
 
 @app.get("/")
