@@ -67,8 +67,8 @@ Sanitization redacts private keys, bearer/basic tokens, common API-token formats
 
 | Component | Command | Result |
 |---|---|---|
-| Orchestrator | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 79 tests** |
-| Memory subsystem | `python -m unittest tests/test_memory.py -v` | **PASS - 7 tests** (included in orchestrator suite) |
+| Orchestrator | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 80 tests** |
+| Memory subsystem | `python -m unittest tests/test_memory.py -v` | **PASS - 8 tests** (included in orchestrator suite) |
 | Model Gateway | `.venv\\Scripts\\python.exe -m pytest -q` | **PASS - 26 tests** |
 | Local Agent | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 2 tests** |
 | Local Agent pytest command | `pytest -q` | **NOT_RUN - pytest is not installed in that environment** |

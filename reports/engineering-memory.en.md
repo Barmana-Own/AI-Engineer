@@ -34,8 +34,8 @@ Schema version 4 adds `experience_memories`, `experience_outcomes`, `failure_pat
 
 ## TEST RESULTS
 
-- Orchestrator: **PASS - 79 unittest tests**.
-- Memory tests: **PASS - 7 deterministic tests**.
+- Orchestrator: **PASS - 80 unittest tests**.
+- Memory tests: **PASS - 8 deterministic tests**.
 - Model Gateway: **PASS - 26 pytest tests**.
 - Local Agent: **PASS - 2 unittest tests**; optional pytest command **NOT_RUN** because pytest is unavailable in that environment.
 - Python compileall: **PASS**.
