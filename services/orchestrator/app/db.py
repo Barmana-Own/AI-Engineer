@@ -405,24 +405,15 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def create_project(name: str, workspace: str) -> dict[str, Any]:
+def create_project(name: str, workspace: str, *, database_path: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     project_id = str(uuid4())
     now = utc_now()
-
-    with connect() as database:
+    with connect(database_path) as database:
         database.execute(
-            """
-            INSERT INTO projects(id, name, workspace, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+            "INSERT INTO projects(id, name, workspace, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
             (project_id, name, workspace, now, now),
         )
-
-        row = database.execute(
-            "SELECT * FROM projects WHERE id = ?",
-            (project_id,),
-        ).fetchone()
-
+        row = database.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
     return _row_to_project(row)
 
 
