@@ -1,4 +1,4 @@
-# Engineering Memory and Experience-Based Learning
+﻿> **Implementation status (2026-09-18 / 1405-06-27):** Memory lifecycle, scoped retrieval, sanitization, feedback and performance metrics are implemented in the Orchestrator. The current database schema is version **6**. The audited baseline is 94 orchestrator tests; Local Agent unittest coverage passes, while a separate pytest command is unavailable in that environment.\n\n# Engineering Memory and Experience-Based Learning
 
 ## Scope
 
@@ -67,13 +67,13 @@ Sanitization redacts private keys, bearer/basic tokens, common API-token formats
 
 | Component | Command | Result |
 |---|---|---|
-| Orchestrator | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 80 tests** |
+| Orchestrator | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 94 tests** |
 | Memory subsystem | `python -m unittest tests/test_memory.py -v` | **PASS - 8 tests** (included in orchestrator suite) |
 | Model Gateway | `.venv\\Scripts\\python.exe -m pytest -q` | **PASS - 26 tests** |
 | Local Agent | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 2 tests** |
 | Local Agent pytest command | `pytest -q` | **NOT_RUN - pytest is not installed in that environment** |
 | Python compile check | `python -m compileall app` | **PASS** |
-| Migration smoke test | isolated temporary SQLite database | **PASS - schema version 4** |
+| Migration smoke test | isolated temporary SQLite database | **PASS - schema version 6** |
 | Service health | `/health` on ports 8010, 8011, 8012 | **PASS** |
 
 ## Limitations
@@ -87,3 +87,4 @@ Sanitization redacts private keys, bearer/basic tokens, common API-token formats
 ## Phase Boundary
 
 Phase 3 is complete at the memory subsystem boundary. Further work should add richer planner/routing policies and integration coverage only after this checkpoint is reviewed; no Phase 4 work is started by this change.
+

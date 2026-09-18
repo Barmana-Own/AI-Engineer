@@ -1,401 +1,70 @@
-﻿# معماری اولیه AI Engineer
+﻿# Current Architecture (Verified 2026-09-18 / 1405-06-27)
 
-## 1. دامنه سند
+> This document is the current implementation reference. Earlier Tauri/Rust diagrams are obsolete: the desktop application in the source tree is Electron.
 
-این سند معماری سطح‌بالای پلتفرم را در ابتدای پروژه ثبت می‌کند. جزئیات فنی هر سرویس در مرحله مربوط به آن تکمیل می‌شود.
-
-## 2. اهداف معماری
-
-- اجرای Local-First روی Windows 11
-- جداسازی رابط کاربری، Orchestration، Model Gateway و ابزارهای سیستمی
-- جلوگیری از دسترسی مستقیم مدل هوش مصنوعی به سیستم‌عامل
-- ثبت کامل Task، فرمان، تصمیم، خطا، تست و مصرف مدل
-- قابلیت اجرای سبک روی سیستم کم‌منبع
-- قابلیت جایگزینی Provider هوش مصنوعی
-- امکان انتقال تدریجی از SQLite به PostgreSQL
-- آمادگی برای Docker، VS Code، cPanel و مدل محلی در آینده
-
-## 3. اجزای اصلی
-
-### 3.1 Desktop Application
-
-مسیر آینده:
+## Boundary map
 
 ```text
-apps/desktop
+React Control Center / Electron Desktop
+                 |
+                 v
+FastAPI Orchestrator
+  coordination | persistence | recovery | public APIs
+        |                         |
+        v                         v
+Model Gateway                 Local Agent
+  profiles, routing,          files, Git, terminal,
+  usage, cache, health        processes, health
+        |
+        v
+Provider Router (optional provider integration)
 ```
 
-فناوری هدف:
+The repository is a modular monolith at the orchestration layer, with separate processes for model access and local workspace tools. UI and Desktop clients call the Orchestrator; they do not own agent execution or database writes.
 
-- Tauri
-- Rust
-- React
-- TypeScript
+## Components
 
-مسئولیت‌ها:
+- **Orchestrator** (`services/orchestrator/app`): FastAPI routes, SQLite schema/migrations, agent execution loop, coordination store and scheduler, Supervisor, message bus, handoffs, memory/experience, self-improvement and restart recovery.
+- **Model Gateway** (`services/model-gateway/app`): provider-neutral model profiles, provider selection, health, usage and cache boundaries.
+- **Local Agent** (`services/local-agent/app`): constrained file, terminal, process and Git operations exposed to the Orchestrator.
+- **Provider Router** (`services/provider-router/server`): optional provider-facing bridge. Its vendored/provider code is intentionally outside this review scope.
+- **Control Center** (`apps/control-center`): React/Vite client.
+- **Desktop** (`apps/desktop`): Electron shell with `contextIsolation`, disabled Node integration and sandboxing.
 
-- Window Management
-- System Tray
-- ارتباط کنترل‌شده با سرویس‌های Local
-- نمایش درخواست‌های تأیید کاربر
-- نگهداری امن تنظیمات محلی غیرمحرمانه
+`services/memory-service`, `packages/agent-sdk`, `packages/tool-sdk`, `apps/web-ui` and `apps/vscode-extension` contain placeholders only; they are not active implementations.
 
-### 3.2 Web UI
+## Agent coordination
 
-مسیر آینده:
+The canonical role registry contains supervisor, requirements, planner, architect, researcher, backend, frontend, implementer, tester, debugger, reviewer, security, integration, docs and release_verifier roles plus compatibility aliases. Each contract declares capabilities, tools, write permission, model profile, input/output contract and escalation rules.
 
-```text
-apps/web-ui
-```
+`Supervisor.start_objective` persists an autonomy run and a dependency-aware task DAG. The current fixed graph is requirements -> planner -> architect -> independent implementation tasks -> integration -> tester -> reviewer -> release verification. `DependencyScheduler` gates task readiness, batches independent read-only tasks and uses transactional workspace locks for writers. `CoordinationTask` states are pending, ready, assigned, running, waiting, blocked, review, failed, completed and cancelled.
 
-مسئولیت‌ها:
+The Supervisor coordinates evidence, decisions, retries, revisions, handoffs and final status. It does not replace the existing execution loop with a dedicated OS process per role; specialist model calls still occur through the established agent service/autonomy loop.
 
-- نمایش پروژه‌ها و Taskها
-- نمایش Plan و وضعیت Agentها
-- Terminal Output به‌صورت Read-Only یا کنترل‌شده
-- نمایش Diff فایل‌ها
-- تأیید یا رد عملیات حساس
-- مشاهده Log، Test Result و Model Usage
+## Communication and handoffs
 
-### 3.3 VS Code Extension
+`MessageBus` persists typed messages: QUESTION, ANSWER, PROPOSAL, EVIDENCE, REVIEW, CHALLENGE, REVISION_REQUEST, DECISION, HANDOFF, BLOCKER, STATUS and RESULT. Each record is linked to project/run/task and sender/recipient roles. `HandoffProtocol` persists completed work, artifacts, changed files, decisions, risks, remaining work and verification. The discussion controller limits rounds and timeout, but its confidence field is currently advisory.
 
-مسیر آینده:
+## Persistence and migrations
 
-```text
-apps/vscode-extension
-```
+`services/orchestrator/app/db.py` runs deterministic, additive SQLite migrations with schema version tracking. Version 6 covers projects, agent_tasks, agent_memories, autonomy_runs, subagent_handoffs, coordination tasks/dependencies, agent messages, coordination handoffs/locks, experience memories/outcomes, failure patterns, agent performance, improvement candidates/cycles, execution leases, recovery events and provider failures. WAL mode and isolated temporary test databases are used. Existing databases are upgraded without destructive reset; newer unsupported versions fail fast.
 
-مسئولیت‌ها:
+## Memory and learning
 
-- دریافت Context محدود از Workspace باز
-- نمایش پیشنهاد تغییرات
-- اعمال Patch فقط پس از تأیید
-- ارسال Selection، فایل یا Diagnostic به Orchestrator
-- نمایش وضعیت Task در VS Code
+Working, episodic, project, lesson and failure memory use candidate -> validated -> trusted -> superseded/rejected lifecycle. Promotion requires evidence; retrieval is scoped by project, role, task type, files and lexical relevance. Feedback updates measurable usefulness/confidence. Sanitization removes credential-like content. This is experience retention and routing/context improvement, not model retraining.
 
-افزونه نباید API Key اصلی را نگهداری کند.
+## Controlled self-improvement
 
-### 3.4 Orchestrator
+The persisted lifecycle is OBSERVE -> DIAGNOSE -> PROPOSE -> PLAN -> CHECKPOINT -> IMPLEMENT -> TEST -> REVIEW -> ACCEPT/REJECT -> LEARN. Evidence comes from failed tasks/runs, retries and bounded TODO/FIXME inspection. Candidate prioritization penalizes recent failures. Limits cover changes, files, retries, runtime, roots and commands. Checkpoints are local; automatic remote push is disabled.
 
-مسیر آینده:
+## Recovery
 
-```text
-services/orchestrator
-```
+Startup initializes migrations and classifies incomplete work as safe_to_resume, needs_verification, waiting_for_dependency, waiting_for_approval, orphaned or terminal. Execution leases expire stale workers, heartbeat/release endpoints update ownership and recovery events are idempotent. Running work is never silently marked successful; verification is required after interruption. SQLite recovery is single-process oriented.
 
-فناوری هدف:
+## Runtime configuration
 
-- Python
-- FastAPI
+`AI_ENGINE_PROJECT_ROOT` has priority, then `PROJECT_ROOT`, then runtime discovery, with a safe fallback. Launcher ports are Gateway 8010, Local Agent 8011, Orchestrator 8012 and Control Center 5175. Autonomous mode, improvement and remote push are opt-in/disabled by default. See `docs/configuration.md`.
 
-مسئولیت‌ها:
+## Historical documentation
 
-- دریافت درخواست کاربر
-- ساخت Task Graph
-- اجرای Agent Workflow
-- مدیریت State
-- درخواست تأیید عملیات حساس
-- توقف، ادامه و لغو Task
-- ثبت checkpoint و نتیجه
-- اجرای چرخه‌ی خودتکمیلِ محدود و قابل بازیابی
-- انتخاب بهبود بعدی بر اساس وضعیت واقعی Workspace و حافظه‌ی پروژه
-- جداکردن حالت `interactive` از حالت `autonomous`
-
-### 3.5 Model Gateway
-
-مسیر آینده:
-
-```text
-services/model-gateway
-```
-
-مسئولیت‌ها:
-
-- نگهداری امن Provider Configuration
-- دریافت و Cache فهرست مدل‌ها
-- انتخاب مدل متناسب با Task
-- Timeout، Retry، Backoff و Rate Limit
-- Fallback بین مدل‌ها
-- ثبت Token Usage، Latency، Error و Quality Signal
-- مدیریت Context و جلوگیری از ارسال بی‌دلیل کل پروژه
-- ارائه Interface ثابت به Agentها
-
-هیچ Agentی نباید مستقیماً به API خارجی متصل شود.
-
-### 3.6 Local Agent
-
-مسیر آینده:
-
-```text
-services/local-agent
-```
-
-مسئولیت‌ها:
-
-- File Read
-- File Write با Policy
-- Directory Listing
-- Search
-- Patch Application
-- Process Execution
-- Process Stop
-- Timeout Enforcement
-- Environment Detection
-- Tool Detection
-- Git Operations
-- Workspace Isolation
-
-Local Agent مرز اصلی اعتماد با سیستم‌عامل است.
-
-### 3.7 Memory Service
-
-مسیر آینده:
-
-```text
-services/memory-service
-```
-
-داده‌های هدف:
-
-- Project
-- Requirement
-- Task
-- Architectural Decision
-- User Feedback
-- File Snapshot Metadata
-- Error
-- Test Result
-- Model Request Metadata
-- Model Response Metadata
-- Token Usage
-- Approval
-- Git Checkpoint
-
-در MVP، ذخیره‌سازی حافظه داخل SQLite Orchestrator انجام می‌شود تا سیستم بدون
-سرویس سنگین قابل اجرا باشد. قرارداد آن طوری طراحی شده است که بعداً به
-`services/memory-service` یا PostgreSQL منتقل شود.
-
-حافظه‌ی عملیاتی سه نوع داده را نگه می‌دارد:
-
-1. **Episodic Memory** — نتیجه‌ی هر Task، فایل‌های تغییرکرده، فرمان‌های اعتبارسنجی و خطاها.
-2. **Project Context** — واقعیت‌های کشف‌شده درباره‌ی Stack، ساختار و قراردادهای پروژه.
-3. **Failure Memory** — خطاهایی که نباید در چرخه‌ی بعدی تکرار شوند.
-
-### 3.8 Shared Packages
-
-```text
-packages/shared-types
-packages/agent-sdk
-packages/tool-sdk
-```
-
-کاربرد:
-
-- Type Contract مشترک
-- Schemaهای Versioned
-- تعریف Agent Interface
-- تعریف Tool Interface
-- جلوگیری از Coupling بین سرویس‌ها
-
-## 4. Agentهای هدف
-
-- Requirement Agent
-- Architect Agent
-- Planner Agent
-- Coding Agent
-- Review Agent
-- Test Agent
-- Debug Agent
-- Security Validation Agent
-- Deployment Agent
-
-Agentها باید Stateless یا Recoverable طراحی شوند. State معتبر باید در Orchestrator و Memory Service ثبت شود.
-
-## 5. جریان اصلی داده
-
-```text
-User
-  ↓
-React / Tauri / VS Code
-  ↓
-Orchestrator
-  ├── Memory Service
-  ├── Model Gateway ── External or Local Models
-  └── Local Agent ── Files / Git / Terminal / Docker / XAMPP
-```
-
-مدل هوش مصنوعی هیچ‌گاه مستقیماً به File System، Terminal یا API Key دسترسی ندارد.
-
-## 5.1 حلقه‌ی خودتکمیل و یادگیری
-
-```text
-Autonomy Supervisor
-  ↓
-Observe Workspace + Git + Tests
-  ↓
-Retrieve Project Memory
-  ↓
-Model selects one bounded improvement
-  ↓
-Read target → Checkpoint → Patch
-  ↓
-Validate / Diagnose / Repair once
-  ↓
-Persist outcome and failure memory
-  ↺ next bounded cycle
-```
-
-این حلقه به معنی تغییر آزاد و بی‌نهایت نیست. هر چرخه:
-
-- فقط یک بهبود منسجم را دنبال می‌کند؛
-- فقط فایل‌هایی را تغییر می‌دهد که همان چرخه واقعاً خوانده شده‌اند؛
-- پیش از Mutation checkpoint می‌سازد؛
-- حذف، نصب Dependency، Rollback، انتشار و تغییر سیستم‌عامل را خودکار نمی‌کند؛
-- سقف چرخه و سقف Step دارد و با شکست غیرقابل‌حل متوقف می‌شود؛
-- نتیجه و خطا را برای چرخه‌های بعدی در حافظه ثبت می‌کند.
-
-حالت‌های اجرا:
-
-| حالت | رفتار |
-| --- | --- |
-| `interactive` | تغییرات حساس در صف تأیید کاربر قرار می‌گیرند. |
-| `autonomous` | فقط Mutation فایل پس از Read و Checkpoint خودکار تأیید می‌شود؛ Terminal و عملیات حساس همچنان Policy دارند. |
-
-شروع چرخه از API زیر انجام می‌شود و می‌تواند برای چند چرخه‌ی محدود در پس‌زمینه
-ادامه پیدا کند:
-
-```text
-POST /v1/agent/projects/{project_id}/self-improve
-GET  /v1/agent/autonomy/runs/{run_id}
-GET  /v1/agent/projects/{project_id}/memory
-```
-
-برای بیدارشدن خودکار Supervisor، گزینه‌های `AUTONOMOUS_MODE_ENABLED`،
-`AUTONOMOUS_INTERVAL_MINUTES` و `AUTONOMOUS_CYCLES_PER_RUN` در فایل
-`services/orchestrator/.env` فعال می‌شوند. این گزینه به‌صورت پیش‌فرض خاموش است
-تا اجرای خودکار ناخواسته روی Workspace اتفاق نیفتد.
-
-## 6. مدل امنیتی اولیه
-
-### عملیات کم‌خطر
-
-- خواندن فایل داخل Workspace مجاز
-- فهرست‌کردن پوشه‌های مجاز
-- اجرای تست‌های Read-Only
-- بررسی نسخه ابزارها
-- مشاهده Git Status
-
-### عملیات نیازمند Policy و ثبت
-
-- نوشتن یا اصلاح فایل
-- اجرای Build
-- اجرای Development Server
-- ایجاد Branch یا Commit
-- نصب Dependency داخل پروژه
-
-### عملیات نیازمند تأیید صریح کاربر
-
-- حذف فایل یا پوشه
-- نصب نرم‌افزار سیستم
-- اجرای Administrator
-- تغییر Registry یا تنظیمات Windows
-- حذف Database
-- Reset یا Clean مخرب Git
-- انتشار Production
-- اتصال SSH یا cPanel
-- اجرای تست امنیتی فعال
-
-## 7. اجرای فرمان
-
-هر فرمان باید شامل این Metadata باشد:
-
-- `commandId`
-- `taskId`
-- `projectId`
-- `workingDirectory`
-- `shell`
-- `arguments`
-- `timeoutSeconds`
-- `requestedBy`
-- `approvalState`
-- `startedAt`
-- `finishedAt`
-- `exitCode`
-- `stdoutPath`
-- `stderrPath`
-
-فرمان Shell به‌صورت String آزاد و بدون Policy نباید اجرا شود.
-
-## 8. تشخیص محیط پروژه
-
-اولویت اولیه:
-
-1. `docker-compose.yml`، `compose.yml` یا `Dockerfile` → Docker
-2. `package.json` → Node.js
-3. `composer.json` → PHP یا Laravel
-4. `requirements.txt` یا `pyproject.toml` → Python
-5. فایل‌های PHP ساده → XAMPP یا Docker
-6. در نبود سیگنال کافی → درخواست تصمیم از کاربر
-
-تشخیص Environment فقط پیشنهاد می‌دهد و عملیات حساس را خودکار تأیید نمی‌کند.
-
-## 9. داده و پایگاه داده
-
-### MVP سبک
-
-- SQLite
-- مناسب برای سیستم 4 GB
-- یک Process Writer اصلی
-
-### حالت استاندارد
-
-- PostgreSQL
-- Migration Versioned
-- Backup محلی
-- قابلیت انتقال از SQLite
-
-Redis و Queue در مرحله بعد از تثبیت Task Model اضافه می‌شوند.
-
-## 10. Git و Rollback
-
-پیش از تغییر مهم:
-
-1. بررسی Working Tree
-2. ثبت Diff موجود
-3. ساخت checkpoint
-4. اجرای تغییر
-5. Build و Test
-6. در صورت شکست، ارائه Rollback Plan
-
-فرمان‌های مخرب مانند `git reset --hard` بدون تأیید صریح ممنوع‌اند.
-
-## 11. پروفایل اجرا
-
-### Standard
-
-- دو Task هم‌زمان
-- PostgreSQL مجاز
-- Docker On-Demand
-- سرویس‌های غیرفعال به‌صورت Lazy Start
-
-### Lite
-
-- یک Task هم‌زمان
-- SQLite
-- Docker غیرفعال به‌صورت پیش‌فرض
-- Log Retention کوتاه‌تر
-- Context کوچک‌تر
-- مدل محلی سنگین غیرفعال
-
-## 12. تصمیم‌های باز
-
-این موارد در مراحل بعد نهایی می‌شوند:
-
-- پروتکل ارتباط بین سرویس‌ها
-- روش نگهداری Secret در Windows
-- ساختار دقیق Task Graph
-- Schema حافظه
-- سیاست Model Routing
-- Isolation سطح Process یا Container
-- روش Streaming خروجی Terminal
-- روش Patch و Conflict Resolution
+`docs/roadmap.md` is the maintained roadmap. Any older document or archived diagram mentioning Tauri is historical and must not be used to infer the current runtime. `docs/implementation-plan-autonomous-multi-agent.md` is a plan/audit reference; source code and this document are authoritative for implementation status.
