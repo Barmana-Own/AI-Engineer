@@ -234,7 +234,7 @@ class MemoryStore:
                 lifecycle, confidence = "validated", max(confidence, 0.65)
             if success and lifecycle == "validated" and successes >= 2:
                 lifecycle, confidence = "trusted", max(confidence, 0.85)
-            clean_notes, _, clean_evidence, _ = sanitize_memory("", notes or {}, list(evidence))
+            _, clean_notes, clean_evidence, _ = sanitize_memory("", notes or {}, list(evidence))
             database.execute(
                 "UPDATE experience_memories SET lifecycle=?,use_count=use_count+1,successful_uses=?,failed_uses=?,usefulness=?,confidence=?,updated_at=? WHERE id=?",
                 (lifecycle, successes, failures, usefulness, confidence, utc_now(), memory_id),
@@ -260,7 +260,7 @@ class MemoryStore:
 
     def record_agent_outcome(
         self, *, role: str, model_profile: str, domain: str = "",
-        success: bool, review_accepted: bool = True, tests_passed: bool = True,
+        success: bool, review_accepted: bool | None = None, tests_passed: bool | None = None,
         retries: int = 0, duration_seconds: float = 0.0,
         successful_domain: str | None = None,
     ) -> dict[str, Any]:
@@ -277,7 +277,7 @@ class MemoryStore:
             if successful_domain and success and successful_domain not in domains:
                 domains.append(successful_domain)
             values = (
-                int(success), int(not review_accepted), int(not tests_passed),
+                int(success), int(review_accepted is False), int(tests_passed is False),
                 max(int(retries), 0), max(float(duration_seconds), 0), json.dumps(domains, ensure_ascii=False), utc_now(),
             )
             if row:

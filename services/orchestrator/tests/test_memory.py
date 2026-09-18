@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.db import create_project, initialize_database
+from app.db import connect, create_project, initialize_database
 from app.memory import MemoryLifecycle, MemoryStore, MemoryType, contains_secret_like
 
 
@@ -194,6 +194,34 @@ class EngineeringMemoryTests(unittest.TestCase):
 
 
 
+    def test_outcome_notes_are_sanitized_and_missing_signals_do_not_count_as_failures(self) -> None:
+        memory = self.store.extract_task_experience(
+            project_id=self.project_id,
+            run_id=None,
+            task_id=None,
+            role="backend",
+            task_type="api",
+            summary="Backend task completed",
+            evidence=[{"type": "test", "command": "pytest", "passed": True}],
+            success=True,
+        )
+        rows = self.store.performance(role="backend", domain="api")
+        self.assertEqual(rows[0]["review_rejections"], 0)
+        self.assertEqual(rows[0]["test_failures"], 0)
+        self.store.record_outcome(
+            memory["id"],
+            outcome="success",
+            task_success=True,
+            notes={"api_key": "api_key=super-secret-value"},
+        )
+        with connect(self.db) as database:
+            outcome = database.execute(
+                "SELECT notes_json FROM experience_outcomes WHERE memory_id=?",
+                (memory["id"],),
+            ).fetchone()
+        self.assertIsNotNone(outcome)
+        self.assertNotIn("super-secret-value", str(outcome["notes_json"]))
+        self.assertIn("[REDACTED]", str(outcome["notes_json"]))
     def test_raw_memories_cannot_be_created_as_trusted(self) -> None:
         with self.assertRaises(ValueError):
             self.store.create(
