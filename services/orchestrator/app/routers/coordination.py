@@ -61,3 +61,76 @@ def task_failure(task_id: str,payload: CoordinationFailureRequest) -> dict[str,o
 
 
 
+
+from app.memory.store import MemoryStore
+
+_memory_store = MemoryStore()
+
+
+@router.get("/memories")
+def list_experience_memories(
+    project_id: str | None = None,
+    run_id: str | None = None,
+    task_id: str | None = None,
+    role: str | None = None,
+    task_type: str | None = None,
+    query: str = "",
+    files: list[str] | None = None,
+    limit: int = Query(default=8, ge=1, le=50),
+) -> dict[str, object]:
+    return {"memories": _memory_store.retrieve(
+        project_id=project_id, run_id=run_id, task_id=task_id,
+        role=role, task_type=task_type, query=query, files=files or [], limit=limit,
+        include_candidate=bool(run_id or task_id),
+    )}
+
+
+@router.post("/memories")
+def create_experience_memory(payload: ExperienceMemoryCreateRequest) -> dict[str, object]:
+    try:
+        return _memory_store.create(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/memories/{memory_id}/promote")
+def promote_experience_memory(memory_id: str, payload: ExperiencePromotionRequest) -> dict[str, object]:
+    try:
+        return _memory_store.promote(memory_id, target=payload.target, evidence=payload.evidence)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Memory not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/memories/{memory_id}/outcome")
+def record_experience_outcome(memory_id: str, payload: ExperienceOutcomeRequest) -> dict[str, object]:
+    try:
+        return _memory_store.record_outcome(memory_id, **payload.model_dump(exclude_none=True))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Memory not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/performance")
+def experience_performance(
+    role: str | None = None,
+    model_profile: str | None = None,
+    domain: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, object]:
+    return {"performance": _memory_store.performance(
+        role=role, model_profile=model_profile, domain=domain, limit=limit,
+    )}
+
+
+@router.get("/failure-patterns")
+def experience_failure_patterns(
+    project_id: str | None = None,
+    query: str = "",
+    limit: int = Query(default=10, ge=1, le=50),
+) -> dict[str, object]:
+    return {"failure_patterns": _memory_store.failure_patterns(
+        project_id=project_id, query=query, limit=limit,
+    )}
