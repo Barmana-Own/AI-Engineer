@@ -40,7 +40,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 _SCHEMA_VERSION_TABLE = "schema_version"
 
 
@@ -289,6 +289,107 @@ def _migration_3(database: sqlite3.Connection) -> None:
         """
     )
 
+
+def _migration_4(database: sqlite3.Connection) -> None:
+    """Create durable engineering experience and measurable outcome tables."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS experience_memories (
+            id TEXT PRIMARY KEY,
+            project_id TEXT,
+            run_id TEXT,
+            task_id TEXT,
+            memory_type TEXT NOT NULL,
+            lifecycle TEXT NOT NULL DEFAULT 'candidate',
+            role TEXT,
+            task_type TEXT,
+            summary TEXT NOT NULL,
+            content_json TEXT NOT NULL DEFAULT '{}',
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            confidence REAL NOT NULL DEFAULT 0.5,
+            usefulness REAL NOT NULL DEFAULT 0.5,
+            use_count INTEGER NOT NULL DEFAULT 0,
+            successful_uses INTEGER NOT NULL DEFAULT 0,
+            failed_uses INTEGER NOT NULL DEFAULT 0,
+            source TEXT NOT NULL DEFAULT 'system',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_used_at TEXT,
+            superseded_by TEXT,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(task_id) REFERENCES coordination_tasks(id),
+            FOREIGN KEY(superseded_by) REFERENCES experience_memories(id),
+            CHECK(memory_type IN ('working','episodic','project','lesson','failure')),
+            CHECK(lifecycle IN ('candidate','validated','trusted','superseded','rejected')),
+            CHECK(confidence >= 0 AND confidence <= 1),
+            CHECK(usefulness >= 0 AND usefulness <= 1)
+        );
+        CREATE INDEX IF NOT EXISTS idx_experience_scope
+            ON experience_memories(project_id, lifecycle, memory_type, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_experience_role
+            ON experience_memories(project_id, role, task_type, lifecycle);
+        CREATE TABLE IF NOT EXISTS experience_outcomes (
+            id TEXT PRIMARY KEY,
+            memory_id TEXT NOT NULL,
+            project_id TEXT,
+            run_id TEXT,
+            task_id TEXT,
+            outcome TEXT NOT NULL,
+            task_success INTEGER,
+            tests_passed INTEGER,
+            review_accepted INTEGER,
+            rework_required INTEGER NOT NULL DEFAULT 0,
+            notes_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(memory_id) REFERENCES experience_memories(id) ON DELETE CASCADE,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(run_id) REFERENCES autonomy_runs(id),
+            FOREIGN KEY(task_id) REFERENCES coordination_tasks(id),
+            CHECK(outcome IN ('success','failure','review_rejected','test_failed','superseded'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_experience_outcomes_memory
+            ON experience_outcomes(memory_id, created_at);
+        CREATE TABLE IF NOT EXISTS failure_patterns (
+            id TEXT PRIMARY KEY,
+            project_id TEXT,
+            signature TEXT NOT NULL,
+            title TEXT NOT NULL,
+            root_cause TEXT NOT NULL,
+            successful_fix TEXT,
+            linked_memory_id TEXT,
+            occurrences INTEGER NOT NULL DEFAULT 1,
+            resolved_count INTEGER NOT NULL DEFAULT 0,
+            confidence REAL NOT NULL DEFAULT 0.35,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_seen_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(linked_memory_id) REFERENCES experience_memories(id),
+            CHECK(confidence >= 0 AND confidence <= 1),
+            UNIQUE(project_id, signature)
+        );
+        CREATE INDEX IF NOT EXISTS idx_failure_patterns_scope
+            ON failure_patterns(project_id, updated_at, occurrences DESC);
+        CREATE TABLE IF NOT EXISTS agent_performance (
+            role TEXT NOT NULL,
+            model_profile TEXT NOT NULL,
+            domain TEXT NOT NULL DEFAULT '',
+            tasks_attempted INTEGER NOT NULL DEFAULT 0,
+            tasks_completed INTEGER NOT NULL DEFAULT 0,
+            review_rejections INTEGER NOT NULL DEFAULT 0,
+            test_failures INTEGER NOT NULL DEFAULT 0,
+            total_retries INTEGER NOT NULL DEFAULT 0,
+            total_duration_seconds REAL NOT NULL DEFAULT 0,
+            successful_domains_json TEXT NOT NULL DEFAULT '[]',
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(role, model_profile, domain)
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_performance_role
+            ON agent_performance(role, model_profile, tasks_completed DESC);
+        """
+    )
+
 def _schema_version(database: sqlite3.Connection) -> int:
     columns = {
         str(row[1])
@@ -362,7 +463,7 @@ def initialize_database(
                 f"version {SCHEMA_VERSION}."
             )
 
-        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3))
+        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4))
         for version, migration in migrations:
             if current < version:
                 migration(database)
@@ -373,6 +474,7 @@ def initialize_database(
         # when a previous process recorded a version early.
         _migration_1(database)
         _migration_2(database)
+        _migration_4(database)
         if current < SCHEMA_VERSION:
             _record_schema_version(database, SCHEMA_VERSION)
 
