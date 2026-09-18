@@ -2,7 +2,7 @@
 from collections import Counter
 from fastapi import APIRouter, HTTPException, Query
 from app.db import get_project
-from app.schemas import CoordinationFailureRequest, CoordinationHandoffRequest, CoordinationMessageRequest, CoordinationResultRequest, CoordinationRevisionRequest, CoordinationRunRequest
+from app.schemas import ExperienceMemoryCreateRequest, ExperienceOutcomeRequest, ExperiencePromotionRequest, CoordinationFailureRequest, CoordinationHandoffRequest, CoordinationMessageRequest, CoordinationResultRequest, CoordinationRevisionRequest, CoordinationRunRequest
 from app.coordination.bus import MessageBus
 from app.coordination.models import AgentHandoff, MessageType
 from app.coordination.roles import list_role_contracts
@@ -57,5 +57,7 @@ def task_revision(task_id: str,payload: CoordinationRevisionRequest) -> dict[str
 def task_failure(task_id: str,payload: CoordinationFailureRequest) -> dict[str,object]:
     try: return _supervisor().record_failure(task_id,reason=payload.reason)
     except KeyError as exc: raise HTTPException(status_code=404,detail="Task not found") from exc
+
+
 
 

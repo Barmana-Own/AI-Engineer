@@ -1,14 +1,18 @@
 ﻿from __future__ import annotations
 
 import json
+import logging
 from uuid import uuid4
 
 from app.db import connect, initialize_database, utc_now
+from app.memory import MemoryStore
 
 from . import store
 from .bus import DiscussionController, HandoffProtocol, MessageBus
 from .models import AgentHandoff, CoordinationTask, MessageType, TaskState
 from .roles import get_role_contract
+
+logger = logging.getLogger(__name__)
 
 
 class Supervisor:
@@ -20,6 +24,7 @@ class Supervisor:
         self.bus = MessageBus(database_path)
         self.discussion = DiscussionController(self.bus)
         self.handoffs = HandoffProtocol(database_path)
+        self.memory = MemoryStore(database_path)
 
     def _run(self, project_id: str, objective: str) -> str:
         run_id = str(uuid4())
@@ -82,7 +87,8 @@ class Supervisor:
             run_id=run_id,
             project_id=project_id,
         )
-        return {"run_id": run_id, "project_id": project_id, "objective": objective, "tasks": created, "state": "running"}
+        experience = self.memory.retrieve(project_id=project_id, query=objective, role="supervisor", task_type="objective", run_id=run_id, limit=8, include_candidate=True)
+        return {"run_id": run_id, "project_id": project_id, "objective": objective, "tasks": created, "experience": experience, "state": "running"}
 
     def next_ready(self, *, run_id: str, project_id: str | None = None) -> list[list[dict[str, object]]]:
         from .scheduler import DependencyScheduler
@@ -121,6 +127,37 @@ class Supervisor:
             for resource in task.get("scope", ()):
                 store.release_lock(str(resource), str(task["id"]), database_path=self.database_path)
 
+    def _record_experience(
+        self,
+        task: dict[str, object],
+        summary: str,
+        *,
+        success: bool,
+        evidence: list[str] = (),
+        failure_reason: str | None = None,
+    ) -> None:
+        role = str(task.get("role") or "implementer")
+        contract = get_role_contract(role)
+        references = [{"type": "result", "summary": summary}]
+        references.extend({"type": "evidence", "summary": item} for item in evidence[:20])
+        try:
+            self.memory.extract_task_experience(
+                project_id=str(task.get("project_id") or "") or None,
+                run_id=str(task.get("run_id") or "") or None,
+                task_id=str(task.get("id") or "") or None,
+                role=role,
+                task_type=str(task.get("title") or role),
+                summary=summary,
+                evidence=references,
+                failure_reason=failure_reason,
+                retry_count=int(task.get("retry_count") or 0),
+                model_profile=contract.default_model_profile,
+                tests_passed=success if role in {"tester", "release_verifier"} else None,
+                review_accepted=success if role in {"reviewer", "release_verifier"} else None,
+                success=success,
+            )
+        except Exception:
+            logger.exception("Failed to record engineering experience", extra={"task_id": task.get("id")})
     def record_result(self, task_id: str, *, summary: str, evidence: list[str] = (), approved: bool = True) -> dict[str, object]:
         task = self._ensure_running(task_id)
         state = TaskState.COMPLETED if approved else TaskState.REVIEW
@@ -137,6 +174,7 @@ class Supervisor:
             task_id=task_id,
             references=evidence,
         )
+        self._record_experience(task, summary, success=approved, evidence=evidence, failure_reason=None if approved else summary)
         self._refresh_run(str(task["run_id"] or ""))
         return result
 
@@ -153,6 +191,7 @@ class Supervisor:
             project_id=str(task["project_id"]),
             task_id=task_id,
         )
+        self._record_experience(task, reason, success=False, failure_reason=reason)
         from .scheduler import DependencyScheduler
 
         DependencyScheduler(self.database_path).refresh(run_id=str(task["run_id"] or ""))
@@ -174,6 +213,7 @@ class Supervisor:
             project_id=str(task["project_id"]),
             task_id=task_id,
         )
+        self._record_experience(task, reason, success=False, failure_reason=reason)
         from .scheduler import DependencyScheduler
 
         DependencyScheduler(self.database_path).refresh(run_id=str(task["run_id"] or ""))
@@ -201,5 +241,8 @@ class Supervisor:
         handoffs = self.handoffs.list(run_id=run_id, limit=100)
         states = {state.value: sum(1 for item in tasks if str(item["state"]) == state.value) for state in TaskState}
         with connect(self.database_path) as database:
-            run_row = database.execute("SELECT status FROM autonomy_runs WHERE id=?", (run_id,)).fetchone()
-        return {"run_id": run_id, "run_status": run_row["status"] if run_row else "unknown", "tasks": tasks, "states": states, "messages": messages, "handoffs": handoffs, "complete": bool(tasks) and states[TaskState.COMPLETED.value] == len(tasks), "blocked": states[TaskState.BLOCKED.value], "failed": states[TaskState.FAILED.value]}
+            run_row = database.execute("SELECT status,project_id FROM autonomy_runs WHERE id=?", (run_id,)).fetchone()
+        project_id = run_row["project_id"] if run_row else None
+        return {"run_id": run_id, "run_status": run_row["status"] if run_row else "unknown", "tasks": tasks, "states": states, "messages": messages, "handoffs": handoffs, "experience": self.memory.retrieve(project_id=project_id, query="", run_id=run_id, limit=12, include_candidate=True), "performance": self.memory.performance(limit=20), "complete": bool(tasks) and states[TaskState.COMPLETED.value] == len(tasks), "blocked": states[TaskState.BLOCKED.value], "failed": states[TaskState.FAILED.value]}
+
+

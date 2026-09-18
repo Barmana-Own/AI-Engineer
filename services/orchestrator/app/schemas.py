@@ -204,3 +204,30 @@ class CoordinationFailureRequest(BaseModel):
 class CoordinationRevisionRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=20_000)
 
+
+class ExperienceMemoryCreateRequest(BaseModel):
+    project_id: str | None = Field(default=None, max_length=120)
+    run_id: str | None = Field(default=None, max_length=120)
+    task_id: str | None = Field(default=None, max_length=120)
+    memory_type: Literal["working", "episodic", "project", "lesson", "failure"] = "episodic"
+    lifecycle: Literal["candidate", "validated", "trusted"] = "candidate"
+    role: str | None = Field(default=None, max_length=128)
+    task_type: str | None = Field(default=None, max_length=256)
+    summary: str = Field(min_length=3, max_length=4_000)
+    content: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+
+
+class ExperiencePromotionRequest(BaseModel):
+    target: Literal["validated", "trusted"] = "validated"
+    evidence: list[dict[str, Any]] = Field(min_length=1, max_length=20)
+
+
+class ExperienceOutcomeRequest(BaseModel):
+    outcome: Literal["success", "failure", "review_rejected", "test_failed", "superseded"]
+    task_success: bool | None = None
+    tests_passed: bool | None = None
+    review_accepted: bool | None = None
+    rework_required: bool = False
+    notes: dict[str, Any] = Field(default_factory=dict)
+    evidence: list[dict[str, Any]] = Field(default_factory=list, max_length=20)

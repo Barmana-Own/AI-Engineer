@@ -1,4 +1,4 @@
-"""Bounded autonomous self-improvement cycles.
+﻿"""Bounded autonomous self-improvement cycles.
 
 The supervisor deliberately creates ordinary Agent tasks. This keeps the
 existing checkpoint, policy, validation, and recovery guarantees in one place
@@ -35,6 +35,7 @@ from app.db import (
     update_autonomy_run,
 )
 from app.config import settings
+from app.memory import MemoryStore
 from app.subagents import SUBAGENT_ROLES, build_execution_phases, build_role_instruction, configured_subagent_roles
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
@@ -614,6 +615,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
     task_ids = list(run.get("task_ids") or [])
     update_autonomy_run(run_id, status="running", error=None)
+    experience_store = MemoryStore()
 
     configured_roles = configured_subagent_roles(settings.autonomous_subagents)
     section_value = ""
@@ -716,6 +718,12 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 query=str(run["goal"]),
                 limit=8,
             )
+            experience_records = experience_store.retrieve(project_id=run["project_id"], query=str(run["goal"]), role="supervisor", task_type="autonomous", run_id=run_id, limit=8, include_candidate=True)
+            if experience_records:
+                cycle_memories = [*cycle_memories, *[
+                    {"kind": "engineering_experience", "summary": str(item.get("summary") or "")[:500], "detail": {"lifecycle": item.get("lifecycle"), "confidence": item.get("confidence"), "usefulness": item.get("usefulness"), "memory_type": item.get("memory_type"), "content": item.get("content")}}
+                    for item in experience_records
+                ]]
             cycle_task_ids: list[str] = []
             phases = build_execution_phases(
                 roles,
@@ -823,6 +831,10 @@ async def run_autonomous_cycles(run_id: str) -> None:
                             next_action="Reconcile the failed phase before starting a writer or later reader phase.",
                             confidence=0.0,
                         )
+                        try:
+                            experience_store.extract_task_experience(project_id=run["project_id"], run_id=run_id, task_id=str(task["id"]), role=role.key, task_type=role.section, summary=problem, evidence=payload["evidence"], changed_files=payload["changed_files"], validations=[str(item.get("command") or "") for item in payload["validations"]], success=False, failure_reason=problem, retry_count=int((finished or {}).get("retry_count") or 0), model_profile=getattr(role, "model_profile", "balanced"))
+                        except Exception:
+                            logger.exception("Failed to record autonomous failure experience", extra={"task_id": task.get("id")})
                         continue
 
                     payload = _handoff_payload(finished)
@@ -837,6 +849,10 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         next_action="Use this evidence as the input contract for the next specialist phase.",
                         confidence=0.85 if payload["blockers"] == [] else 0.55,
                     )
+                    try:
+                        experience_store.extract_task_experience(project_id=run["project_id"], run_id=run_id, task_id=str(task["id"]), role=role.key, task_type=role.section, summary=str(finished.get("final_output") or f"{role.title} completed."), evidence=payload["evidence"], changed_files=payload["changed_files"], validations=[str(item.get("command") or "") for item in payload["validations"]], success=True, retry_count=int(finished.get("retry_count") or 0), model_profile=getattr(role, "model_profile", "balanced"), tests_passed=True if role.validation_required else None, review_accepted=True if role.key == "reviewer" else None)
+                    except Exception:
+                        logger.exception("Failed to record autonomous success experience", extra={"task_id": task.get("id")})
 
                 if phase_failed and writer_failed:
                     error = "The writer specialist failed; later phases were held behind the writer barrier."
@@ -1022,3 +1038,4 @@ async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
                 await asyncio.wait_for(stop_event.wait(), timeout=5)
             except asyncio.TimeoutError:
                 continue
+
