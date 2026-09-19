@@ -41,13 +41,28 @@ The canonical role registry contains supervisor, requirements, planner, architec
 
 The Supervisor coordinates evidence, decisions, retries, revisions, handoffs and final status. It does not replace the existing execution loop with a dedicated OS process per role; specialist model calls still occur through the established agent service/autonomy loop.
 
+## Organizational layer
+
+The organizational layer is additive to coordination. CompanyDirector evaluates a
+project objective and delegates staffing to TeamPlanner; it never performs source
+implementation. Stable profiles are stored in agent_profiles, while project
+leadership and team membership are stored in the additive projects columns and
+project_team_members. Department and employee-status enums are operational labels,
+not personality or intelligence scores.
+
+POST /v1/organization/projects/{project_id}/organize persists a scope-aware team
+plan. GET /v1/organization/employees, /projects/{project_id}/team and
+/projects/{project_id}/report expose the organization without replacing the existing
+task/message/memory APIs. New project creation forms a small default team; explicit
+organization planning can re-plan a project as small, medium or large.
+
 ## Communication and handoffs
 
 `MessageBus` persists typed messages: QUESTION, ANSWER, PROPOSAL, EVIDENCE, REVIEW, CHALLENGE, REVISION_REQUEST, DECISION, HANDOFF, BLOCKER, STATUS and RESULT. Each record is linked to project/run/task and sender/recipient roles. `HandoffProtocol` persists completed work, artifacts, changed files, decisions, risks, remaining work and verification. The discussion controller limits rounds and timeout, but its confidence field is currently advisory.
 
 ## Persistence and migrations
 
-`services/orchestrator/app/db.py` runs deterministic, additive SQLite migrations with schema version tracking. Version 6 covers projects, agent_tasks, agent_memories, autonomy_runs, subagent_handoffs, coordination tasks/dependencies, agent messages, coordination handoffs/locks, experience memories/outcomes, failure patterns, agent performance, improvement candidates/cycles, execution leases, recovery events and provider failures. WAL mode and isolated temporary test databases are used. Existing databases are upgraded without destructive reset; newer unsupported versions fail fast.
+`services/orchestrator/app/db.py` runs deterministic, additive SQLite migrations with schema version tracking. Version 7 covers projects, agent_tasks, agent_memories, autonomy_runs, subagent_handoffs, coordination tasks/dependencies, agent messages, coordination handoffs/locks, experience memories/outcomes, failure patterns, agent performance, improvement candidates/cycles, execution leases, recovery events and provider failures. WAL mode and isolated temporary test databases are used. Existing databases are upgraded without destructive reset; newer unsupported versions fail fast.
 
 ## Memory and learning
 

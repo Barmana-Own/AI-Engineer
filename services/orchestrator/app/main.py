@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import threading
 from contextlib import asynccontextmanager
 
@@ -15,8 +15,13 @@ from app.routers.coordination import router as coordination_router
 from app.routers.self_improvement import router as self_improvement_router
 from app.routers.health import router as health_router
 from app.routers.projects import router as projects_router
+from app.routers.organization import router as organization_router
 from app.routers.tasks import router as tasks_router
 from app.routers.recovery import router as recovery_router
+from app.routers.project_management import router as project_management_router
+from app.routers.collaboration import router as collaboration_router
+from app.routers.incident_control import router as incident_control_router
+from app.routers.company_trace import router as company_trace_router
 
 initialize_database()
 STARTUP_RECOVERY_REPORT = recover_incomplete_runs(
@@ -79,11 +84,16 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(tasks_router)
 app.include_router(projects_router)
+app.include_router(organization_router)
 app.include_router(agent_router)
 app.include_router(developer_router)
 app.include_router(coordination_router)
 app.include_router(self_improvement_router)
 app.include_router(recovery_router)
+app.include_router(project_management_router)
+app.include_router(collaboration_router)
+app.include_router(incident_control_router)
+app.include_router(company_trace_router)
 
 
 @app.get("/")

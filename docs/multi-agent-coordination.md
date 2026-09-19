@@ -1,4 +1,6 @@
-﻿> **Implementation status (2026-09-18 / 1405-06-27):** This document describes the current coordination implementation. SQLite schema version is **6**. The Supervisor persists and coordinates the DAG, messages and handoffs; specialist model calls still run through the established agent execution loop rather than one OS worker per role. See `docs/final-engineering-review.md` for verified limits and test evidence.\n\n# Multi-Agent Coordination Engine
+> **Implementation status (2026-09-18 / 1405-06-27):** This document describes the current coordination implementation. SQLite schema version is **6**. The Supervisor persists and coordinates the DAG, messages and handoffs; specialist model calls still run through the established agent execution loop rather than one OS worker per role. See `docs/final-engineering-review.md` for verified limits and test evidence.
+
+# Multi-Agent Coordination Engine
 
 ## Scope
 
@@ -37,7 +39,7 @@ Read-only tasks can be grouped into parallel batches when scopes do not overlap.
 
 ## Persistence and migration
 
-Database schema version 6 adds `coordination_tasks`, `coordination_task_dependencies`, `agent_messages`, `coordination_handoffs`, and `coordination_locks`, with foreign keys and indexes. Initialization is deterministic and idempotent through the existing migration runner. Existing projects, tasks, memories, autonomy runs, and subagent handoffs remain intact.
+Database schema version 7 adds `coordination_tasks`, `coordination_task_dependencies`, `agent_messages`, `coordination_handoffs`, and `coordination_locks`, with foreign keys and indexes. Initialization is deterministic and idempotent through the existing migration runner. Existing projects, tasks, memories, autonomy runs, and subagent handoffs remain intact.
 
 ## API surface
 

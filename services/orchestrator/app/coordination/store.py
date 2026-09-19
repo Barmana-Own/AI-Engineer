@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from typing import Mapping
+from typing import Iterable, Mapping
 from app.db import connect, initialize_database, utc_now
 from .models import AgentHandoff, AgentMessage, CoordinationTask, MessageType, TaskState
 from .roles import resolve_role
@@ -50,20 +50,50 @@ def transition(task_id: str, state: TaskState | str, *, failure_reason: str | No
         result=db.execute("SELECT * FROM coordination_tasks WHERE id=?",(task_id,)).fetchone()
     return _task(result)
 def _message(row: sqlite3.Row) -> dict[str, object]:
-    return {"message_id":row["message_id"],"run_id":row["run_id"],"project_id":row["project_id"],"task_id":row["task_id"],"sender_role":row["sender_role"],"recipient_role":row["recipient_role"],"message_type":row["message_type"],"subject":row["subject"],"body":row["body"],"references":_load(row["references_json"],[]),"discussion_round":row["discussion_round"],"created_at":row["created_at"]}
+    return {
+        "message_id": row["message_id"], "run_id": row["run_id"], "project_id": row["project_id"],
+        "task_id": row["task_id"], "sender_role": row["sender_role"], "recipient_role": row["recipient_role"],
+        "message_type": row["message_type"], "subject": row["subject"], "body": row["body"],
+        "references": _load(row["references_json"], []), "discussion_round": row["discussion_round"],
+        "conversation_id": row["conversation_id"] if "conversation_id" in row.keys() else None,
+        "audience_type": row["audience_type"] if "audience_type" in row.keys() else "direct",
+        "audience_id": row["audience_id"] if "audience_id" in row.keys() else None,
+        "participant_roles": _load(row["participant_roles_json"], []) if "participant_roles_json" in row.keys() else [],
+        "topic": row["topic"] if "topic" in row.keys() else "", "created_at": row["created_at"],
+    }
+
 def create_message(message: AgentMessage, *, database_path: str | None=None) -> dict[str, object]:
     initialize_database(database_path); now=utc_now()
     with connect(database_path) as db:
-        db.execute("INSERT INTO agent_messages(message_id,run_id,project_id,task_id,sender_role,recipient_role,message_type,subject,body,references_json,discussion_round,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",(message.message_id,message.run_id,message.project_id,message.task_id,resolve_role(message.sender_role),resolve_role(message.recipient_role) if message.recipient_role else None,message.message_type.value,message.subject[:500],message.body[:20000],_json(list(message.references),[]),max(int(message.discussion_round),0),now))
+        db.execute("""INSERT INTO agent_messages(
+            message_id,run_id,project_id,task_id,sender_role,recipient_role,message_type,subject,body,
+            references_json,discussion_round,conversation_id,audience_type,audience_id,participant_roles_json,topic,created_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (
+            message.message_id,message.run_id,message.project_id,message.task_id,resolve_role(message.sender_role),
+            resolve_role(message.recipient_role) if message.recipient_role else None,message.message_type.value,
+            message.subject[:500],message.body[:20000],_json(list(message.references),[]),max(int(message.discussion_round),0),
+            message.conversation_id,message.audience_type,message.audience_id,_json(list(message.participant_roles),[]),
+            message.topic[:500],now))
         row=db.execute("SELECT * FROM agent_messages WHERE message_id=?",(message.message_id,)).fetchone()
     return _message(row)
-def list_messages(*, run_id: str | None=None, project_id: str | None=None, task_id: str | None=None, limit: int=100, database_path: str | None=None) -> list[dict[str, object]]:
+
+def list_messages(*, run_id: str | None=None, project_id: str | None=None, task_id: str | None=None,
+                  conversation_id: str | None=None, audience_type: str | None=None, audience_id: str | None=None,
+                  topic: str | None=None, participant_role: str | None=None, limit: int=100,
+                  database_path: str | None=None) -> list[dict[str, object]]:
     initialize_database(database_path); clauses=[]; values:list[object]=[]
-    for key,val in (("run_id",run_id),("project_id",project_id),("task_id",task_id)):
+    for key,val in (("run_id",run_id),("project_id",project_id),("task_id",task_id),("conversation_id",conversation_id),
+                    ("audience_type",audience_type),("audience_id",audience_id),("topic",topic)):
         if val: clauses.append(key+"=?"); values.append(val)
+    if participant_role:
+        clauses.append("(sender_role=? OR recipient_role=? OR participant_roles_json LIKE ?)")
+        values.extend((resolve_role(participant_role),resolve_role(participant_role),"%"+participant_role+"%"))
     where=(" WHERE "+" AND ".join(clauses)) if clauses else ""
-    with connect(database_path) as db: rows=db.execute("SELECT * FROM agent_messages"+where+" ORDER BY created_at ASC LIMIT ?",(*values,min(max(int(limit),1),500))).fetchall()
+    with connect(database_path) as db:
+        rows=db.execute("SELECT * FROM agent_messages"+where+" ORDER BY created_at ASC LIMIT ?",
+                        (*values,min(max(int(limit),1),500))).fetchall()
     return [_message(row) for row in rows]
+
 def _handoff(row: sqlite3.Row) -> dict[str, object]:
     return {"handoff_id":row["handoff_id"],"run_id":row["run_id"],"project_id":row["project_id"],"task_id":row["task_id"],"sender_role":row["sender_role"],"recipient_role":row["recipient_role"],"status":row["status"],"summary":row["summary"],"completed":_load(row["completed_json"],[]),"artifacts":_load(row["artifacts_json"],[]),"changed_files":_load(row["changed_files_json"],[]),"decisions":_load(row["decisions_json"],[]),"risks":_load(row["risks_json"],[]),"remaining_work":_load(row["remaining_work_json"],[]),"verification":_load(row["verification_json"],[]),"created_at":row["created_at"],"updated_at":row["updated_at"]}
 def create_handoff(handoff: AgentHandoff, *, database_path: str | None=None) -> dict[str, object]:
@@ -112,6 +142,82 @@ def release_lock(resource: str, task_id: str, *, database_path: str | None=None)
     with connect(database_path) as db:
         result=db.execute("DELETE FROM coordination_locks WHERE resource=? AND owner_task_id=?",(resource,task_id))
     return result.rowcount > 0
+
+def resources_available(resources: Iterable[str], task_id: str, *, database_path: str | None = None) -> bool:
+    """Return whether a writer can safely claim every requested resource.
+
+    Expired leases are treated as available; acquisition remains the atomic
+    operation that removes expired rows and records ownership.
+    """
+    initialize_database(database_path)
+    now = datetime.now(timezone.utc)
+    normalized = {str(resource).strip() for resource in resources if str(resource).strip()}
+    if not normalized:
+        return True
+    with connect(database_path) as db:
+        rows = db.execute(
+            "SELECT resource, owner_task_id, expires_at FROM coordination_locks "
+            "WHERE resource IN (" + ",".join("?" for _ in normalized) + ")",
+            tuple(sorted(normalized)),
+        ).fetchall()
+    for row in rows:
+        if str(row["owner_task_id"]) == str(task_id):
+            continue
+        try:
+            expiry = datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return False
+        if expiry > now:
+            return False
+    return True
+def add_dependency(task_id: str, depends_on_task_id: str, *, database_path: str | None = None) -> dict[str, object]:
+    """Add an idempotent, project-local DAG edge with cycle protection."""
+    initialize_database(database_path)
+    child_id = str(task_id).strip()
+    dependency_id = str(depends_on_task_id).strip()
+    if not child_id or not dependency_id:
+        raise ValueError("task and dependency ids are required")
+    if child_id == dependency_id:
+        raise ValueError("a task cannot depend on itself")
+    with connect(database_path) as db:
+        child = db.execute("SELECT * FROM coordination_tasks WHERE id=?", (child_id,)).fetchone()
+        dependency = db.execute("SELECT * FROM coordination_tasks WHERE id=?", (dependency_id,)).fetchone()
+        if not child:
+            raise KeyError(child_id)
+        if not dependency:
+            raise KeyError(dependency_id)
+        if str(child["project_id"]) != str(dependency["project_id"]):
+            raise ValueError("task dependencies must remain within one project")
+        graph: dict[str, list[str]] = {}
+        for edge in db.execute("SELECT task_id, depends_on_task_id FROM coordination_task_dependencies").fetchall():
+            graph.setdefault(str(edge["task_id"]), []).append(str(edge["depends_on_task_id"]))
+        stack = [dependency_id]
+        visited: set[str] = set()
+        while stack:
+            current = stack.pop()
+            if current == child_id:
+                raise ValueError("dependency would create a cycle")
+            if current in visited:
+                continue
+            visited.add(current)
+            stack.extend(graph.get(current, ()))
+        now = utc_now()
+        db.execute(
+            "INSERT OR IGNORE INTO coordination_task_dependencies(task_id,depends_on_task_id,created_at) VALUES (?,?,?)",
+            (child_id, dependency_id, now),
+        )
+        current_deps = list(_load(child["dependencies_json"], []))
+        if dependency_id not in current_deps:
+            current_deps.append(dependency_id)
+            db.execute(
+                "UPDATE coordination_tasks SET dependencies_json=?,updated_at=? WHERE id=?",
+                (_json(current_deps, []), now, child_id),
+            )
+        result = db.execute("SELECT * FROM coordination_tasks WHERE id=?", (child_id,)).fetchone()
+    return _task(result)
+
 def list_dependencies(task_id: str | None=None, *, database_path: str | None=None) -> list[dict[str, str]]:
     initialize_database(database_path)
     with connect(database_path) as db:

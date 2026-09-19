@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.config import settings
 from app.db import create_project, get_project, list_projects
 from app.schemas import ProjectCreateRequest, ProjectResponse
+from app.organization.director import CompanyDirector
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
@@ -70,6 +71,16 @@ def project_get(project_id: str) -> ProjectResponse:
             detail="Project not found.",
         )
 
+    # Form the smallest useful persistent team immediately; the existing
+    # coordination Supervisor still owns technical task execution.
+    try:
+        CompanyDirector().organize_project(project["id"], request.name.strip())
+        project = get_project(project["id"]) or project
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Project was created but its organization could not be formed.",
+        ) from exc
     return ProjectResponse(**project)
 
 

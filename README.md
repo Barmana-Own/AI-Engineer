@@ -22,7 +22,7 @@ The source of truth is the implementation under `services/` and `apps/`. The des
 
 ## Services
 
-- `services/orchestrator`: FastAPI API, SQLite persistence (schema version 6), coordination task DAG, message bus, handoffs, memory, self-improvement, recovery and run observability.
+- `services/orchestrator`: FastAPI API, SQLite persistence (schema version 7), coordination task DAG, message bus, handoffs, memory, self-improvement, recovery and run observability.
 - `services/model-gateway`: model profiles, provider routing, caching, usage and health APIs.
 - `services/local-agent`: constrained file, terminal, process and Git tools.
 - `services/provider-router`: optional provider-facing integration; its own dependencies are required for its test command.
@@ -45,6 +45,22 @@ The launcher starts Model Gateway on 8010, Local Agent on 8011, Orchestrator on 
 `Supervisor.start_objective` creates a persisted run and dependency-aware DAG: requirements, planner, architect, independent implementation work, integration, testing, review and release verification. `MessageBus` persists typed messages (question, proposal, evidence, review, challenge, revision request, decision, handoff, blocker, status and result). `HandoffProtocol` records structured artifacts and verification. The scheduler batches independent read-only work and serializes writers with transactional workspace locks.
 
 The Supervisor currently owns orchestration and evidence; specialist model execution remains in the existing agent execution loop rather than a separate worker process per role. This is deliberate and documented as remaining debt, not a claimed feature.
+
+## Organizational layer
+
+The Company Director is the non-programming executive coordinator above the existing
+Supervisor. Persistent employee profiles (agent_profiles) use stable role identities,
+measurable capabilities, model profiles, tool permissions and operational statuses.
+Departments are EXECUTIVE, PRODUCT, ENGINEERING, QUALITY, SECURITY, RESEARCH,
+OPERATIONS and DOCUMENTATION.
+
+Creating a project forms the smallest useful team by default. Small projects use an
+Engineering Manager, Implementer, Tester and Reviewer; medium and large projects add
+only the planning, architecture, integration, security, documentation and release
+roles justified by scope. The existing coordination task DAG, message bus, handoffs,
+memory and recovery tables remain the execution primitives. Organization APIs are
+available under /v1/organization for employee profiles, team formation and executive
+project reports. See docs/organizational-core.md.
 
 ## Memory and improvement
 
@@ -70,3 +86,7 @@ The end-to-end deterministic workflow is covered by `services/orchestrator/tests
 - SQLite persistence is designed for a single orchestrator process. The scheduler, discussion controller and specialist-worker execution still have documented edge cases; see `docs/final-engineering-review.md`.
 
 For the verified architecture and release assessment, read `docs/final-engineering-review.md`.
+
+## Incident resilience and Human Owner control
+
+Phase 8D adds a persisted incident state machine (`detect -> contain -> diagnose -> repair -> verify -> postmortem -> learn -> resolved`), dynamic incident teams, postmortems, evidence-gated organizational lessons, measurable collaboration/performance signals and adapter-neutral opportunity intake. The Human Owner remains above the Company Director: normal project actions are persisted and high-risk operations stay pending approval with no automatic deployment, remote publication or financial execution. See `docs/incident-management.md` and the Phase 8D addenda in `reports/`.

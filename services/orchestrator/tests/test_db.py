@@ -34,13 +34,22 @@ class DatabaseMigrationTests(unittest.TestCase):
             task_columns = {
                 row[1] for row in connection.execute("PRAGMA table_info(agent_tasks)")
             }
+            project_columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(projects)")
+            }
 
         self.assertEqual(version, db.SCHEMA_VERSION)
         self.assertTrue(
-            {"projects", "agent_tasks", "agent_memories", "autonomy_runs", "subagent_handoffs"}
-            <= tables
+            {
+                "projects", "agent_tasks", "agent_memories", "autonomy_runs",
+                "subagent_handoffs", "agent_profiles", "project_team_members",
+            } <= tables
         )
         self.assertIn("mode", task_columns)
+        self.assertTrue(
+            {"project_manager_id", "engineering_manager_id", "departments_json",
+             "phase", "priority", "team_state"} <= project_columns
+        )
 
     def test_legacy_database_upgrade_preserves_rows_and_adds_mode(self) -> None:
         project_id = "legacy-project"

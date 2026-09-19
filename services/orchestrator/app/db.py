@@ -40,7 +40,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 11
 _SCHEMA_VERSION_TABLE = "schema_version"
 
 
@@ -562,6 +562,428 @@ def _migration_6(database: sqlite3.Connection) -> None:
         """
     )
 
+
+def _migration_7(database: sqlite3.Connection) -> None:
+    """Add the persistent organizational layer without replacing coordination."""
+    def add_column(table: str, column: str, definition: str) -> None:
+        columns = {
+            str(row[1])
+            for row in database.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            database.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    project_columns = {
+        "project_manager_id": "TEXT",
+        "engineering_manager_id": "TEXT",
+        "departments_json": "TEXT NOT NULL DEFAULT '[]'",
+        "phase": "TEXT NOT NULL DEFAULT 'initiating'",
+        "priority": "INTEGER NOT NULL DEFAULT 50",
+        "team_state": "TEXT NOT NULL DEFAULT 'forming'",
+    }
+    for column, definition in project_columns.items():
+        add_column("projects", column, definition)
+
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS agent_profiles (
+            agent_id TEXT PRIMARY KEY,
+            role TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            department TEXT NOT NULL,
+            capabilities_json TEXT NOT NULL DEFAULT '[]',
+            specializations_json TEXT NOT NULL DEFAULT '[]',
+            allowed_tools_json TEXT NOT NULL DEFAULT '[]',
+            write_permission TEXT NOT NULL DEFAULT 'read_only',
+            model_profile TEXT NOT NULL DEFAULT 'balanced',
+            status TEXT NOT NULL DEFAULT 'offline',
+            active_project TEXT,
+            current_tasks_json TEXT NOT NULL DEFAULT '[]',
+            experience_summary TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(active_project) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_profiles_role
+            ON agent_profiles(role);
+        CREATE INDEX IF NOT EXISTS idx_agent_profiles_department
+            ON agent_profiles(department);
+        CREATE INDEX IF NOT EXISTS idx_agent_profiles_status
+            ON agent_profiles(status);
+
+        CREATE TABLE IF NOT EXISTS project_team_members (
+            project_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            department TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'available',
+            is_lead INTEGER NOT NULL DEFAULT 0,
+            assigned_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(project_id, agent_id),
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY(agent_id) REFERENCES agent_profiles(agent_id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_team_project
+            ON project_team_members(project_id, role);
+        CREATE INDEX IF NOT EXISTS idx_project_team_agent
+            ON project_team_members(agent_id, status);
+        """
+    )
+
+
+def _migration_8(database: sqlite3.Connection) -> None:
+    """Add persisted collaboration scopes, decisions, meetings and work requests."""
+    def add_column(table: str, column: str, definition: str) -> None:
+        columns = {
+            str(row[1])
+            for row in database.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            database.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    for column, definition in {
+        "conversation_id": "TEXT",
+        "audience_type": "TEXT NOT NULL DEFAULT 'direct'",
+        "audience_id": "TEXT",
+        "participant_roles_json": "TEXT NOT NULL DEFAULT '[]'",
+        "topic": "TEXT NOT NULL DEFAULT ''",
+    }.items():
+        add_column("agent_messages", column, definition)
+
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS coordination_conversations (
+            conversation_id TEXT PRIMARY KEY,
+            project_id TEXT,
+            run_id TEXT,
+            task_id TEXT,
+            conversation_type TEXT NOT NULL DEFAULT 'direct',
+            subject TEXT NOT NULL,
+            topic TEXT NOT NULL DEFAULT '',
+            participants_json TEXT NOT NULL DEFAULT '[]',
+            department TEXT,
+            status TEXT NOT NULL DEFAULT 'open',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_coord_conversations_project
+            ON coordination_conversations(project_id, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_coord_conversations_scope
+            ON coordination_conversations(run_id, task_id, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_coord_conversations_type
+            ON coordination_conversations(conversation_type, department);
+
+        CREATE INDEX IF NOT EXISTS idx_coord_messages_conversation
+            ON agent_messages(conversation_id, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_coord_messages_audience
+            ON agent_messages(audience_type, audience_id, created_at ASC);
+
+        CREATE TABLE IF NOT EXISTS coordination_decisions (
+            decision_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            meeting_id TEXT,
+            title TEXT NOT NULL,
+            context TEXT NOT NULL,
+            options_json TEXT NOT NULL DEFAULT '[]',
+            arguments_json TEXT NOT NULL DEFAULT '[]',
+            decision TEXT NOT NULL,
+            decision_maker TEXT NOT NULL,
+            supporting_evidence_json TEXT NOT NULL DEFAULT '[]',
+            affected_tasks_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            superseded_by TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_coord_decisions_project
+            ON coordination_decisions(project_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_coord_decisions_meeting
+            ON coordination_decisions(meeting_id, created_at ASC);
+
+        CREATE TABLE IF NOT EXISTS coordination_meetings (
+            meeting_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            meeting_type TEXT NOT NULL,
+            objective TEXT NOT NULL,
+            participants_json TEXT NOT NULL DEFAULT '[]',
+            agenda_json TEXT NOT NULL DEFAULT '[]',
+            message_ids_json TEXT NOT NULL DEFAULT '[]',
+            decision_ids_json TEXT NOT NULL DEFAULT '[]',
+            action_items_json TEXT NOT NULL DEFAULT '[]',
+            unresolved_questions_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'scheduled',
+            started_at TEXT,
+            ended_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_coord_meetings_project
+            ON coordination_meetings(project_id, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_coord_meetings_status
+            ON coordination_meetings(status, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS agent_work_requests (
+            request_id TEXT PRIMARY KEY,
+            sender TEXT NOT NULL,
+            recipient TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            run_id TEXT,
+            task_id TEXT,
+            request_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 50,
+            status TEXT NOT NULL DEFAULT 'open',
+            response TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            resolved_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_requests_project
+            ON agent_work_requests(project_id, status, priority DESC);
+        CREATE INDEX IF NOT EXISTS idx_agent_requests_recipient
+            ON agent_work_requests(recipient, status, updated_at ASC);
+        """
+    )
+
+
+def _migration_9(database: sqlite3.Connection) -> None:
+    """Add project management, lifecycle, queues, gates and risk state."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS project_lifecycle_events (
+            event_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            from_phase TEXT,
+            to_phase TEXT NOT NULL,
+            actor_role TEXT NOT NULL,
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            reason TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_lifecycle_events_project
+            ON project_lifecycle_events(project_id, created_at ASC);
+        CREATE TABLE IF NOT EXISTS project_milestones (
+            milestone_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT 'planned',
+            due_at TEXT,
+            deliverables_json TEXT NOT NULL DEFAULT '[]',
+            dependencies_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_milestones_project
+            ON project_milestones(project_id, state, due_at);
+        CREATE TABLE IF NOT EXISTS project_risks (
+            risk_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'medium',
+            status TEXT NOT NULL DEFAULT 'open',
+            mitigation TEXT NOT NULL DEFAULT '',
+            owner TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_risks_project
+            ON project_risks(project_id, status, severity);
+        CREATE TABLE IF NOT EXISTS project_quality_gates (
+            gate_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            gate_name TEXT NOT NULL,
+            required INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'pending',
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, gate_name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_gates_project
+            ON project_quality_gates(project_id, status);
+        CREATE TABLE IF NOT EXISTS agent_work_queue (
+            queue_id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            task_id TEXT,
+            item_type TEXT NOT NULL,
+            item_ref TEXT NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 50,
+            status TEXT NOT NULL DEFAULT 'queued',
+            blocked_by_json TEXT NOT NULL DEFAULT '[]',
+            available_at TEXT,
+            claimed_at TEXT,
+            completed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(agent_id, item_type, item_ref)
+        );
+        CREATE INDEX IF NOT EXISTS idx_work_queue_agent
+            ON agent_work_queue(agent_id, status, priority DESC, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_work_queue_project
+            ON agent_work_queue(project_id, status, priority DESC);
+        """
+    )
+
+
+def _migration_10(database: sqlite3.Connection) -> None:
+    """Add incident response, owner control and external intake state."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS incidents (
+            incident_id TEXT PRIMARY KEY,
+            project_id TEXT,
+            run_id TEXT,
+            title TEXT NOT NULL,
+            trigger TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'critical',
+            description TEXT NOT NULL DEFAULT '',
+            impact TEXT NOT NULL DEFAULT '',
+            phase TEXT NOT NULL DEFAULT 'detect',
+            status TEXT NOT NULL DEFAULT 'open',
+            created_by TEXT NOT NULL DEFAULT 'system',
+            detected_at TEXT NOT NULL,
+            contained_at TEXT,
+            diagnosed_at TEXT,
+            repaired_at TEXT,
+            verified_at TEXT,
+            closed_at TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_incidents_project
+            ON incidents(project_id, status, severity, updated_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_incidents_run
+            ON incidents(run_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS incident_events (
+            event_id TEXT PRIMARY KEY,
+            incident_id TEXT NOT NULL,
+            phase TEXT NOT NULL,
+            status TEXT NOT NULL,
+            actor_role TEXT NOT NULL,
+            details TEXT NOT NULL DEFAULT '',
+            evidence_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(incident_id) REFERENCES incidents(incident_id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_incident_events_incident
+            ON incident_events(incident_id, created_at ASC);
+        CREATE TABLE IF NOT EXISTS incident_team_members (
+            incident_id TEXT NOT NULL,
+            agent_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'assigned',
+            assigned_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(incident_id, agent_id),
+            FOREIGN KEY(incident_id) REFERENCES incidents(incident_id) ON DELETE CASCADE,
+            FOREIGN KEY(agent_id) REFERENCES agent_profiles(agent_id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_incident_team_role
+            ON incident_team_members(incident_id, role);
+        CREATE TABLE IF NOT EXISTS postmortems (
+            postmortem_id TEXT PRIMARY KEY,
+            incident_id TEXT NOT NULL UNIQUE,
+            project_id TEXT,
+            what_happened TEXT NOT NULL,
+            impact TEXT NOT NULL DEFAULT '',
+            timeline_json TEXT NOT NULL DEFAULT '[]',
+            root_cause TEXT NOT NULL DEFAULT '',
+            contributing_factors_json TEXT NOT NULL DEFAULT '[]',
+            repair TEXT NOT NULL DEFAULT '',
+            verification_json TEXT NOT NULL DEFAULT '[]',
+            prevention_ideas_json TEXT NOT NULL DEFAULT '[]',
+            follow_up_tasks_json TEXT NOT NULL DEFAULT '[]',
+            lesson_memory_id TEXT,
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(incident_id) REFERENCES incidents(incident_id) ON DELETE CASCADE,
+            FOREIGN KEY(project_id) REFERENCES projects(id),
+            FOREIGN KEY(lesson_memory_id) REFERENCES experience_memories(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_postmortems_project
+            ON postmortems(project_id, created_at DESC);
+        CREATE TABLE IF NOT EXISTS collaboration_quality (
+            quality_id TEXT PRIMARY KEY,
+            project_id TEXT,
+            issue_type TEXT NOT NULL,
+            signature TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'medium',
+            occurrences INTEGER NOT NULL DEFAULT 1,
+            examples_json TEXT NOT NULL DEFAULT '[]',
+            last_seen_at TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(project_id, signature)
+        );
+        CREATE INDEX IF NOT EXISTS idx_collaboration_quality_project
+            ON collaboration_quality(project_id, occurrences DESC, updated_at DESC);
+        CREATE TABLE IF NOT EXISTS owner_control_actions (
+            action_id TEXT PRIMARY KEY,
+            project_id TEXT,
+            action TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'requested',
+            requested_by TEXT NOT NULL DEFAULT 'human_owner',
+            approved_by TEXT,
+            reason TEXT NOT NULL DEFAULT '',
+            payload_json TEXT NOT NULL DEFAULT '{}',
+            result_json TEXT NOT NULL DEFAULT '{}',
+            requires_approval INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            resolved_at TEXT,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_owner_actions_project
+            ON owner_control_actions(project_id, status, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_owner_actions_pending
+            ON owner_control_actions(status, requires_approval, created_at ASC);
+        CREATE TABLE IF NOT EXISTS project_opportunities (
+            opportunity_id TEXT PRIMARY KEY,
+            source TEXT NOT NULL,
+            external_ref TEXT,
+            title TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            requirements_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'inbox',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(source, external_ref)
+        );
+        CREATE INDEX IF NOT EXISTS idx_opportunities_status
+            ON project_opportunities(status, updated_at DESC);
+        """
+    )
+
+def _migration_11(database: sqlite3.Connection) -> None:
+    """Persist a bounded company event stream for durable run reconstruction."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS company_events (
+            event_id TEXT PRIMARY KEY,
+            project_id TEXT,
+            run_id TEXT,
+            task_id TEXT,
+            event_type TEXT NOT NULL,
+            actor_role TEXT NOT NULL DEFAULT 'system',
+            actor_id TEXT,
+            payload_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_company_events_project_time
+            ON company_events(project_id, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_company_events_run_time
+            ON company_events(run_id, created_at ASC);
+        CREATE INDEX IF NOT EXISTS idx_company_events_type_time
+            ON company_events(event_type, created_at ASC);
+        """
+    )
+
+
 def _schema_version(database: sqlite3.Connection) -> int:
     columns = {
         str(row[1])
@@ -635,7 +1057,7 @@ def initialize_database(
                 f"version {SCHEMA_VERSION}."
             )
 
-        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4), (5, _migration_5), (6, _migration_6))
+        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4), (5, _migration_5), (6, _migration_6), (7, _migration_7), (8, _migration_8), (9, _migration_9), (10, _migration_10), (11, _migration_11))
         for version, migration in migrations:
             if current < version:
                 migration(database)
@@ -650,16 +1072,35 @@ def initialize_database(
         _migration_4(database)
         _migration_5(database)
         _migration_6(database)
+        _migration_7(database)
+        _migration_8(database)
+        _migration_9(database)
+        _migration_10(database)
+        _migration_11(database)
         if current < SCHEMA_VERSION:
             _record_schema_version(database, SCHEMA_VERSION)
 
 def _row_to_project(row: sqlite3.Row) -> dict[str, Any]:
+    keys = set(row.keys())
+    departments_raw = row["departments_json"] if "departments_json" in keys else "[]"
+    try:
+        departments = json.loads(departments_raw or "[]")
+    except (TypeError, json.JSONDecodeError):
+        departments = []
+    if not isinstance(departments, list):
+        departments = []
     return {
         "id": row["id"],
         "name": row["name"],
         "workspace": row["workspace"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
+        "project_manager_id": row["project_manager_id"] if "project_manager_id" in keys else None,
+        "engineering_manager_id": row["engineering_manager_id"] if "engineering_manager_id" in keys else None,
+        "departments": [str(item) for item in departments if str(item).strip()],
+        "phase": row["phase"] if "phase" in keys else "initiating",
+        "priority": int(row["priority"]) if "priority" in keys and row["priority"] is not None else 50,
+        "team_state": row["team_state"] if "team_state" in keys else "forming",
     }
 
 

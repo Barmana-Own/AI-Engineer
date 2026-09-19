@@ -1,4 +1,6 @@
-﻿> **Status: audit and implementation-plan reference (2026-09-18 / 1405-06-27).** This file is not an implementation claim. Use source code and `docs/final-engineering-review.md` for current status; unresolved items remain explicitly listed. Older Tauri references are historical.\n\n# AI Engineer  Fresh Technical Audit and Autonomous Multi-Agent Implementation Plan
+﻿> **Status: audit and implementation-plan reference (2026-09-18 / 1405-06-27).** This file is not an implementation claim. Use source code and `docs/final-engineering-review.md` for current status; unresolved items remain explicitly listed. Older Tauri references are historical.
+
+# AI Engineer  Fresh Technical Audit and Autonomous Multi-Agent Implementation Plan
 
 | Field | Value |
 |---|---|

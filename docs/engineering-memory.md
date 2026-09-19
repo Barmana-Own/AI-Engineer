@@ -1,4 +1,6 @@
-﻿> **Implementation status (2026-09-18 / 1405-06-27):** Memory lifecycle, scoped retrieval, sanitization, feedback and performance metrics are implemented in the Orchestrator. The current database schema is version **6**. The audited baseline is 94 orchestrator tests; Local Agent unittest coverage passes, while a separate pytest command is unavailable in that environment.\n\n# Engineering Memory and Experience-Based Learning
+> **Implementation status (2026-09-18 / 1405-06-27):** Memory lifecycle, scoped retrieval, sanitization, feedback and performance metrics are implemented in the Orchestrator. The current database schema is version **6**. The audited baseline is 94 orchestrator tests; Local Agent unittest coverage passes, while a separate pytest command is unavailable in that environment.
+
+# Engineering Memory and Experience-Based Learning
 
 ## Scope
 
@@ -73,7 +75,7 @@ Sanitization redacts private keys, bearer/basic tokens, common API-token formats
 | Local Agent | `.venv\\Scripts\\python.exe -m unittest discover -s tests -p 'test*.py' -v` | **PASS - 2 tests** |
 | Local Agent pytest command | `pytest -q` | **NOT_RUN - pytest is not installed in that environment** |
 | Python compile check | `python -m compileall app` | **PASS** |
-| Migration smoke test | isolated temporary SQLite database | **PASS - schema version 6** |
+| Migration smoke test | isolated temporary SQLite database | **PASS - schema version 7** |
 | Service health | `/health` on ports 8010, 8011, 8012 | **PASS** |
 
 ## Limitations

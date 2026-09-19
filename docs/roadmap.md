@@ -1,11 +1,11 @@
-﻿# Current Roadmap (Verified 2026-09-18 / 1405-06-27)
+# Current Roadmap (Verified 2026-09-18 / 1405-06-27)
 
 > Status: maintained roadmap. Historical Tauri/Rust plans are obsolete because `apps/desktop` is Electron.
 
 ## Verified baseline
 
 - FastAPI Orchestrator, Model Gateway and Local Agent run as separate services.
-- SQLite schema/migration version 6 is deterministic and additive.
+- SQLite schema/migration version 7 is deterministic and additive.
 - Canonical role registry, dependency-aware coordination DAG, persisted message bus, handoffs, memory lifecycle, self-improvement gates and restart recovery are implemented.
 - Control Center production build passes in the audited environment.
 - Deterministic end-to-end coordination fixture exercises persistence, dependency scheduling, locks, messages, handoffs, subprocess tests, review/revision and restart trace.

@@ -5,7 +5,7 @@
 | Project | AI-Engineer |
 | Review date | 2026-09-18 (Gregorian) / 1405-06-27 (Jalali) |
 | Repository | `C:\Services\AI-Engineer\current` |
-| Revision observed | `8130980` |
+| Revision observed | `dc436aa` |
 | Scope | Final audit of Phases 1-6 implementation; documentation synchronization; practical validation |
 | Verdict | Core orchestration is operational; production release is conditional on the limitations below |
 
@@ -46,7 +46,7 @@ The boundaries are preserved. UI clients do not write SQLite directly. Model rou
 | Provider Router | `services/provider-router/server` | Optional provider bridge; dependency-isolated |
 | Control Center | `apps/control-center` | React/Vite operator surface |
 | Desktop | `apps/desktop` | Electron shell with isolation and sandbox settings |
-| Persistence | `services/orchestrator/app/db.py` | SQLite schema version 6, additive migrations, WAL and test isolation |
+| Persistence | `services/orchestrator/app/db.py` | SQLite schema version 7, additive migrations, WAL and test isolation |
 
 Placeholder directories (`services/memory-service`, `packages/agent-sdk`, `packages/tool-sdk`, `apps/web-ui`, `apps/vscode-extension`) remain placeholders and are not represented as delivered capabilities.
 
@@ -188,9 +188,9 @@ The Desktop and Provider Router commands were attempted and are dependency-block
 
 ```text
 services/orchestrator/app/
-  db.py                         # schema version 6 and migrations
+  db.py                         # schema version 7 and migrations
   main.py, config.py            # startup, settings and recovery hook
-  agent_service.py, autonomy.py# existing execution/autonomy loop
+  agent_service.py, autonomy.py # existing execution/autonomy loop
   coordination/
     models.py roles.py store.py scheduler.py bus.py context.py supervisor.py e2e.py
   memory/
@@ -218,3 +218,17 @@ docs/architecture.md
 ## Audit conclusion
 
 The requested architecture is materially present and exercised by deterministic tests, but the documented limitations are release-significant. The repository should be treated as **core-engine ready / production release conditional**, not as a fully autonomous distributed engineering organization until the P0 items above are verified.
+
+## Phase 8A organizational core
+
+Phase 8A adds a persistent organizational layer above the existing Supervisor. The
+non-programming Company Director forms scope-aware teams, assigns project and
+engineering leadership, monitors blocked members and provides executive reports.
+Stable employee profiles are stored in agent_profiles; project leadership and team
+membership use additive project columns and project_team_members.
+
+The canonical registry adds company_director, project_manager, engineering_manager and
+operations while reusing specialist roles. Small, medium and large policies avoid
+spawning every role for every task. Schema version 7 is additive and idempotent.
+Deterministic Phase 8A tests cover profile persistence/restart, role and department
+compatibility, dynamic staffing, project/team persistence and migration safety.
