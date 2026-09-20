@@ -22,7 +22,7 @@ The source of truth is the implementation under `services/` and `apps/`. The des
 
 ## Services
 
-- `services/orchestrator`: FastAPI API, SQLite persistence (schema version 7), coordination task DAG, message bus, handoffs, memory, self-improvement, recovery and run observability.
+- `services/orchestrator`: FastAPI API, SQLite persistence (schema version 13), coordination task DAG, message bus, handoffs, memory, self-improvement, recovery and run observability.
 - `services/model-gateway`: model profiles, provider routing, caching, usage and health APIs.
 - `services/local-agent`: constrained file, terminal, process and Git tools.
 - `services/provider-router`: optional provider-facing integration; its own dependencies are required for its test command.
@@ -38,7 +38,7 @@ $env:AI_ENGINE_PROJECT_ROOT = (Get-Location).Path
 .\start-ai-engineer.ps1
 ```
 
-The launcher starts Model Gateway on 8010, Local Agent on 8011, Orchestrator on 8012 and the Control Center on 5175. Autonomous execution and autonomous improvement are disabled by default. Enable them explicitly through the orchestrator settings and keep `AUTONOMOUS_GIT_AUTO_PUSH=false`; the implementation does not push autonomous changes to a remote.
+The launcher starts Model Gateway on 8010, Local Agent on 8011, Orchestrator on 8012 and the Control Center on 5175. Public deployment keeps autonomous execution and autonomous improvement disabled by default, requires control-plane/gateway tokens in the machine environment, and keeps `AUTONOMOUS_AUTO_PUSH=false`. The IIS site may serve the static frontend, but privileged `/api/orchestrator/*` and `/api/gateway/*` calls require authentication.
 
 ## Multi-agent execution
 

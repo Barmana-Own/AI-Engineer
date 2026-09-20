@@ -19,17 +19,22 @@ async def request_json(
     effective_timeout = max(float(timeout_seconds or settings.request_timeout_seconds), 0.001)
     timeout = httpx.Timeout(effective_timeout)
 
+    headers: dict[str, str] = {}
+    gateway_base = settings.model_gateway_url.rstrip("/")
+    gateway_token = settings.model_gateway_token
+    if gateway_token and url.startswith(gateway_base + "/"):
+        headers["X-AI-Engine-Token"] = gateway_token.get_secret_value()
+    request_kwargs: dict[str, Any] = {"json": json}
+    if headers:
+        request_kwargs["headers"] = headers
+
     try:
         async with httpx.AsyncClient(
             timeout=timeout,
             trust_env=False,
         ) as client:
             response = await asyncio.wait_for(
-                client.request(
-                    method,
-                    url,
-                    json=json,
-                ),
+                client.request(method, url, **request_kwargs),
                 timeout=effective_timeout,
             )
     except (httpx.TimeoutException, asyncio.TimeoutError) as exc:

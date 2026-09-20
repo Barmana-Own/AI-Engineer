@@ -8,6 +8,7 @@ from app.organization.models import Department, EmployeeStatus, ProjectComplexit
 from app.organization.store import (
     get_employee,
     get_project_organization,
+    get_project_team_plan,
     list_employees,
     list_project_team,
     update_employee_status,
@@ -89,6 +90,15 @@ def project_team(project_id: str) -> dict[str, object]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
     return {"project_id": project_id, "members": [member.as_dict() for member in list_project_team(project_id)]}
 
+
+@router.get("/projects/{project_id}/team-plan")
+def project_team_plan(project_id: str) -> dict[str, object]:
+    if not get_project(project_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found.")
+    plan = get_project_team_plan(project_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Execution team plan not found.")
+    return plan
 
 @router.get("/projects/{project_id}/report")
 def project_report(project_id: str) -> dict[str, object]:

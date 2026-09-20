@@ -108,6 +108,10 @@ class ProjectOrganizationPlan:
     team_state: str = "forming"
     rationale: tuple[str, ...] = ()
     risks: tuple[str, ...] = ()
+    role_reasons: tuple[tuple[str, str], ...] = ()
+    role_responsibilities: tuple[tuple[str, str], ...] = ()
+    selection_basis: tuple[str, ...] = ()
+    plan_id: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -123,6 +127,11 @@ class ProjectOrganizationPlan:
             "team_state": self.team_state,
             "rationale": list(self.rationale),
             "risks": list(self.risks),
+            "selected_roles": [member.role for member in self.members],
+            "role_reasons": {role: reason for role, reason in self.role_reasons},
+            "role_responsibilities": {role: responsibility for role, responsibility in self.role_responsibilities},
+            "selection_basis": list(self.selection_basis),
+            "plan_id": self.plan_id,
         }
 
 
@@ -135,3 +144,6 @@ class ProjectOrganization:
         result = dict(self.project)
         result["team_members"] = [member.as_dict() for member in self.members]
         return result
+
+ProjectTeamPlan = ProjectOrganizationPlan
+ExecutionTeamPlan = ProjectOrganizationPlan

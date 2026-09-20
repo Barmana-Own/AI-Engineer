@@ -17,6 +17,7 @@ from app.providers.base import ModelProvider
 from app.providers.compatible import OpenAICompatibleProvider
 from app.providers.pool import ProviderPool
 from app.router import ModelRouter
+from app.security import GatewayAuthMiddleware
 from app.routes import chat, health, models, runtime, usage
 from app.schemas import ErrorBody
 from app.usage import UsageStore
@@ -120,6 +121,13 @@ def create_app(
             await runtime_provider.close()
             logger.info("Model Gateway stopped.")
 
+    if runtime_settings.gateway_auth_required:
+        gateway_token = runtime_settings.gateway_auth_token.get_secret_value() if runtime_settings.gateway_auth_token else ""
+        if not gateway_token:
+            raise RuntimeError("GATEWAY_AUTH_TOKEN is required when GATEWAY_AUTH_REQUIRED=true.")
+    else:
+        gateway_token = ""
+
     application = FastAPI(
         title=runtime_settings.app_name,
         version=runtime_settings.app_version,
@@ -129,6 +137,11 @@ def create_app(
         lifespan=lifespan,
     )
 
+    application.add_middleware(
+        GatewayAuthMiddleware,
+        required=runtime_settings.gateway_auth_required,
+        token=gateway_token,
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5175", "http://localhost:5175"],

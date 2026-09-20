@@ -94,7 +94,7 @@ class OrganizationCoreTests(unittest.TestCase):
         self.assertEqual(plan.complexity.value, "small")
         self.assertEqual(
             {member.role for member in organization.members},
-            {"engineering_manager", "implementer", "tester", "reviewer"},
+            {"engineering_manager", "backend", "tester", "reviewer", "release_verifier"},
         )
         self.assertEqual(organization.project["priority"], 70)
         self.assertEqual(
@@ -108,11 +108,11 @@ class OrganizationCoreTests(unittest.TestCase):
                 "SELECT COUNT(*) FROM project_team_members WHERE project_id = ?",
                 (project["id"],),
             ).fetchone()[0]
-        self.assertEqual(count, 4)
+        self.assertEqual(count, 5)
         report = CompanyDirector().executive_report(
             str(project["id"]), database_path=self.database_path
         )
-        self.assertEqual(report["team_size"], 4)
+        self.assertEqual(report["team_size"], 5)
         self.assertTrue(report["delegates_technical_execution"])
 
     def test_large_team_uses_declared_complexity_and_required_departments(self) -> None:
@@ -128,14 +128,14 @@ class OrganizationCoreTests(unittest.TestCase):
         )
         expected = {
             "project_manager", "requirements", "engineering_manager", "architect",
-            "backend", "frontend", "integration", "tester", "security", "docs",
+            "backend", "frontend", "integration", "tester", "reviewer", "security", "docs",
             "release_verifier",
         }
         self.assertEqual({member.role for member in organization.members}, expected)
         self.assertEqual(plan.project_manager_id, "employee-project-manager")
         self.assertIn(Department.SECURITY, plan.departments)
         self.assertIn(Department.OPERATIONS, plan.departments)
-        self.assertEqual(len(list_employees(database_path=self.database_path)), 12)
+        self.assertEqual(len(list_employees(database_path=self.database_path)), 13)
 
     def test_complexity_inference_is_deterministic_and_bounded(self) -> None:
         planner = TeamPlanner()

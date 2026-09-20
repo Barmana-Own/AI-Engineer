@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -43,6 +43,12 @@ class ProjectOpportunity:
     status: str
     created_at: str
     updated_at: str
+    brief: dict[str, object] = field(default_factory=dict)
+    qualification: dict[str, object] = field(default_factory=dict)
+    owner_gate_status: str = "not_required"
+    converted_project_id: str | None = None
+    converted_at: str | None = None
+    last_action: str = ""
 
     def as_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -339,8 +345,11 @@ def resolve_owner_action(
 
 
 def _opportunity(row) -> ProjectOpportunity:
+    keys = set(row.keys())
     values = _load(row["requirements_json"], [])
     values = values if isinstance(values, list) else []
+    brief = _load(row["brief_json"], {}) if "brief_json" in keys else {}
+    qualification = _load(row["qualification_json"], {}) if "qualification_json" in keys else {}
     return ProjectOpportunity(
         opportunity_id=row["opportunity_id"],
         source=row["source"],
@@ -351,6 +360,12 @@ def _opportunity(row) -> ProjectOpportunity:
         status=row["status"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        brief=brief if isinstance(brief, dict) else {},
+        qualification=qualification if isinstance(qualification, dict) else {},
+        owner_gate_status=str(row["owner_gate_status"]) if "owner_gate_status" in keys else "not_required",
+        converted_project_id=row["converted_project_id"] if "converted_project_id" in keys else None,
+        converted_at=row["converted_at"] if "converted_at" in keys else None,
+        last_action=str(row["last_action"]) if "last_action" in keys else "",
     )
 
 
@@ -398,6 +413,97 @@ def create_project_opportunity(
             (source, external_ref),
         ).fetchone()
     return _opportunity(row).as_dict()
+
+
+def update_project_opportunity(
+    opportunity_id: str,
+    *,
+    status: str | None = None,
+    brief: dict[str, object] | None = None,
+    qualification: dict[str, object] | None = None,
+    owner_gate_status: str | None = None,
+    converted_project_id: str | None = None,
+    converted_at: str | None = None,
+    last_action: str | None = None,
+    database_path: str | Path | None = None,
+) -> dict[str, object]:
+    """Update durable intake state; omitted fields remain unchanged."""
+    _ensure(database_path)
+    updates: list[str] = []
+    params: list[object] = []
+    if status is not None:
+        updates.append("status=?")
+        params.append(str(status)[:64])
+    if brief is not None:
+        updates.append("brief_json=?")
+        params.append(_json(_clean_payload(brief)))
+    if qualification is not None:
+        updates.append("qualification_json=?")
+        params.append(_json(_clean_payload(qualification)))
+    if owner_gate_status is not None:
+        updates.append("owner_gate_status=?")
+        params.append(str(owner_gate_status)[:64])
+    if converted_project_id is not None:
+        updates.append("converted_project_id=?")
+        params.append(str(converted_project_id)[:128])
+    if converted_at is not None:
+        updates.append("converted_at=?")
+        params.append(str(converted_at)[:64])
+    if last_action is not None:
+        updates.append("last_action=?")
+        params.append(str(last_action)[:128])
+    if not updates:
+        current = get_project_opportunity(opportunity_id, database_path=database_path)
+        if current is None:
+            raise KeyError(opportunity_id)
+        return current
+    updates.append("updated_at=?")
+    params.append(_now())
+    params.append(opportunity_id)
+    with db.connect(database_path) as database:
+        result = database.execute(
+            f"UPDATE project_opportunities SET {', '.join(updates)} WHERE opportunity_id=?",
+            tuple(params),
+        )
+        if result.rowcount == 0:
+            raise KeyError(opportunity_id)
+    return get_project_opportunity(opportunity_id, database_path=database_path) or {}
+
+
+_OPPORTUNITY_TRANSITIONS = {
+    "NEW": {"ANALYZING", "NEEDS_CLARIFICATION", "QUALIFIED", "REJECTED", "WAITING_OWNER"},
+    "ANALYZING": {"NEEDS_CLARIFICATION", "QUALIFIED", "REJECTED", "WAITING_OWNER"},
+    "NEEDS_CLARIFICATION": {"ANALYZING", "QUALIFIED", "REJECTED"},
+    "QUALIFIED": {"CONVERTED_TO_PROJECT", "WAITING_OWNER"},
+    "WAITING_OWNER": {"QUALIFIED", "REJECTED"},
+    "REJECTED": set(),
+    "CONVERTED_TO_PROJECT": {"CONVERTED_TO_PROJECT"},
+}
+
+
+def transition_project_opportunity(
+    opportunity_id: str,
+    target_status: str,
+    *,
+    owner_gate_status: str | None = None,
+    last_action: str | None = None,
+    database_path: str | Path | None = None,
+) -> dict[str, object]:
+    item = get_project_opportunity(opportunity_id, database_path=database_path)
+    if not item:
+        raise KeyError(opportunity_id)
+    target = str(target_status).strip().upper()
+    if target not in _OPPORTUNITY_TRANSITIONS:
+        raise ValueError(f"Unsupported opportunity status: {target}")
+    current = str(item.get("status") or "NEW").upper()
+    if current == "INBOX":
+        current = "NEW"
+    if target != current and target not in _OPPORTUNITY_TRANSITIONS.get(current, set()):
+        raise ValueError(f"Invalid opportunity transition: {current} -> {target}")
+    return update_project_opportunity(
+        opportunity_id, status=target, owner_gate_status=owner_gate_status,
+        last_action=last_action, database_path=database_path,
+    )
 
 
 def get_project_opportunity(

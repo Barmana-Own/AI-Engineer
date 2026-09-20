@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import hashlib, json, os, subprocess, sys, tempfile, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.db import DATABASE_PATH, connect, create_project, initialize_database, utc_now
 from app.memory import MemoryStore
+from app.organization.store import get_project_team_plan
 from . import store
 from .models import AgentHandoff, CoordinationTask, MessageType, TaskState
 from .supervisor import Supervisor
@@ -76,7 +77,7 @@ class EngineeringDemoRunner:
         self.database_path=str(database_path); initialize_database(self.database_path)
         self.objective=str(objective); self.workspace_path=Path(workspace or tempfile.mkdtemp(prefix="ai-engineer-e2e-"))
         self.project_id=project_id; self.run_id=None; self.trace=None; self.workspace=None
-        self.supervisor=Supervisor(self.database_path, max_retries=2); self.task_ids={}; self.test_failed=False; self.review_rejected=False; self.restart_count=0
+        self.supervisor=Supervisor(self.database_path, max_retries=2); self.task_ids={}; self.test_failed=False; self.review_rejected=False; self.restart_count=0; self.team_roles=set()
     def _project(self):
         if not self.project_id: self.project_id=str(create_project("phase6-e2e-demo", str(self.workspace_path), database_path=self.database_path)["id"])
     def _task(self, key: str) -> dict[str,Any]:
@@ -111,19 +112,66 @@ class EngineeringDemoRunner:
         if handoff_to: self._handoff(str(task["role"]), handoff_to, str(task["id"]), summary, files=files, evidence=evidence)
     def _add_support(self, started: Mapping[str,Any]):
         assert self.run_id and self.project_id and self.trace
-        for item in started["tasks"]: self.task_ids[str(item["role"])]=str(item["id"])
-        specs=[("debugger","Repair failing tests",(self.task_ids["integration"],),("service.py",)),("docs","Document the service",(self.task_ids["integration"],),("README.md",)),("revision","Apply reviewer revision",(self.task_ids["reviewer"],),("REVIEW_NOTES.md",))]
-        for key,title,deps,scope in specs:
-            item=store.create_task(CoordinationTask(project_id=self.project_id,run_id=self.run_id,title=title,description=title,role="implementer" if key=="revision" else key,dependencies=deps,expected_outputs=("summary","evidence"),acceptance_criteria=("Persist evidence.",),scope=scope,writer=True),database_path=self.database_path)
-            self.task_ids[key]=str(item["id"]); self.trace.event("task_created",actor_role="supervisor",task_id=str(item["id"]),payload={"role":item["role"],"title":title,"dependencies":list(deps)})
+        plan=started.get("team_plan") or {}
+        selected=plan.get("selected_roles", ()) if isinstance(plan, Mapping) else ()
+        self.team_roles={str(role) for role in selected}
+        if not self.team_roles:
+            self.team_roles={str(item["role"]) for item in started["tasks"]}
+        for item in started["tasks"]:
+            self.task_ids[str(item["role"])]=str(item["id"])
+        # The legacy demo calls the product planning task planner; map that
+        # label to the selected Project Manager task without creating a second task.
+        if "planner" not in self.task_ids and "project_manager" in self.task_ids:
+            self.task_ids["planner"]=self.task_ids["project_manager"]
+        self.trace.event(
+            "team_plan_applied",
+            actor_role="supervisor",
+            payload={
+                "plan_id":plan.get("plan_id") if isinstance(plan, Mapping) else None,
+                "selected_roles":sorted(self.team_roles),
+                "scheduled_task_roles":sorted(str(item["role"]) for item in started["tasks"]),
+            },
+        )
+
+    def _create_conditional(self, key: str, role: str, title: str, dependency_keys: Iterable[str], scope: Iterable[str]) -> dict[str,Any]:
+        assert self.trace and self.run_id and self.project_id
+        if key in self.task_ids:
+            return self._task(key)
+        dependencies=tuple(self.task_ids[name] for name in dependency_keys if name in self.task_ids)
+        item=store.create_task(
+            CoordinationTask(
+                project_id=self.project_id,
+                run_id=self.run_id,
+                title=title,
+                description=title,
+                role=role,
+                dependencies=dependencies,
+                inputs={"conditional":True,"trigger":title},
+                expected_outputs=("summary","evidence"),
+                acceptance_criteria=("Persist evidence.",),
+                scope=tuple(scope),
+                writer=True,
+            ),
+            database_path=self.database_path,
+        )
+        self.task_ids[key]=str(item["id"])
+        self.trace.event(
+            "conditional_task_created",
+            actor_role="supervisor",
+            task_id=str(item["id"]),
+            payload={"role":role,"title":title,"dependencies":list(dependencies)},
+        )
         with connect(self.database_path) as database:
-            row=database.execute("SELECT task_ids_json FROM autonomy_runs WHERE id=?",(self.run_id,)).fetchone(); ids=json.loads(row["task_ids_json"] or "[]") if row else []
-            ids.extend(x for x in self.task_ids.values() if x not in ids); database.execute("UPDATE autonomy_runs SET task_ids_json=?,updated_at=? WHERE id=?",(json.dumps(ids),utc_now(),self.run_id))
+            row=database.execute("SELECT task_ids_json FROM autonomy_runs WHERE id=?",(self.run_id,)).fetchone()
+            ids=json.loads(row["task_ids_json"] or "[]") if row else []
+            if str(item["id"]) not in ids: ids.append(str(item["id"]))
+            database.execute("UPDATE autonomy_runs SET task_ids_json=?,updated_at=? WHERE id=?",(json.dumps(ids),utc_now(),self.run_id))
+        return item
     def _write(self, relative: str, content: str, task: Mapping[str,Any]) -> str:
         assert self.workspace; return self.workspace.write(relative,content,task_id=str(task["id"]),role=str(task["role"]))
     def _parallel(self):
         assert self.trace
-        keys=[k for k in ("backend","frontend","implementer") if not self._done(k)]
+        keys=[k for k in ("backend","frontend","implementer") if k in self.task_ids and not self._done(k)]
         if not keys: return
         started={k:self._start(k) for k in keys}; self.trace.event("parallel_batch_started",actor_role="supervisor",payload={"roles":keys,"task_ids":[x["id"] for x in started.values()]})
         def write(key):
@@ -139,9 +187,19 @@ class EngineeringDemoRunner:
         for key in keys: self._finish(key,f"{key} implementation persisted.",["file write completed","sha256 recorded"],files=[changes[key]],handoff_to="integration")
     def _lock_probe(self):
         assert self.trace
-        first,second,res=str(uuid4()),str(uuid4()),"shared/conflict-probe.py"
-        owner_a=self.task_ids["backend"]; owner_b=self.task_ids["frontend"]; acquired=store.acquire_lock(res,owner_a,"backend",database_path=self.database_path); denied=not store.acquire_lock(res,owner_b,"frontend",database_path=self.database_path); store.release_lock(res,owner_a,database_path=self.database_path)
-        self.trace.event("write_conflict_protection",actor_role="supervisor",payload={"resource":res,"first_acquired":acquired,"second_denied":denied})
+        if not ("backend" in self.task_ids and "frontend" in self.task_ids):
+            self.trace.event(
+                "write_conflict_protection",
+                actor_role="supervisor",
+                payload={"skipped":True,"reason":"team plan has no independent backend/frontend writers"},
+            )
+            return
+        owner_a,owner_b=str(uuid4()),str(uuid4())
+        resource="shared/conflict-probe.py"
+        acquired=store.acquire_lock(resource,self.task_ids["backend"],"backend",database_path=self.database_path)
+        denied=not store.acquire_lock(resource,self.task_ids["frontend"],"frontend",database_path=self.database_path)
+        store.release_lock(resource,self.task_ids["backend"],database_path=self.database_path)
+        self.trace.event("write_conflict_protection",actor_role="supervisor",payload={"resource":resource,"first_acquired":acquired,"second_denied":denied,"probe_ids":[owner_a,owner_b]})
         if not (acquired and denied): raise RuntimeError("single-writer conflict protection failed")
     def _tester(self, retry: bool):
         assert self.trace and self.workspace
@@ -165,32 +223,59 @@ class EngineeringDemoRunner:
         else: self._finish("reviewer","Review accepted after revision evidence.",["review checklist passed","test evidence available"],handoff_to="release_verifier")
     def _release(self):
         assert self.trace and self.workspace
-        task=self._start("release_verifier"); required={"service.py","client.py","contracts.py","app.py","README.md","REVIEW_NOTES.md","tests/test_service.py"}; missing=sorted(required-set(self.workspace.files()))
+        task=self._start("release_verifier")
+        required={"REVIEW_NOTES.md"}
+        if "backend" in self.team_roles: required.add("service.py")
+        if "frontend" in self.team_roles: required.add("client.py")
+        if "integration" in self.team_roles: required.update({"contracts.py","app.py"})
+        if "docs" in self.team_roles: required.add("README.md")
+        if "tester" in self.team_roles: required.add("tests/test_service.py")
+        missing=sorted(required-set(self.workspace.files()))
         result=subprocess.run([sys.executable,"-m","unittest","discover","-s","tests","-q"],cwd=str(self.workspace.root),capture_output=True,text=True,timeout=30,check=False)
         self.trace.event("release_verification",actor_role="release_verifier",task_id=str(task["id"]),payload={"missing_files":missing,"test_returncode":result.returncode,"tests_passed":result.returncode==0,"acceptance_criteria":sorted(required)})
         if missing or result.returncode: raise RuntimeError(f"release verification failed: missing={missing}, returncode={result.returncode}")
         self._finish("release_verifier","Release verification passed with evidence.",["all required files exist","tests returned 0","review accepted"],files=sorted(required),handoff_to="supervisor")
     def _execute(self, simulate_restart: bool):
         assert self.trace and self.workspace and self.run_id and self.project_id
-        if not self._done("requirements"): self._finish("requirements","Acceptance criteria derived from objective.",["endpoint","validation","tests","documentation","client contract"],handoff_to="planner")
-        if not self._done("planner"): self._finish("planner","Deliverables decomposed into a dependency-aware task DAG.",["independent scopes","integration gate","verification gates"],handoff_to="architect")
-        if not self._done("architect"): self._finish("architect","Architecture defines service, client, contract, tests, and release boundaries.",["service.py","client.py","contracts.py","app.py"],handoff_to="backend")
-        self._parallel(); self._lock_probe()
-        if not self._done("integration"):
-            task=self._start("integration"); self._finish("integration","Components integrated behind an endpoint.",["imports resolve","boundaries preserved"],files=[self._write("app.py","from service import health\n\ndef endpoint(): return health()\n",task)],handoff_to="tester")
-        if not self._done("docs"):
-            task=self._start("docs"); self._finish("docs","Runnable fixture documentation persisted.",["README.md exists"],files=[self._write("README.md","# Phase 6 Demo Service\n\nA validated service, client adapter, tests, and release evidence.\n",task)],handoff_to="release_verifier")
-        if not self._done("tester"):
+        if "engineering_manager" in self.task_ids and not self._done("engineering_manager"):
+            self._finish("engineering_manager","Technical execution plan accepted by the Engineering Manager.",["selected team plan","technical completion gate"],handoff_to="requirements" if "requirements" in self.task_ids else "architect" if "architect" in self.task_ids else None)
+        if "requirements" in self.task_ids and not self._done("requirements"):
+            target="planner" if "planner" in self.task_ids else ("architect" if "architect" in self.task_ids else None)
+            self._finish("requirements","Acceptance criteria derived from objective.",["endpoint","validation","tests","documentation","client contract"],handoff_to=target)
+        if "planner" in self.task_ids and not self._done("planner"):
+            self._finish("planner","Deliverables decomposed into a dependency-aware task DAG.",["independent scopes","integration gate","verification gates"],handoff_to="architect" if "architect" in self.task_ids else None)
+        if "architect" in self.task_ids and not self._done("architect"):
+            target=next((role for role in ("backend","frontend","implementer","integration") if role in self.task_ids),None)
+            self._finish("architect","Architecture defines service, client, contract, tests, and release boundaries.",["service.py","client.py","contracts.py","app.py"],handoff_to=target)
+        self._parallel()
+        self._lock_probe()
+        if "integration" in self.task_ids and not self._done("integration"):
+            task=self._start("integration")
+            contract_file=self._write("contracts.py","EXPECTED_VALUE = 3\n",task)
+            app_file=self._write("app.py","from service import health\n\ndef endpoint(): return health()\n",task)
+            self._finish("integration","Components integrated behind an endpoint.",["imports resolve","boundaries preserved"],files=[contract_file,app_file],handoff_to="tester" if "tester" in self.task_ids else None)
+        if "security" in self.task_ids and not self._done("security"):
+            self._finish("security","Security review completed for the selected trust boundary.",["authentication boundary inspected","negative authorization evidence required"],handoff_to="tester" if "tester" in self.task_ids else "reviewer" if "reviewer" in self.task_ids else None)
+        if "docs" in self.task_ids and not self._done("docs"):
+            task=self._start("docs")
+            self._finish("docs","Runnable fixture documentation persisted.",["README.md exists"],files=[self._write("README.md","# Phase 6 Demo Service\n\nA validated service, client adapter, tests, and release evidence.\n",task)],handoff_to="release_verifier" if "release_verifier" in self.task_ids else None)
+        if "tester" in self.task_ids and not self._done("tester"):
             if not self.test_failed: self._tester(retry=False)
             if self.test_failed and simulate_restart and self.restart_count==0: self._restart()
+            if self.test_failed and "debugger" not in self.task_ids:
+                self._create_conditional("debugger","debugger","Repair failing tests",("integration",),("service.py",))
             if self.test_failed and not self._done("debugger"):
-                task=self._start("debugger"); self._finish("debugger","Debugger repaired implementation without weakening tests.",["service.py satisfies assertion","test retained"],files=[self._write("service.py","def calculate_value():\n    return 3\n\ndef health():\n    return {'status':'ok'}\n",task)],handoff_to="tester")
+                task=self._start("debugger")
+                self._finish("debugger","Debugger repaired implementation without weakening tests.",["service.py satisfies assertion","test retained"],files=[self._write("service.py","def calculate_value():\n    return 3\n\ndef health():\n    return {'status':'ok'}\n",task)],handoff_to="tester")
             if self.test_failed and not self._done("tester"): self._tester(retry=True)
-        if not self._done("reviewer"): self._review()
-        if self.review_rejected and not self._done("reviewer"): self._review()
-        if self.review_rejected and not self._done("revision"):
-            task=self._start("revision"); self._finish("revision","Reviewer revision artifact persisted.",["rejection resolved","artifact available"],files=[self._write("REVIEW_NOTES.md","Review revision accepted after test and artifact evidence.\n",task)],handoff_to="reviewer")
-        if not self._done("release_verifier"): self._release()
+        if "reviewer" in self.task_ids and not self._done("reviewer"): self._review()
+        if self.review_rejected and "reviewer" in self.task_ids and not self._done("reviewer"): self._review()
+        if self.review_rejected and "revision" not in self.task_ids:
+            self._create_conditional("revision","implementer","Apply reviewer revision",("reviewer",),("REVIEW_NOTES.md",))
+        if self.review_rejected and "revision" in self.task_ids and not self._done("revision"):
+            task=self._start("revision")
+            self._finish("revision","Reviewer revision artifact persisted.",["rejection resolved","artifact available"],files=[self._write("REVIEW_NOTES.md","Review revision accepted after test and artifact evidence.\n",task)],handoff_to="reviewer")
+        if "release_verifier" in self.task_ids and not self._done("release_verifier"): self._release()
         return self._finalize()
     def _restart(self):
         assert self.trace and self.run_id
@@ -215,7 +300,11 @@ class EngineeringDemoRunner:
         if not row: raise KeyError(run_id)
         self.project_id,self.objective=str(row["project_id"]),str(row["goal"]); self.supervisor=Supervisor(self.database_path,max_retries=2); self.trace=TraceRecorder(self.database_path,self.run_id,objective=self.objective,project_id=self.project_id); self.workspace=FixtureWorkspace(self.workspace_path,self.trace)
         tasks=store.list_tasks(run_id=self.run_id,limit=500,database_path=self.database_path)
-        for task in tasks: self.task_ids["revision" if task["title"]=="Apply reviewer revision" else str(task["role"])]=str(task["id"])
+        plan=get_project_team_plan(self.project_id,database_path=self.database_path)
+        self.team_roles={str(role) for role in (plan or {}).get("selected_roles", ())}
+        if not self.team_roles: self.team_roles={str(task["role"]) for task in tasks if task["role"] not in {"debugger","revision"}}
+        for task in tasks: self.task_ids["revision" if task["title"]=="Apply reviewer revision" else ("debugger" if task["title"]=="Repair failing tests" else str(task["role"]))]=str(task["id"])
+        if "planner" not in self.task_ids and "project_manager" in self.task_ids: self.task_ids["planner"]=self.task_ids["project_manager"]
         self.test_failed=any(t["role"]=="tester" and t["state"]==TaskState.FAILED.value for t in tasks); self.review_rejected=any(m["message_type"]==MessageType.REVISION_REQUEST.value for m in store.list_messages(run_id=self.run_id,limit=500,database_path=self.database_path))
         return self._execute(False)
 

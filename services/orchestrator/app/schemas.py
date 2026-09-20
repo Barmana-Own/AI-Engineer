@@ -550,3 +550,22 @@ class OpportunityCreateRequest(BaseModel):
     summary: str = Field(default="", max_length=10000)
     requirements: list[str] = Field(default_factory=list, max_length=100)
     status: str = Field(default="inbox", max_length=64)
+
+
+class OpportunityAnalyzeRequest(BaseModel):
+    company_capabilities: list[str] = Field(default_factory=list, max_length=100)
+
+
+class OpportunityQualifyRequest(BaseModel):
+    owner_approved: bool = False
+
+
+class OpportunityConvertRequest(BaseModel):
+    project_name: str | None = Field(default=None, min_length=3, max_length=500)
+    workspace: str = Field(min_length=1, max_length=1000)
+    objective: str | None = Field(default=None, max_length=20000)
+    owner_approved: bool = False
+
+
+class OpportunityStartRequest(BaseModel):
+    objective: str | None = Field(default=None, max_length=20000)

@@ -1,11 +1,25 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from app import db
 from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal, select_autonomous_backlog_item
 from app.agent_service import _autonomous_known_repair, _autonomous_target_is_current
 
 
 class AutonomousBacklogTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary_directory = tempfile.TemporaryDirectory()
+        self.database_path = Path(self._temporary_directory.name) / "autonomy.db"
+        self._database_path_patch = patch.object(db, "DATABASE_PATH", self.database_path)
+        self._database_path_patch.start()
+        db.initialize_database()
+
+    def tearDown(self) -> None:
+        self._database_path_patch.stop()
+        self._temporary_directory.cleanup()
+
     def test_security_boundary_target_recognizes_hardened_agent_service(self):
         results = [{
             "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/agent_service.py"}
@@ -129,6 +143,19 @@ class AutonomousBacklogTests(unittest.TestCase):
         selected = select_autonomous_backlog_item("project")
 
         self.assertNotEqual(selected.target, failed.target)
+
+    def test_selection_reads_autonomy_runs_from_isolated_schema(self) -> None:
+        project = db.create_project("Autonomy selector", "selector-workspace")
+        first = AUTONOMOUS_BACKLOG[0]
+        db.create_autonomy_run(
+            project["id"],
+            f"TARGET FILE: {first.target}",
+            1,
+        )
+
+        selected = select_autonomous_backlog_item(project["id"])
+
+        self.assertNotEqual(selected.target, first.target)
 
     @patch("app.autonomy.search_memories")
     def test_selection_rotates_after_bounded_memory_window(self, search_memories):

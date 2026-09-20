@@ -1,114 +1,75 @@
-# AI-Engineer Customer Report
+﻿# AI-Engineer â€” Corrective Phase 3 Delivery Report
 
 | Field | Value |
 |---|---|
-| Report type | Customer delivery summary |
-| Language | English |
-| Gregorian date | 2026-09-18 |
-| Jalali date | 1405-06-27 |
-| Status | Core engine and organizational core verified; production release conditional |
+| Project | AI-Engineer |
+| Report type | Customer report |
+| Gregorian date | 2026-09-19 |
+| Jalali date | 1405-06-28 |
+| Delivery status | Phase implemented and validated |
 
 ## Executive summary
 
-The review confirms that the central AI-Engineer engineering workflow is implemented and testable. The system preserves the existing service boundaries, stores durable work state, coordinates role-based tasks, records agent communication and handoffs, retains validated engineering experience, and can recover incomplete work after restart.
+Sales opportunities and SEO requests are now connected to the existing AI-Engineer company workflow. A qualified opportunity can become a normal project, receive a dynamically selected team, and start through the existing Supervisor and task graph. SEO-only work remains lightweight, while technical SEO work can add only the engineering roles required by the findings.
 
 ## Delivered capabilities
 
-- Electron Desktop and React Control Center clients connected to the FastAPI Orchestrator.
-- Model Gateway and Local Agent remain separate services.
-- Nineteen canonical roles, including organizational roles and a Supervisor-managed task graph.
-- Persisted task dependencies, typed messages, handoffs and workspace safety locks.
-- Evidence-gated engineering memory and bounded self-improvement with local checkpoints.
-- Restart recovery, leases and provider-failure recording.
-- Deterministic end-to-end workflow trace and API endpoint for inspection.
-- Portable project-root configuration; no required `F:\AI-Engineer` path.
+- Structured opportunity intake and qualification.
+- Explicit opportunity lifecycle states and Human Owner gates for commercial commitments.
+- Conversion of approved opportunities into ordinary projects.
+- Requirements handoff and dynamic team planning during conversion.
+- SEO objective detection and routing to SEO Manager and SEO Specialist.
+- Minimal teams for keyword-only work and expanded teams for technical SEO implementation.
+- Evidence-based SEO finding, engineering handoff, verification, and revision flow.
+- Persistent opportunity details and lifecycle API endpoints.
+- Idempotent conversion on isolated databases.
 
-## Quality and security status
+## Quality and operational status
 
-The Orchestrator (94 tests), Model Gateway (26 tests), Local Agent (2 tests), Python compile checks, Control Center build and service health checks passed. Desktop and Provider Router JavaScript checks could not run because their local `vite`/`vitest` dependencies are not installed. No real credentials were added; automatic remote Git push remains disabled.
+The Orchestrator suite passed 243 tests with one explicitly skipped test. The Model Gateway passed 26 tests and the Local Agent passed 2 tests. The live Orchestrator health endpoint returned HTTP 200 and reported healthy Gateway and Local Agent dependencies. No remote push was performed.
 
-## Remaining conditions
+## Limitations
 
-Before a production release, install and pin the missing JavaScript dependencies, harden scheduler reader/writer conflict detection, and deliver a tested Supervisor-to-model worker adapter. SQLite deployment is currently single-process oriented. These are documented release conditions, not hidden defects.
+External sales platforms, contracts, payments, ranking providers, Search Console, Analytics, and other SEO data sources are not automated. Human Owner approval remains required for unsupported commercial commitments. Frontend build checks were not required because this phase did not change frontend source.
 
-## Handover
+## Handover status
 
-The detailed technical evidence is in `docs/final-engineering-review.md` and `reports/technical-report.en.md`/`.fa.md`. The maintained architecture and roadmap are in `docs/architecture.md` and `docs/roadmap.md`.
+Phase 3 is ready for review in the existing remote repository. The next phase should build on the existing workflow rather than introduce a parallel intake or execution architecture.
 
-## Phase 8A organizational core
-
-The organizational layer adds a non-programming Company Director above the existing
-Supervisor. Stable employee profiles, departments, role compatibility and scope-aware
-small/medium/large team formation are persisted without replacing the task DAG,
-message bus, handoffs, memory or recovery services. New projects form a small default
-team; the organization API supports explicit re-planning and executive reports.
-
-Validation for this phase covers profile restart reads, director creation, department
-assignment, role compatibility, small and large staffing policies, project/team
-persistence and migration idempotence. The detailed implementation reference is
-docs/organizational-core.md.
-
-## Phase 8B/8C delivery update
+## Corrective Phase 4 â€” Deployment Safety
 
 | Field | Value |
 |---|---|
-| Gregorian date | 2026-09-18 |
-| Jalali date | 1405-06-27 |
-| Delivery status | Phase 8B and Phase 8C implemented and validated; Phase 8D not started |
+| Gregorian date | 2026-09-20 |
+| Jalali date | 1405-06-29 |
+| Delivery status | Prepared; deployment not performed |
+| Production readiness | NO |
 
-The engineering core now supports structured agent collaboration, durable technical discussions, decision records, meetings and internal work requests. The project-management layer adds a separate Project Manager responsibility for milestones, deliverables, risks, lifecycle state, quality gates, work queues and project reports while preserving the existing Supervisor, task DAG, message bus, handoffs, memory and recovery architecture.
+### Executive summary
 
-Independent projects remain isolated by project-scoped tasks, messages, decisions, meetings, risks, gates and memory. Scheduling respects dependencies, project priority and persisted writer-resource conflicts. A derived organizational blackboard exposes current projects, blockers, reviews, questions and release status.
+The repository now contains an authentication boundary for the Orchestrator control plane and Model Gateway, separate owner authorization for high-risk operations, safe autonomy defaults, authenticated server health checks, and sanitized release packaging. No deployment or remote Git push was performed.
 
-Validation completed: Orchestrator **114 passed, 1 skipped**; Model Gateway **26 passed**; Local Agent **2 passed**; targeted collaboration **4 passed**; targeted project-management **10 passed**; Python compile **44 files with no failures**; services on ports 8010/8011/8012 returned HTTP 200.
+### Verified work
 
-Production readiness remains conditional because scheduling is SQLite/in-process oriented, the existing worker/model adapter debt remains, and JavaScript dependency gaps are still release conditions. No remote commit or push was made.
+- Control-plane routes require `X-AI-Engine-Token` or a Bearer token when production mode is enabled.
+- File, terminal, process, Git, owner-control, recovery and self-improvement route families additionally require an owner token.
+- Model Gateway runtime/model routes require a separate gateway token.
+- Production launcher defaults autonomous execution and automatic remote push to disabled.
+- Release packaging excludes dependencies, caches, runtime data, logs, credentials and local environment files while retaining `.env.example` templates.
+- IIS responses preserve FastAPI authentication errors and add baseline security headers.
 
+### Validation summary
 
----
+247 Orchestrator tests passed with 1 optional test skipped; 27 Model Gateway tests passed; 2 Local Agent tests passed. The Control Center TypeScript/build pipeline passed. Desktop build was not run because its dependencies are not installed on the server. Loopback health checks returned HTTP 200 with the expected service identities.
 
-## Phase 8D delivery addendum
+### Deployment blockers
 
-**Gregorian date:** 2026-09-18  
-**Jalali date:** 1405-06-27
+The current running server instance has not been restarted with the new authentication configuration. Required machine-level control-plane, owner and gateway tokens are not configured, and the authenticated public health check therefore cannot run. The existing runtime `.env` still explicitly enables autonomy and must be reviewed before a public restart. The HTTPS probe to devoria.ir currently fails during connection setup, so HTTPS/IIS authenticated proxy validation remains a release blocker.
 
-Phase 8D adds an operational incident workflow, evidence-based organizational learning, measurable team selection, Human Owner controls and adapter-neutral project opportunity intake. The existing coordination engine and service boundaries remain intact.
+### Handover
 
-### Delivered
+Configure protected machine environment variables, set autonomy false unless explicitly approved, restart through the deployment script, run the authenticated health check, and retain the verified backup until smoke tests pass.
 
-- Incident lifecycle persisted as detect -> contain -> diagnose -> repair -> verify -> postmortem -> learn -> resolved.
-- Dynamic incident team assignment using persistent employee profiles and measured role/domain outcomes.
-- Structured postmortems with verification, prevention ideas and follow-up tasks.
-- Evidence-gated company-level lessons using the existing sanitized memory store.
-- Collaboration-quality recurrence tracking and performance-driven team selection.
-- Human Owner project controls with persisted actions and explicit approval for high-risk operations.
-- Generic project-opportunity intake models with no external-platform automation.
+### Health-script shape validation
 
-### Validation
-
-Orchestrator: **118 passed, 1 skipped**; Phase 8D targeted tests: **4 passed**; Model Gateway: **26 passed**; Local Agent: **2 passed**. No automatic deployment, remote publication or financial action is enabled.
-
-### Limitations
-
-The HTTP control plane continues to rely on the existing deployment authentication boundary. SQLite and employee profiles remain single-process coordination primitives; distributed incident workers and external marketplace adapters are intentionally not part of this phase.
-
-## Phase 8E â€” AI Company Integration Validation
-
-**Dates:** Gregorian 2026-09-18; Jalali 1405-06-27
-
-The AI-Engineer organization was validated through a controlled full-stack engineering simulation. The run preserved evidence of company hierarchy, team assignment, task delegation, technical discussion, security challenge and resolution, meetings, handoffs, testing, repair, review, lessons learned, restart recovery and final release verification.
-
-The validation completed with 120 orchestrator tests passing (one optional real-model smoke test skipped), 26 Model Gateway tests passing and 2 Local Agent tests passing. A machine-readable and human-readable company trace is persisted and available through new read-only company trace endpoints.
-
-This validation demonstrates durable coordination logic and evidence collection. It does not represent a production deployment, external client intake, remote Git publication or an unmocked real-model run.
-
-
-## SEO Manager Delivery â€” 2026-09-19 / 1405-06-28
-
-The integrated `seo_manager` role is implemented as a read-only manager over the existing AI company infrastructure. It builds project-scoped site profiles, evidence-backed audits, keyword/page mappings, delegated DAG tasks, handoffs, decisions, quality gates, validated memory, and SEO reports. No second agent/task/memory system or SEO-specific database table was introduced.
-
-Validation: 11 focused SEO tests passed; 213 orchestrator tests passed with 1 skipped; 26 Model Gateway pytest tests passed; 2 Local Agent tests passed; syntax and live health/role checks passed. External analytics, ranking and Core Web Vitals sources remain NOT_CONNECTED and are never fabricated.
-
-## SEO Specialist update (2026-09-19 / 1405-06-28)
-
-The integrated read-only seo_specialist employee now performs evidence-backed technical and on-page SEO analysis, keyword clustering and mapping, content gaps and briefs, internal-link recommendations, implementation handoffs, independent verification and validated project-memory promotion. Ten deterministic SEO Specialist tests were added; the complete Orchestrator suite passed with one pre-existing skipped test. External ranking, traffic, analytics, Search Console, search-volume and Core Web Vitals claims remain unavailable without an authorized source.
+The health script completed its response-shape and safety assertions with ephemeral non-secret test tokens against the reachable HTTP proxy. This validates the script logic only; real authenticated production validation remains NOT_RUN until machine tokens are configured and the services are restarted.

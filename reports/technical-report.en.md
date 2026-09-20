@@ -1,256 +1,143 @@
-# AI-Engineer Technical Report
+﻿# Corrective Phase 3 â€” Sales Intake and SEO Workflow Integration
 
 | Field | Value |
 |---|---|
-| Report type | Technical engineering handoff |
-| Language | English |
-| Gregorian date | 2026-09-18 |
-| Jalali date | 1405-06-27 |
-| Revision observed | `dc436aa` |
-| Delivery status | Core engine verified; release conditional |
-
-## Scope and architecture
-
-This review audited Phases 1-6 without adding a major feature. The implementation preserves the Electron Desktop / React Control Center -> FastAPI Orchestrator -> Model Gateway / Local Agent boundaries. Provider Router remains an optional provider bridge. The Orchestrator uses SQLite schema version 7 with deterministic additive migrations, WAL mode and isolated test databases.
-
-## Implemented architecture
-
-- Canonical 19-role registry with contracts and compatibility aliases.
-- Supervisor-managed persisted task DAG with dependency gating and explicit states.
-- Typed persisted message bus and structured handoff protocol.
-- Transactional workspace locks and bounded read-only batching.
-- Scoped memory lifecycle (working, episodic, project, lesson, failure) with evidence-gated promotion and redaction.
-- Evidence-based self-improvement lifecycle with local checkpoint, test/review gates, limits and no remote auto-push.
-- Startup recovery classifications, execution leases, heartbeat/expiry, recovery events and provider-failure persistence.
-- Deterministic end-to-end fixture and `GET /v1/coordination/runs/{run_id}/trace`.
-
-## Documentation synchronization
-
-`docs/architecture.md`, `docs/roadmap.md`, `docs/multi-agent-coordination.md`, `docs/engineering-memory.md`, `docs/autonomous-backlog.md`, `docs/implementation-plan-autonomous-multi-agent.md` and `README.md` now identify Electron as current, schema version 7, real role/DAG/message/memory/recovery behavior and the remaining limitations. Obsolete Tauri language is marked historical or removed from current guidance. Placeholder modules remain explicitly marked as placeholders.
-
-## Validation evidence
-
-| Command or check | Result |
-|---|---|
-| Orchestrator unittest discovery | PASS  94 tests, 1 skipped |
-| Orchestrator deterministic E2E | PASS  2 tests, optional real-model test skipped |
-| Model Gateway pytest | PASS  26 passed |
-| Local Agent unittest discovery | PASS  2 tests |
-| Python compile checks | PASS for all three Python service app trees |
-| Control Center build | PASS (`tsc -b && vite build`) |
-| Gateway/Local Agent/Orchestrator health | PASS  ports 8010/8011/8012 returned 200 |
-| Coordination/recovery API smoke | PASS  roles 200, expected missing trace 404, recovery status 200 |
-| Desktop build | NOT_RUN/BLOCKED  `vite` dependency absent |
-| Provider Router tests | NOT_RUN/BLOCKED  `vitest` dependency absent |
+| Project | AI-Engineer |
+| Report type | Technical report |
+| Phase | Corrective Phase 3 |
+| Gregorian date | 2026-09-19 |
+| Jalali date | 1405-06-28 |
+| Delivery status | Implemented and validated on the remote repository |
 
-## Review findings
+## Scope
 
-- **Concurrency:** one scheduler batching path can miss a reader/writer conflict when a writer is encountered later; add order-independent conflict analysis before production concurrency claims.
-- **Worker execution:** Supervisor persistence/orchestration is real, but role calls remain in the existing agent/autonomy loop; a dedicated worker adapter is not yet delivered.
-- **Discussion:** confidence is advisory and round accounting is not subject-isolated.
-- **Operations:** SQLite is single-process oriented; no distributed queue/lock service is present.
-- **Memory:** retrieval is deterministic lexical/ranked; no vector/semantic index is included.
+This phase connects the existing Sales, Requirements, Company Director, team-planning, SEO, and Supervisor components. No second agent, task, message, or memory framework was introduced. Opportunity intake now converts into the existing project and execution workflow, while SEO objectives influence the existing dynamic team plan.
 
-## Recommended next phase
+## Sales intake flow
 
-P0: install/pin Desktop and Provider Router dependencies and gate them in CI; harden scheduler conflict ordering; implement/test Supervisor-to-Model-Gateway role-worker adapter. P1: migration upgrade fixtures, metrics/correlation IDs and subject-scoped debate policy. P2: semantic retrieval and domain-specific templates after deterministic behavior is stable.
+`ProjectOpportunity` records are processed through the existing persistence layer and move through explicit states: `NEW`, `ANALYZING`, `NEEDS_CLARIFICATION`, `QUALIFIED`, `REJECTED`, `WAITING_OWNER`, and `CONVERTED_TO_PROJECT`.
 
-## Source tree
+`OpportunityIntakeService` composes the existing `SalesAgent`, `RequirementsAgent`, `CompanyDirector`, and `Supervisor`. Sales produces an `OpportunityBrief`, client-needs summary, open questions, risks, recommended next action, and a proposal draft. Unsupported-fit or commercial-risk cases are held at the Human Owner gate; Sales cannot authorize legal, payment, fixed-price, deadline, or contract commitments.
 
-```text
-services/orchestrator/app/{db.py,main.py,config.py,agent_service.py,autonomy.py,recovery.py,self_improvement.py}
-services/orchestrator/app/coordination/{models.py,roles.py,store.py,scheduler.py,bus.py,context.py,supervisor.py,e2e.py}
-services/orchestrator/app/memory/{models.py,store.py,sanitizer.py}
-services/model-gateway/app/*
-services/local-agent/app/*
-services/provider-router/server/*
-apps/control-center/*
-apps/desktop/*
-start-ai-engineer.ps1
-```
+## Opportunity-to-project flow
 
-No real secrets were added to source or reports. Automatic remote Git push remains disabled.
+After qualification and any required owner approval, conversion creates a normal persisted project, creates a requirements handoff, obtains the existing dynamic team plan, and stores the converted project id on the opportunity. Starting execution calls the existing `Supervisor.start_objective`; no alternate execution path is used. Conversion is idempotent, including for isolated/test database paths.
 
-## Phase 8A organizational core
+## SEO routing flow
 
-### Organizational architecture
+The existing `TeamPlanner` now detects SEO signals and distinguishes analysis/research from implementation. SEO objectives select `seo_manager` and `seo_specialist`; keyword/search-intent work can add `researcher` without adding engineering roles. Technical remediation adds only justified engineering roles such as `frontend`, `backend`, `devops`, `integration`, `tester`, `security`, or `docs`. The selected roles are used by the existing Supervisor task DAG, so unselected roles are not scheduled.
 
-A persistent organizational layer now sits above the existing coordination Supervisor.
-The Company Director is a read-only executive coordinator; it evaluates scope, forms
-teams, monitors blocked/stalled membership and emits executive reports. It delegates
-technical execution to the existing task DAG and specialist roles.
+SEO Manager remains responsible for strategy, prioritization, delegation, acceptance criteria, and completion assessment. SEO Specialist performs detailed findings and verification. Engineering roles own production changes. Findings can create an existing SEO implementation task, fail verification, request revision, and then reach `SEO_VERIFIED` after the engineer fixes the fixture/workspace. Unavailable Search Console, Analytics, ranking, volume, CPC, backlink, and Core Web Vitals data remains unavailable rather than fabricated.
 
-### Agent profile model and departments
+## Persistence and API
 
-Migration 7 adds agent_profiles and project_team_members, and extends projects with
-leadership IDs, departments, phase, priority and team state. Profiles have stable IDs,
-role, display name, department, capabilities, specializations, allowed tools, write
-permission, model profile, operational status, active project, current tasks,
-experience summary and timestamps. Departments are EXECUTIVE, PRODUCT, ENGINEERING,
-QUALITY, SECURITY, RESEARCH, OPERATIONS and DOCUMENTATION. No personality or
-intelligence scores are persisted.
+Migration 13 adds durable opportunity workflow fields: `brief_json`, `qualification_json`, `owner_gate_status`, `converted_project_id`, `converted_at`, and `last_action`, with an index for converted projects. Existing opportunity columns and APIs remain compatible. The following routes are live after the remote restart:
 
-### Role model and dynamic staffing
+- `POST /v1/opportunities`
+- `GET /v1/opportunities/{opportunity_id}`
+- `POST /v1/opportunities/{opportunity_id}/analyze`
+- `POST /v1/opportunities/{opportunity_id}/qualify`
+- `POST /v1/opportunities/{opportunity_id}/convert`
+- `POST /v1/opportunities/{opportunity_id}/start`
 
-The canonical role registry reuses existing specialists and adds company_director,
-project_manager, engineering_manager and operations plus compatibility aliases.
-TeamPlanner selects a bounded policy: small (Engineering Manager, Implementer, Tester,
-Reviewer), medium (adds Architect, Integration and Documentation) or large (Project
-Manager, Requirements, Engineering Manager, Architect, Backend, Frontend, Integration,
-Tester, Security, Documentation and Release Verifier). New project creation forms a
-small default team; explicit planning can re-plan with declared complexity and evidence.
+## Files changed in this phase
 
-### APIs and tests
+- `services/orchestrator/app/db.py` â€” schema version 13 and opportunity migration.
+- `services/orchestrator/app/coordination/owner_control.py` â€” opportunity workflow fields, transitions, and updates.
+- `services/orchestrator/app/organization/director.py` â€” SEO-aware role selection and execution dependencies.
+- `services/orchestrator/app/organization/intake.py` â€” Sales-to-project orchestration service.
+- `services/orchestrator/app/routers/incident_control.py` â€” opportunity intake and lifecycle API routes.
+- `services/orchestrator/app/schemas.py` â€” lifecycle request models.
+- `services/orchestrator/tests/test_sales_seo_workflow.py` â€” deterministic Sales/SEO integration and idempotency coverage.
 
-Organization endpoints are available under /v1/organization for departments,
-employees, statuses, team formation, team inspection and executive reports. The
-Phase 8A tests use isolated SQLite databases and cover profile persistence/restart,
-director and department assignment, role compatibility, small/large team selection,
-project/team persistence, idempotent migration and bounded inference. Existing
-coordination primitives remain the only task, message and memory systems.
+Other files already modified by earlier phases were preserved; no unrelated changes were removed.
 
-### Limitations
-
-The Company Director does not directly execute code, the specialist worker adapter
-remains a documented debt, and SQLite remains oriented to a single orchestrator
-process. JavaScript dependency gaps remain the pre-existing release condition.
-
-## Phase 8B/8C verified update
-
-| Field | Value |
-|---|---|
-| Gregorian date | 2026-09-18 |
-| Jalali date | 1405-06-27 |
-| Scope | Collaboration, project management, work queues and multi-project scheduling |
-| Status | Implemented and validated; Phase 8D not started |
-
-### Phase 8B collaboration
-
-The existing coordination subsystem now persists scoped conversations, structured messages, technical decision records, meetings, internal work requests and bounded discussion rounds. `app/coordination/collaboration.py` and `collaboration_store.py` extend the existing message bus and persistence layer rather than introducing a parallel chat system. Collaboration routes are exposed under `/v1/collaboration`. Message and meeting context is filtered by project/task/participants and is not assembled from an unbounded transcript.
-
-### Phase 8C project management
-
-`app/coordination/project_management.py` adds the Project Manager delivery-coordination facade and keeps Engineering Manager responsibilities separate. It persists lifecycle transitions, milestones/deliverables, risks, quality gates and durable agent work queues. Project completion is evidence-gated: requirements must be ready before implementation; `tests_passed` and `review_accepted` are mandatory before release verification; an optional `security_review` gate is enforced when present; and release evidence is required before completion. Rejected review and failed gates keep the project out of the completed state.
-
-Scheduling is dependency-aware and project-scoped. Cross-project ready-task scheduling orders project priority before task priority, only admits tasks whose dependencies are complete, and skips writer tasks with active conflicting persisted resource leases. Read-only tasks may remain eligible. `blackboard()` is a derived read model over authoritative state and includes active projects, phases, risks, blockers, decisions, failed tests, reviews, questions and release status without becoming a second source of truth. `ProjectManager` exposes status, milestone/risk operations, scheduling and reports through the existing API boundary.
-
-### Database changes
-
-Migration 8 adds collaboration conversations, decisions, meetings, work requests and message metadata. Migration 9 adds lifecycle events, milestones, risks, quality gates and `agent_work_queue` with indexes and idempotent additive initialization. Existing projects, tasks, messages, handoffs and memories are retained. Current schema version is 9; older report statements referring to schema version 7 are historical and superseded by this verified state.
-
-### Validation evidence
-
-- Orchestrator full suite: **114 passed, 1 skipped**.
-- Phase 8C project-management tests: **10 passed**.
-- Phase 8B collaboration tests: **4 passed**.
-- Model Gateway suite: **26 passed**.
-- Local Agent suite: **2 passed**.
-- Application compile check: **44 Python files, 0 failures** after the final code changes.
-- Route/import smoke: **105 routes**, including **12 collaboration** and **12 project-management** routes; health dependency check returned `True`.
-- Service health: ports **8010**, **8011** and **8012** returned HTTP 200.
-
-### Limitations and readiness
-
-Scheduling and locking remain in-process/SQLite-oriented; there is no distributed queue or measured cross-project capacity allocator. The existing Supervisor-to-worker/model adapter and JavaScript dependency gaps remain pre-existing release conditions. No remote Git commit or push was performed. Phase 8D was not started.
-
-### Validation route-count correction
-
-The final route inspection counted **105 total routes**, **12 collaboration routes**, and **16 project-management routes**. The earlier phrase "12 project-management routes" in the preceding update was a counting error; the complete 16-route management surface is listed in `docs/project-management.md`.
-
-
----
-
-## Phase 8D - Incident Management, Organizational Learning and Human Owner Control
-
-**Gregorian date:** 2026-09-18  
-**Jalali date:** 1405-06-27  
-**Scope:** implementation and validation of the 8D organizational resilience layer
-
-### INCIDENT SYSTEM
-
-New module: services/orchestrator/app/coordination/incidents.py.
-
-The service persists incidents and enforces the phase chain detect, contain, diagnose, repair, verify, postmortem, learn and resolved. Invalid jumps are rejected; repeating the current phase is idempotent. Every accepted transition writes an incident event containing actor role, details and bounded evidence.
-
-Incident teams are created through persistent organization employee profiles. Team selection reuses the existing memory/performance store and ranks available profiles by completed work, failure signals and domain success. The implementation avoids nested SQLite writes by selecting/creating profiles before inserting incident membership rows.
-
-### POSTMORTEM
-
-postmortems stores root cause, impact, timeline, contributing factors, repair, verification, prevention ideas, follow-up tasks and the linked lesson memory id. The lesson promotion path requires evidence and uses the existing memory sanitizer and lifecycle promotion rules. Raw incident text is not trusted automatically.
-
-### ORGANIZATIONAL MEMORY
-
-Company lessons use project_id IS NULL and remain separate from project-scoped memory. Promotion is evidence-gated; retrieval uses the existing ranked MemoryStore query. Secret-like payloads are sanitized before persistence.
-
-### PERFORMANCE LEARNING
-
-Existing agent_performance metrics are used without inventing intelligence ratings. The selection score combines completed tasks, failure signals and success rate for role/domain. collaboration_quality aggregates repeated coordination issues by project and signature, with bounded examples and occurrence counts.
-
-### OWNER CONTROL
-
-New service: services/orchestrator/app/coordination/owner_control.py.
-
-Normal owner actions are persisted and applied through the project lifecycle service. Supported actions are start_project, pause_project, resume_project, cancel_project, change_priority, request_report, approve_major_decision, reject_major_decision and request_review. High-risk actions remain pending_approval until the Human Owner resolves them. Approved high-risk actions return requires_explicit_external_operator and do not execute deployment, publication, infrastructure, credential or financial operations.
-
-The service rejects non-human_owner actors and sanitizes arbitrary payloads. Existing deployment authentication remains the HTTP trust boundary; this phase does not introduce a new identity provider.
-
-### EXTERNAL INTAKE ABSTRACTION
-
-owner_control.py defines ProjectOpportunity, ClientMessage, ProjectProposal, ClientRequirement and ClientApproval. project_opportunities persists source, optional external reference, title, summary, requirements and status. This is an adapter boundary only; no marketplace connector is enabled.
-
-### DATABASE CHANGES
-
-Migration 10 is additive and idempotent. It creates incidents, incident_events, incident_team_members, postmortems, collaboration_quality, owner_control_actions and project_opportunities with foreign keys, unique constraints and targeted indexes. Schema version is 10.
-
-### API CHANGES
-
-New router: services/orchestrator/app/routers/incident_control.py, included by app.main. It exposes /v1 endpoints for incident CRUD/transition/events/team, postmortems/lessons, organizational lessons/performance/team selection, collaboration quality, owner actions/resolution and opportunities. Existing APIs were not removed.
-
-### TEST RESULTS
+## Validation
 
 | Check | Result |
 |---|---|
-| Phase 8D targeted orchestrator tests | PASS - 4 |
-| Full orchestrator unittest discovery | PASS - 118, 1 skipped |
-| Model Gateway pytest | PASS - 26 |
-| Local Agent unittest discovery | PASS - 2 |
-| Changed Python compile checks | PASS |
-| FastAPI import smoke | PASS - 125 total routes, 8 incident routes |
-| Automatic remote push/deployment/financial operation | NOT_PERFORMED by design |
+| Orchestrator full suite | PASS â€” 243 passed, 1 skipped, 0 failed |
+| Sales/SEO workflow suite | PASS â€” 8 passed |
+| Dynamic execution-team regression suite | PASS â€” 9 passed (included in the full suite) |
+| Model Gateway suite | PASS â€” 26 passed |
+| Local Agent suite | PASS â€” 2 passed via `unittest` |
+| Python compile check | PASS |
+| `git diff --check` | PASS; only normal LF/CRLF warnings |
+| Live Orchestrator health | PASS â€” HTTP 200; Model Gateway and Local Agent dependencies healthy |
+| Live opportunity OpenAPI paths | PASS â€” all six lifecycle paths present |
+| TypeScript/frontend checks | NOT_RUN â€” no frontend source changed in this phase |
+| Optional real-model smoke | NOT_RUN â€” deterministic tests use controlled model boundaries |
 
-### KNOWN LIMITATIONS
+## Security and operational notes
 
-The HTTP control plane still relies on the pre-existing deployment authentication boundary. SQLite coordination and employee profiles remain single-process primitives. Incident team assignments do not launch separate worker processes. External opportunity adapters, production deployment automation, remote publication and financial commitments remain intentionally disabled. A future phase can add distributed workers only with an explicit queue/lock design and additional recovery tests.
+The implementation keeps commercial commitments behind the existing owner-control boundary, uses least-privilege role selection, preserves project isolation, and does not add credentials or remote push behavior. A verified timestamped remote backup was created before each edit batch; the latest pre-edit archive was `corrective-phase3-preedit-tar-20260919-125820.zip` with SHA256 `212925F6727109F713F624F3985DA20E1513E273CC5C90074BDC3A0C70B33B99`.
 
-## Phase 8E â€” Full AI Software Company Integration Validation (2026-09-18 / 1405-06-27)
+## Remaining limitations
 
-### Scope and result
+External CRM/payment/contract integrations are intentionally not automated. SEO analytics and ranking data require an authorized data source. Human Owner approval remains required for unsupported fit and other commercial commitments. Frontend build/type checks were not applicable to the changed files.
 
-Phase 8E adds no second task, message or memory system. It adds the persisted `company_events` ledger and `coordination/company_trace.py` integration facade over the existing organization, task DAG, collaboration, handoff, incident, memory, project-management, recovery and engineering-demo stores. The deterministic company simulation completed for the required full-stack objective and produced JSON/Markdown trace artifacts.
+# Corrective Phase 4 Technical Report â€” Deployment Safety and Release Cleanup
 
-### Validation
+| Field | Value |
+|---|---|
+| Gregorian date | 2026-09-20 |
+| Jalali date | 1405-06-29 |
+| Scope | IIS exposure, control-plane authentication, gateway protection, autonomy/configuration safety, release packaging |
+| Deployment performed | NO |
+| Remote push performed | NO |
 
-- Orchestrator: **120 passed, 1 skipped** (optional real-model smoke test).
-- Model Gateway: **26 passed**.
-- Local Agent: **2 passed**.
-- Changed Python modules compile successfully.
-- Company trace endpoints registered: `/v1/company/events`, `/v1/company/projects/{project_id}/trace`, `/v1/company/projects/{project_id}/trace/markdown`.
+## Authentication boundary
 
-### Evidence and limitations
+`services/orchestrator/app/security.py` adds `ControlPlaneAuthMiddleware`. Health, readiness and documentation endpoints remain liveness-public. Other routes require `X-AI-Engine-Token` or `Authorization: Bearer`. High-risk route families (`/v1/developer`, `/v1/self-improvement`, `/v1/owner`, recovery run controls and agent project controls) additionally require `X-AI-Engine-Owner-Token`. Tokens are loaded through `SecretStr` settings and compared with `hmac.compare_digest`.
 
-The trace includes organization/team creation, assignments, task DAG, persisted messages and challenge/resolution, decisions, meeting/action item, internal API request/response, handoff, incident/postmortem/lesson, restart recovery, review/test evidence and release/completion events. Event insertion is idempotent by event ID and queries are project-scoped. The simulation is deterministic and exercises real persistence/orchestration; it does not claim a real external model call, remote push or production deployment.
+`services/model-gateway/app/security.py` adds `GatewayAuthMiddleware`; only liveness/documentation paths are public when `GATEWAY_AUTH_REQUIRED=true`. Orchestrator downstream requests propagate `MODEL_GATEWAY_TOKEN` only to the configured gateway URL.
 
-### Database
+## Privileged endpoint protection
 
-Migration 11 creates `company_events` with project/run/task references, actor metadata, redacted JSON payload, timestamp and project/run/type indexes. Existing migration initialization remains idempotent and additive.
+The boundary is server-side and does not trust request fields such as `approved=true`. IIS remains a reverse proxy; `httpErrors existingResponse="PassThrough"` preserves 401/403 responses. The static frontend is not given privileged tokens. Production startup fails closed when required tokens are absent.
 
+## Autonomy safety
 
-## SEO Manager Delivery â€” 2026-09-19 / 1405-06-28
+Settings, `.env.example` and the Windows launcher default `AUTONOMOUS_MODE_ENABLED=false` and `AUTONOMOUS_AUTO_PUSH=false`. Explicit protected machine variables (`AI_ENGINE_AUTONOMOUS_MODE_ENABLED`, `AI_ENGINE_AUTONOMOUS_AUTO_PUSH`) are required to opt in. The current server `.env` is an existing opt-in runtime configuration (`AUTONOMOUS_MODE_ENABLED=true`, auto-push false) and is a pre-restart review blocker, not a source default.
 
-The integrated `seo_manager` role is implemented as a read-only manager over the existing AI company infrastructure. It builds project-scoped site profiles, evidence-backed audits, keyword/page mappings, delegated DAG tasks, handoffs, decisions, quality gates, validated memory, and SEO reports. No second agent/task/memory system or SEO-specific database table was introduced.
+## Configuration and documentation
 
-Validation: 11 focused SEO tests passed; 213 orchestrator tests passed with 1 skipped; 26 Model Gateway pytest tests passed; 2 Local Agent tests passed; syntax and live health/role checks passed. External analytics, ranking and Core Web Vitals sources remain NOT_CONNECTED and are never fabricated.
+Updated service environment examples, schema-version references (13), Electron architecture references, deployment instructions, authentication requirements, and the deployment rollback runbook. The server launcher resolves the project root from environment or script location and uses loopback service ports 8010/8011/8012.
 
-## SEO Specialist update (2026-09-19 / 1405-06-28)
+## Release cleanup
 
-The integrated read-only seo_specialist employee now performs evidence-backed technical and on-page SEO analysis, keyword clustering and mapping, content gaps and briefs, internal-link recommendations, implementation handoffs, independent verification and validated project-memory promotion. Ten deterministic SEO Specialist tests were added; the complete Orchestrator suite passed with one pre-existing skipped test. External ranking, traffic, analytics, Search Console, search-volume and Core Web Vitals claims remain unavailable without an authorized source.
+`deploy/windows-server/package-release.ps1` creates a sanitized ZIP without `.git`, virtual environments, `node_modules`, caches, logs, runtime data, workspaces, backups, database copies, credentials, private keys or local `.env` files. Safe `.env.example` templates are retained. A server packaging smoke run produced a 6,790,985-byte archive; forbidden-entry and high-confidence content scan returned no matches and four safe `.env.example` files were present.
+
+## Deployment health checks
+
+The HTTPS probe to devoria.ir failed during connection setup. The current HTTP public proxy returned HTTP 200 for the existing unauthenticated gateway route because the running processes have not been restarted with the new boundary; both conditions are explicit release blockers.
+
+## Rollback plan
+
+Run the complete test/build gate, create and checksum a timestamped backup, configure protected tokens, restart, run authenticated health and smoke checks, and retain the backup. On failure stop the new instance, restore the verified checkout/data backup, restart the previous version and rerun health checks. No irreversible deployment was performed.
+
+## Exact validation results
+
+| Check | Result |
+|---|---|
+| Orchestrator full unittest discovery | PASS â€” 247 passed, 1 skipped, 0 failed |
+| Orchestrator deployment security tests | PASS â€” 4 passed |
+| Model Gateway full pytest suite | PASS â€” 27 passed, 0 failed |
+| Model Gateway security test | PASS â€” 1 passed |
+| Local Agent unittest discovery | PASS â€” 2 passed, 0 failed |
+| SEO/company integration subset | PASS â€” 33 passed, 0 failed (included in Orchestrator total) |
+| Python compileall | PASS |
+| `git diff --check` | PASS (line-ending warnings only) |
+| Control Center `npm run build` | PASS (tsc + Vite) |
+| Desktop build/typecheck | NOT_RUN â€” dependencies absent |
+| Sanitized package smoke test | PASS â€” 6,790,985 bytes; no forbidden entries |
+| Loopback health identity checks | PASS â€” Gateway, Local Agent, Orchestrator HTTP 200 |
+| Authenticated public health check | NOT_RUN â€” required machine tokens absent |
+
+## Remaining server blockers
+
+`READY_FOR_DEPLOYMENT = NO`. Exact blockers: (1) configure protected machine control-plane, owner and gateway tokens; (2) restart services so the new middleware is active; (3) change/review the existing runtime autonomy opt-in before public restart; (4) configure and verify HTTPS/IIS authenticated proxy behavior; (5) install Desktop dependencies if a Desktop build is a release requirement; (6) rerun authenticated health and smoke checks after restart.
+
+### Health-script shape validation
+
+The health script completed its response-shape and safety assertions with ephemeral non-secret test tokens against the reachable HTTP proxy. This validates the script logic only; real authenticated production validation remains NOT_RUN until machine tokens are configured and the services are restarted.

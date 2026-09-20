@@ -7,6 +7,32 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+function Get-RequiredSecret([string]$Name) {
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        throw "$Name must be configured as a machine/user environment variable before starting the public server."
+    }
+    return $value
+}
+
+function Get-BooleanEnvironment([string]$Name, [bool]$Default) {
+    $raw = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($raw)) { return $Default }
+    $parsed = $false
+    if (-not [bool]::TryParse($raw, [ref]$parsed)) {
+        throw "$Name must be true or false."
+    }
+    return $parsed
+}
+
+# These values are never written to logs or source files. They are required
+# for a public deployment and are inherited only by the loopback services.
+$ControlPlaneToken = Get-RequiredSecret "AI_ENGINE_CONTROL_PLANE_TOKEN"
+$OwnerControlToken = Get-RequiredSecret "AI_ENGINE_OWNER_TOKEN"
+$GatewayToken = Get-RequiredSecret "AI_ENGINE_GATEWAY_TOKEN"
+$AutonomousEnabled = Get-BooleanEnvironment "AI_ENGINE_AUTONOMOUS_MODE_ENABLED" $false
+$AutoPush = Get-BooleanEnvironment "AI_ENGINE_AUTONOMOUS_AUTO_PUSH" $false
 if ([string]::IsNullOrWhiteSpace($Root)) {
     $configuredRoot = if (-not [string]::IsNullOrWhiteSpace($env:AI_ENGINE_PROJECT_ROOT)) { $env:AI_ENGINE_PROJECT_ROOT } elseif (-not [string]::IsNullOrWhiteSpace($env:PROJECT_ROOT)) { $env:PROJECT_ROOT } else { $null }
     if (-not [string]::IsNullOrWhiteSpace($configuredRoot)) {
@@ -25,7 +51,7 @@ if ([string]::IsNullOrWhiteSpace($Root)) {
 
 $Root = [System.IO.Path]::GetFullPath($Root)
 $env:AI_ENGINE_PROJECT_ROOT = $Root
-$Model = "qwen3:8b"
+$Model = if (-not [string]::IsNullOrWhiteSpace($env:AI_ENGINE_MODEL)) { $env:AI_ENGINE_MODEL } else { "qwen3:8b" }
 $LogRoot = Join-Path $Root "logs\server"
 $DataRoot = Join-Path $Root "data"
 $WorkspaceRoot = Join-Path $Root "workspaces"
@@ -51,7 +77,7 @@ function Wait-Http([string]$Url, [int]$Seconds = 60) {
     while ((Get-Date) -lt $deadline) {
         try {
             $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 3
-            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { return $true }
+            if ($response.StatusCode -eq 200) { return $true }
         }
         catch {
         }
@@ -144,6 +170,8 @@ $gatewayEnvironment = @{
     MAX_FALLBACK_ATTEMPTS = "1"
     READ_TIMEOUT_SECONDS = "600"
     NO_PROXY = "localhost,127.0.0.1,::1"
+    GATEWAY_AUTH_REQUIRED = "true"
+    GATEWAY_AUTH_TOKEN = $GatewayToken
 }
 
 $agentEnvironment = @{
@@ -171,7 +199,11 @@ $orchestratorEnvironment = @{
     ORCHESTRATOR_DB_PATH = Join-Path $DataRoot "orchestrator\orchestrator.db"
     AGENT_MODEL = $Model
     AUTONOMOUS_AGENT_MODEL = $Model
-    AUTONOMOUS_MODE_ENABLED = "true"
+    CONTROL_PLANE_AUTH_REQUIRED = "true"
+    CONTROL_PLANE_TOKEN = $ControlPlaneToken
+    OWNER_CONTROL_TOKEN = $OwnerControlToken
+    MODEL_GATEWAY_TOKEN = $GatewayToken
+    AUTONOMOUS_MODE_ENABLED = "$AutonomousEnabled"
     AUTONOMOUS_INTERVAL_MINUTES = "5"
     AUTONOMOUS_CYCLES_PER_RUN = "1"
     AUTONOMOUS_TASK_TIMEOUT_SECONDS = "900"
@@ -182,7 +214,7 @@ $orchestratorEnvironment = @{
     AUTONOMOUS_MAX_SUBAGENTS = "2"
     AUTONOMOUS_INCLUDE_SECTION_SPECIALIST = "false"
     AUTONOMOUS_WORKSPACE = "ai-engineer"
-    AUTONOMOUS_AUTO_PUSH = "false"
+    AUTONOMOUS_AUTO_PUSH = "$AutoPush"
     AUTONOMOUS_REPO_ROOT = $Root
 }
 
@@ -195,4 +227,4 @@ if (-not (Test-Path -LiteralPath (Join-Path $WebRoot "web.config"))) { throw "II
 Write-Host "AI Engineer server services are healthy." -ForegroundColor Green
 Write-Host "Ollama model: $Model"
 Write-Host "Control Center build: $WebRoot"
-Write-Host "Public URL: http://devoria.ir"
+Write-Host "Public URL: https://devoria.ir"

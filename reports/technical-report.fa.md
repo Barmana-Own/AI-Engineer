@@ -1,252 +1,143 @@
-# گزارش فنی AI-Engineer
+﻿# ÙØ§Ø² Ø§ØµÙ„Ø§Ø­ÛŒ Û³ â€” Ø§ØªØµØ§Ù„ Ø¬Ø±ÛŒØ§Ù† ÙØ±ÙˆØ´ Ùˆ SEO Ø¨Ù‡ Ú¯Ø±Ø¯Ø´â€ŒÚ©Ø§Ø± ÙˆØ§Ù‚Ø¹ÛŒ
 
-| فیلد | مقدار |
+| ÙÛŒÙ„Ø¯ | Ù…Ù‚Ø¯Ø§Ø± |
 |---|---|
-| نوع گزارش | تحویل و ممیزی فنی مهندسی |
-| زبان | فارسی |
-| تاریخ میلادی | 2026-09-18 |
-| تاریخ جلالی | 1405-06-27 |
-| بازبینی ریویژن | `dc436aa` |
-| وضعیت تحویل | هسته سامانه تأیید شده انتشار مشروط |
+| Ù¾Ø±ÙˆÚ˜Ù‡ | AI-Engineer |
+| Ù†ÙˆØ¹ Ú¯Ø²Ø§Ø±Ø´ | Ú¯Ø²Ø§Ø±Ø´ ÙÙ†ÛŒ |
+| ÙØ§Ø² | Corrective Phase 3 |
+| ØªØ§Ø±ÛŒØ® Ù…ÛŒÙ„Ø§Ø¯ÛŒ | 2026-09-19 |
+| ØªØ§Ø±ÛŒØ® Ø¬Ù„Ø§Ù„ÛŒ | 1405-06-28 |
+| ÙˆØ¶Ø¹ÛŒØª ØªØ­ÙˆÛŒÙ„ | Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ùˆ Ø±ÙˆÛŒ Ù…Ø®Ø²Ù† Ø±Ø§Ù‡â€ŒØ¯ÙˆØ± Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ Ø´Ø¯ |
 
-## دامنه و معماری
+## Ø¯Ø§Ù…Ù†Ù‡ ØªØºÛŒÛŒØ±
 
-این بازبینی فازهای  تا  را بدون افزودن قابلیت بزرگ جدید بررسی کرد. مرزهای Electron Desktop / React Control Center -> FastAPI Orchestrator -> Model Gateway / Local Agent حفظ شدهاند. Provider Router همچنان یک پل اختیاری برای ارائهدهندگان است. Orchestrator از SQLite با نسخه شمای  مهاجرتهای افزایشی قطعی WAL و پایگاهداده جداگانه برای تست استفاده میکند.
+Ø§ÛŒÙ† ÙØ§Ø² Ø§Ø¬Ø²Ø§ÛŒ Ù…ÙˆØ¬ÙˆØ¯ SalesØŒ RequirementsØŒ Company DirectorØŒ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒØ±ÛŒØ²ÛŒ ØªÛŒÙ…ØŒ SEO Ùˆ Supervisor Ø±Ø§ Ø¨Ù‡ Ù‡Ù… Ù…ØªØµÙ„ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ú†Ø§Ø±Ú†ÙˆØ¨ Ø¯ÙˆÙ… Ø¨Ø±Ø§ÛŒ agentØŒ taskØŒ message ÛŒØ§ memory Ø³Ø§Ø®ØªÙ‡ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª. ÙˆØ±ÙˆØ¯ ÙØ±ØµØª Ø§Ú©Ù†ÙˆÙ† Ø¨Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ùˆ Ø§Ø¬Ø±Ø§ÛŒ Ù…ÙˆØ¬ÙˆØ¯ ØªØ¨Ø¯ÛŒÙ„ Ù…ÛŒâ€ŒØ´ÙˆØ¯ Ùˆ Ø§Ù‡Ø¯Ø§Ù SEO Ø±ÙˆÛŒ Ø¨Ø±Ù†Ø§Ù…Ù‡â€ŒØ±ÛŒØ²ÛŒ Ù¾ÙˆÛŒØ§ÛŒ ØªÛŒÙ… Ø§Ø«Ø± Ù…ÛŒâ€ŒÚ¯Ø°Ø§Ø±Ù†Ø¯.
 
-## معماری پیادهسازیشده
+## Ø¬Ø±ÛŒØ§Ù† ÙˆØ±ÙˆØ¯ Sales
 
-- ثبت مرکزی  نقش عامل همراه با قراردادها و نامهای سازگاری.
-- گراف وظایف پایدار تحت مدیریت Supervisor با وابستگی و وضعیتهای صریح.
-- گذرگاه پیام نوعدار و پروتکل handoff پایدار.
-- قفل تراکنشی فضایکار و اجرای محدود کارهای فقطخواندنی موازی.
-- حافظههای working episodic project lesson و failure با ارتقای مبتنی بر شواهد و حذف داده شبیه credential.
-- چرخه خودبهبود مبتنی بر شواهد با checkpoint محلی دروازه تست/بازبینی محدودیتها و بدون push خودکار.
-- بازیابی آغاز به کار lease اجرا heartbeat/انقضا رویدادهای recovery و ثبت خطای provider.
-- فیکسچر قطعی end-to-end و API مسیر `GET /v1/coordination/runs/{run_id}/trace`.
+Ø±Ú©ÙˆØ±Ø¯ `ProjectOpportunity` Ø¨Ø§ persistence Ù…ÙˆØ¬ÙˆØ¯ Ø°Ø®ÛŒØ±Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯ Ùˆ Ø­Ø§Ù„Øªâ€ŒÙ‡Ø§ÛŒ ØµØ±ÛŒØ­ `NEW`ØŒ `ANALYZING`ØŒ `NEEDS_CLARIFICATION`ØŒ `QUALIFIED`ØŒ `REJECTED`ØŒ `WAITING_OWNER` Ùˆ `CONVERTED_TO_PROJECT` Ø±Ø§ Ø·ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯.
 
-## همگامسازی مستندات
+Ø³Ø±ÙˆÛŒØ³ `OpportunityIntakeService` Ø§Ø² `SalesAgent`ØŒ `RequirementsAgent`ØŒ `CompanyDirector` Ùˆ `Supervisor` Ù…ÙˆØ¬ÙˆØ¯ Ø§Ø³ØªÙØ§Ø¯Ù‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. SalesØŒ `OpportunityBrief`ØŒ Ø®Ù„Ø§ØµÙ‡ Ù†ÛŒØ§Ø² Ù…Ø´ØªØ±ÛŒØŒ Ù¾Ø±Ø³Ø´â€ŒÙ‡Ø§ÛŒ Ø¨Ø§Ø²ØŒ Ø±ÛŒØ³Ú©â€ŒÙ‡Ø§ØŒ Ø§Ù‚Ø¯Ø§Ù… Ø¨Ø¹Ø¯ÛŒ Ùˆ Ù¾ÛŒØ´â€ŒÙ†ÙˆÛŒØ³ Ù¾ÛŒØ´Ù†Ù‡Ø§Ø¯ Ø±Ø§ ØªÙˆÙ„ÛŒØ¯ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ù…ÙˆØ§Ø±Ø¯ Ø®Ø§Ø±Ø¬ Ø§Ø² ØªÙˆØ§Ù† ÛŒØ§ Ø¯Ø§Ø±Ø§ÛŒ Ø±ÛŒØ³Ú© ØªØ¬Ø§Ø±ÛŒ Ø¯Ø± Ú¯ÛŒØª Ù…Ø§Ù„Ú© Ø§Ù†Ø³Ø§Ù†ÛŒ Ù…ØªÙˆÙ‚Ù Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯Ø› Sales Ù…Ø¬Ø§Ø² Ø¨Ù‡ ØªØ¹Ù‡Ø¯ Ø­Ù‚ÙˆÙ‚ÛŒØŒ Ù¾Ø±Ø¯Ø§Ø®ØªØŒ Ù‚ÛŒÙ…Øª Ù‚Ø·Ø¹ÛŒØŒ Ù…Ù‡Ù„Øª Ø§Ù„Ø²Ø§Ù…â€ŒØ¢ÙˆØ± ÛŒØ§ Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯ Ù†ÛŒØ³Øª.
 
-فایلهای `docs/architecture.md` `docs/roadmap.md` `docs/multi-agent-coordination.md` `docs/engineering-memory.md` `docs/autonomous-backlog.md` `docs/implementation-plan-autonomous-multi-agent.md` و `README.md` اکنون Electron نسخه شمای  رفتار واقعی نقشها/گراف/پیام/حافظه/بازیابی و محدودیتها را بیان میکنند. متن قدیمی Tauri تاریخی علامتگذاری یا حذف شده است. ماژولهای placeholder همچنان صریحا placeholder هستند.
+## Ø¬Ø±ÛŒØ§Ù† ÙØ±ØµØª ØªØ§ Ù¾Ø±ÙˆÚ˜Ù‡
 
-## شواهد اعتبارسنجی
+Ù¾Ø³ Ø§Ø² qualification Ùˆ ØªØ£ÛŒÛŒØ¯ Ù…Ø§Ù„Ú© Ø¯Ø± ØµÙˆØ±Øª Ù†ÛŒØ§Ø²ØŒ ØªØ¨Ø¯ÛŒÙ„ ÛŒÚ© Ù¾Ø±ÙˆÚ˜Ù‡ Ø¹Ø§Ø¯ÛŒ Ùˆ Ù¾Ø§ÛŒØ¯Ø§Ø± Ù…ÛŒâ€ŒØ³Ø§Ø²Ø¯ØŒ handoff Ù†ÛŒØ§Ø²Ù…Ù†Ø¯ÛŒ Ø±Ø§ Ø«Ø¨Øª Ù…ÛŒâ€ŒÚ©Ù†Ø¯ØŒ Ø¨Ø±Ù†Ø§Ù…Ù‡ ØªÛŒÙ… Ù¾ÙˆÛŒØ§ÛŒ Ù…ÙˆØ¬ÙˆØ¯ Ø±Ø§ Ù…ÛŒâ€ŒÚ¯ÛŒØ±Ø¯ Ùˆ Ø´Ù†Ø§Ø³Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ø±Ø§ Ø±ÙˆÛŒ ÙØ±ØµØª Ø°Ø®ÛŒØ±Ù‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ø´Ø±ÙˆØ¹ Ø§Ø¬Ø±Ø§ ÙÙ‚Ø· `Supervisor.start_objective` Ù…ÙˆØ¬ÙˆØ¯ Ø±Ø§ ÙØ±Ø§Ø®ÙˆØ§Ù†ÛŒ Ù…ÛŒâ€ŒÚ©Ù†Ø¯ Ùˆ Ù…ÙˆØªÙˆØ± Ø¯ÙˆÙ… ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯. ØªØ¨Ø¯ÛŒÙ„ Ø¨Ø±Ø§ÛŒ Ø¯ÛŒØªØ§Ø¨ÛŒØ³â€ŒÙ‡Ø§ÛŒ Ø§ÛŒØ²ÙˆÙ„Ù‡ Ùˆ ØªØ³ØªÛŒ Ù†ÛŒØ² idempotent Ø§Ø³Øª.
 
-| آزمون یا بررسی | نتیجه |
+## Ø¬Ø±ÛŒØ§Ù† SEO
+
+`TeamPlanner` Ù…ÙˆØ¬ÙˆØ¯ Ø§Ú©Ù†ÙˆÙ† Ø³ÛŒÚ¯Ù†Ø§Ù„â€ŒÙ‡Ø§ÛŒ SEO Ø±Ø§ ØªØ´Ø®ÛŒØµ Ù…ÛŒâ€ŒØ¯Ù‡Ø¯ Ùˆ ØªØ­Ù„ÛŒÙ„/ØªØ­Ù‚ÛŒÙ‚ Ø±Ø§ Ø§Ø² Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ø¬Ø¯Ø§ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ø§Ù‡Ø¯Ø§Ù SEOØŒ `seo_manager` Ùˆ `seo_specialist` Ø±Ø§ Ø§Ù†ØªØ®Ø§Ø¨ Ù…ÛŒâ€ŒÚ©Ù†Ù†Ø¯Ø› Ú©Ø§Ø± keyword/search-intent Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ `researcher` Ø±Ø§ Ø§Ø¶Ø§ÙÙ‡ Ú©Ù†Ø¯ Ø¨Ø¯ÙˆÙ† Ø¢Ù†â€ŒÚ©Ù‡ Ù…Ù‡Ù†Ø¯Ø³ ØºÛŒØ±Ø¶Ø±ÙˆØ±ÛŒ Ø§ÛŒØ¬Ø§Ø¯ Ø´ÙˆØ¯. Ø§ØµÙ„Ø§Ø­ ÙÙ†ÛŒ ÙÙ‚Ø· Ù†Ù‚Ø´â€ŒÙ‡Ø§ÛŒ Ù„Ø§Ø²Ù… Ù…Ø§Ù†Ù†Ø¯ `frontend`ØŒ `backend`ØŒ `devops`ØŒ `integration`ØŒ `tester`ØŒ `security` ÛŒØ§ `docs` Ø±Ø§ Ø§Ø¶Ø§ÙÙ‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ù‡Ù…ÛŒÙ† Ù†Ù‚Ø´â€ŒÙ‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨â€ŒØ´Ø¯Ù‡ ØªÙˆØ³Ø· DAG Ùˆ Supervisor Ø²Ù…Ø§Ù†â€ŒØ¨Ù†Ø¯ÛŒ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯ Ùˆ Ù†Ù‚Ø´â€ŒÙ‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨â€ŒÙ†Ø´Ø¯Ù‡ Ø§Ø¬Ø±Ø§ Ù†Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯.
+
+SEO Manager Ù…Ø§Ù„Ú© Ø§Ø³ØªØ±Ø§ØªÚ˜ÛŒØŒ Ø§ÙˆÙ„ÙˆÛŒØªØŒ delegationØŒ Ù…Ø¹ÛŒØ§Ø± Ù¾Ø°ÛŒØ±Ø´ Ùˆ Ø§Ø±Ø²ÛŒØ§Ø¨ÛŒ ØªÚ©Ù…ÛŒÙ„ Ø§Ø³Øª. SEO Specialist ÛŒØ§ÙØªÙ‡â€ŒÙ‡Ø§ÛŒ Ø¬Ø²Ø¦ÛŒ Ùˆ verification Ø±Ø§ Ø§Ù†Ø¬Ø§Ù… Ù…ÛŒâ€ŒØ¯Ù‡Ø¯ Ùˆ Ù…Ù‡Ù†Ø¯Ø³Ø§Ù† ØªØºÛŒÛŒØ±Ø§Øª production Ø±Ø§ Ø§Ø¹Ù…Ø§Ù„ Ù…ÛŒâ€ŒÚ©Ù†Ù†Ø¯. ÛŒØ§ÙØªÙ‡ Ù…ÛŒâ€ŒØªÙˆØ§Ù†Ø¯ task Ù…ÙˆØ¬ÙˆØ¯ SEO Ø¨Ø³Ø§Ø²Ø¯ØŒ verification Ø±Ø§ fail Ú©Ù†Ø¯ØŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª revision Ø¨Ø¯Ù‡Ø¯ Ùˆ Ù¾Ø³ Ø§Ø² Ø§ØµÙ„Ø§Ø­ Ø¨Ù‡ `SEO_VERIFIED` Ø¨Ø±Ø³Ø¯. Ø¯Ø§Ø¯Ù‡â€ŒÙ‡Ø§ÛŒ Search ConsoleØŒ AnalyticsØŒ Ø±ØªØ¨Ù‡ØŒ Ø­Ø¬Ù…ØŒ CPCØŒ Ø¨Ú©â€ŒÙ„ÛŒÙ†Ú© Ùˆ Core Web Vitals Ø¯Ø± ØµÙˆØ±Øª Ù†Ø¨ÙˆØ¯ Ù…Ù†Ø¨Ø¹ Ù…Ø¹ØªØ¨Ø± Ø³Ø§Ø®ØªÙ‡ Ù†Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯.
+
+## Persistence Ùˆ API
+
+Migration 13 ÙÛŒÙ„Ø¯Ù‡Ø§ÛŒ Ù¾Ø§ÛŒØ¯Ø§Ø± `brief_json`ØŒ `qualification_json`ØŒ `owner_gate_status`ØŒ `converted_project_id`ØŒ `converted_at` Ùˆ `last_action` Ø±Ø§ Ø¨Ù‡ ÙØ±ØµØª Ø§Ø¶Ø§ÙÙ‡ Ùˆ Ø¨Ø±Ø§ÛŒ Ù¾Ø±ÙˆÚ˜Ù‡ ØªØ¨Ø¯ÛŒÙ„â€ŒØ´Ø¯Ù‡ index Ø§ÛŒØ¬Ø§Ø¯ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ø³ØªÙˆÙ†â€ŒÙ‡Ø§ Ùˆ APIÙ‡Ø§ÛŒ Ù‚Ø¨Ù„ÛŒ Ø­ÙØ¸ Ø´Ø¯Ù‡â€ŒØ§Ù†Ø¯. Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ Ø²Ù†Ø¯Ù‡ Ù¾Ø³ Ø§Ø² restart Ø±Ø§Ù‡â€ŒØ¯ÙˆØ±:
+
+- `POST /v1/opportunities`
+- `GET /v1/opportunities/{opportunity_id}`
+- `POST /v1/opportunities/{opportunity_id}/analyze`
+- `POST /v1/opportunities/{opportunity_id}/qualify`
+- `POST /v1/opportunities/{opportunity_id}/convert`
+- `POST /v1/opportunities/{opportunity_id}/start`
+
+## ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ ØªØºÛŒÛŒØ±Ú©Ø±Ø¯Ù‡ Ø¯Ø± Ø§ÛŒÙ† ÙØ§Ø²
+
+- `services/orchestrator/app/db.py` â€” Ù†Ø³Ø®Ù‡ schema 13 Ùˆ migration ÙØ±ØµØª.
+- `services/orchestrator/app/coordination/owner_control.py` â€” ÙÛŒÙ„Ø¯Ù‡Ø§ØŒ transitionÙ‡Ø§ Ùˆ update ÙØ±ØµØª.
+- `services/orchestrator/app/organization/director.py` â€” Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ù‚Ø´ Ùˆ dependencyÙ‡Ø§ÛŒ SEO.
+- `services/orchestrator/app/organization/intake.py` â€” orchestration Ø§Ø² Sales ØªØ§ Ù¾Ø±ÙˆÚ˜Ù‡.
+- `services/orchestrator/app/routers/incident_control.py` â€” routeÙ‡Ø§ÛŒ lifecycle ÙØ±ØµØª.
+- `services/orchestrator/app/schemas.py` â€” Ù…Ø¯Ù„â€ŒÙ‡Ø§ÛŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª lifecycle.
+- `services/orchestrator/tests/test_sales_seo_workflow.py` â€” ØªØ³Øªâ€ŒÙ‡Ø§ÛŒ ÛŒÚ©Ù¾Ø§Ø±Ú†Ù‡ Sales/SEO Ùˆ idempotency.
+
+ØªØºÛŒÛŒØ±Ø§Øª Ù…Ø±Ø§Ø­Ù„ Ù‚Ø¨Ù„ÛŒ Ø­ÙØ¸ Ø´Ø¯Ù‡â€ŒØ§Ù†Ø¯ Ùˆ ÙØ§ÛŒÙ„ Ù†Ø§Ù…Ø±ØªØ¨Ø·ÛŒ Ø­Ø°Ù Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.
+
+## Ù†ØªØ§ÛŒØ¬ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ
+
+| Ø¨Ø±Ø±Ø³ÛŒ | Ù†ØªÛŒØ¬Ù‡ |
 |---|---|
-| تستهای Orchestrator | PASS   تست  مورد skip |
-| فیکسچر E2E قطعی | PASS   تست تست مدل واقعی اختیاری skip |
-| تست Model Gateway | PASS   تست |
-| تست unittest Local Agent | PASS   تست |
-| بررسی compile پایتون | PASS برای سه درخت سرویس |
-| build کنترلسنتر | PASS (`tsc -b && vite build`) |
-| سلامت سرویسها | PASS  پورتهای   و  پاسخ  |
-| smoke API هماهنگی/بازیابی | PASS  roles برابر  trace ناموجود  مورد انتظار recovery status برابر  |
-| build دسکتاپ | NOT_RUN/BLOCKED  وابستگی `vite` موجود نیست |
-| تست Provider Router | NOT_RUN/BLOCKED  وابستگی `vitest` موجود نیست |
+| Ú©Ù„ ØªØ³Øªâ€ŒÙ‡Ø§ÛŒ Orchestrator | PASS â€” 243 Ù…ÙˆÙÙ‚ØŒ 1 skipØŒ 0 Ø®Ø·Ø§ |
+| ØªØ³Øª workflow ÙØ±ÙˆØ´ Ùˆ SEO | PASS â€” 8 Ù…ÙˆÙÙ‚ |
+| ØªØ³Øª regression ØªÛŒÙ… Ù¾ÙˆÛŒØ§ | PASS â€” 9 Ù…ÙˆÙÙ‚ Ùˆ Ø¯Ø± Ù…Ø¬Ù…ÙˆØ¹Ù‡ Ú©Ø§Ù…Ù„ Ù…ÙˆØ¬ÙˆØ¯ |
+| ØªØ³Øª Model Gateway | PASS â€” 26 Ù…ÙˆÙÙ‚ |
+| ØªØ³Øª Local Agent | PASS â€” 2 Ù…ÙˆÙÙ‚ Ø¨Ø§ `unittest` |
+| compile Ù¾Ø§ÛŒØªÙˆÙ† | PASS |
+| `git diff --check` | PASSØ› ÙÙ‚Ø· Ù‡Ø´Ø¯Ø§Ø± Ø¹Ø§Ø¯ÛŒ LF/CRLF |
+| Ø³Ù„Ø§Ù…Øª Ø²Ù†Ø¯Ù‡ Orchestrator | PASS â€” HTTP 200 Ùˆ ÙˆØ§Ø¨Ø³ØªÚ¯ÛŒâ€ŒÙ‡Ø§ÛŒ Gateway/Local Agent Ø³Ø§Ù„Ù… |
+| Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ OpenAPI ÙØ±ØµØª | PASS â€” Ù‡Ø± Ø´Ø´ Ù…Ø³ÛŒØ± lifecycle Ù…ÙˆØ¬ÙˆØ¯ |
+| Ø¨Ø±Ø±Ø³ÛŒ TypeScript/frontend | NOT_RUN â€” Ø¯Ø± Ø§ÛŒÙ† ÙØ§Ø² Ø³ÙˆØ±Ø³ frontend ØªØºÛŒÛŒØ± Ù†Ú©Ø±Ø¯ |
+| smoke Ù…Ø¯Ù„ ÙˆØ§Ù‚Ø¹ÛŒ | NOT_RUN â€” ØªØ³Øªâ€ŒÙ‡Ø§ deterministic Ù‡Ø³ØªÙ†Ø¯ |
 
-## یافتههای بازبینی
+## Ø§Ù…Ù†ÛŒØª Ùˆ Ø¹Ù…Ù„ÛŒØ§Øª
 
-- **همزمانی:** یک مسیر batching زمانبندیکننده ممکن است در صورت مشاهده دیرتر writer تعارض reader/writer را از دست بدهد پیش از ادعای همزمانی production باید تحلیل مستقل از ترتیب اضافه شود.
-- **اجرای worker:** هماهنگی و persistence Supervisor واقعی است اما فراخوانی نقشها هنوز در حلقه agent/autonomy موجود انجام میشود adapter مستقل worker تحویل نشده است.
-- **بحث:** confidence فعلا advisory است و شمارش round بر اساس subject جدا نمیشود.
-- **عملیات:** SQLite برای یک پردازش طراحی شده و صف/قفل توزیعشده وجود ندارد.
-- **حافظه:** بازیابی lexical/ranked قطعی است و index معنایی/vector وجود ندارد.
+ØªØ¹Ù‡Ø¯Ø§Øª ØªØ¬Ø§Ø±ÛŒ Ù¾Ø´Øª owner-control Ø¨Ø§Ù‚ÛŒ Ù…Ø§Ù†Ø¯Ù‡â€ŒØ§Ù†Ø¯ØŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ù‚Ø´â€ŒÙ‡Ø§ least-privilege Ø§Ø³ØªØŒ Ø¬Ø¯Ø§Ø³Ø§Ø²ÛŒ Ù¾Ø±ÙˆÚ˜Ù‡ Ø­ÙØ¸ Ø´Ø¯Ù‡ Ùˆ credential ÛŒØ§ remote push Ø§Ø¶Ø§ÙÙ‡ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª. Ù‚Ø¨Ù„ Ø§Ø² Ù‡Ø± Ø¯Ø³ØªÙ‡ ØªØºÛŒÛŒØ±ØŒ backup Ø±Ø§Ù‡â€ŒØ¯ÙˆØ± Ø³Ø§Ø®ØªÙ‡ Ùˆ Ø¨Ø±Ø±Ø³ÛŒ Ø´Ø¯Ø› Ø¢Ø®Ø±ÛŒÙ† archive Ù¾ÛŒØ´ Ø§Ø² ÙˆÛŒØ±Ø§ÛŒØ´ `corrective-phase3-preedit-tar-20260919-125820.zip` Ø¨Ø§ SHA256 Ø¨Ø±Ø§Ø¨Ø± `212925F6727109F713F624F3985DA20E1513E273CC5C90074BDC3A0C70B33B99` Ø§Ø³Øª.
 
-## فاز پیشنهادی بعدی
+## Ù…Ø­Ø¯ÙˆØ¯ÛŒØªâ€ŒÙ‡Ø§ÛŒ Ø¨Ø§Ù‚ÛŒâ€ŒÙ…Ø§Ù†Ø¯Ù‡
 
-P0: نصب و pin کردن وابستگیهای Desktop و Provider Router و افزودن gate در CI اصلاح ترتیب تحلیل تعارض scheduler پیادهسازی و تست adapter Supervisor به Model Gateway. P1: فیکسچر ارتقای migration metrics/correlation و سیاست بحث محدود بر اساس subject. P2: بازیابی معنایی و templateهای دامنهای پس از پایدار شدن رفتار قطعی.
+Ø§ØªØµØ§Ù„ Ø®ÙˆØ¯Ú©Ø§Ø± Ø¨Ù‡ CRMØŒ Ù¾Ø±Ø¯Ø§Ø®Øª Ùˆ Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯ Ø¹Ù…Ø¯Ø§Ù‹ Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª. Ø¯Ø§Ø¯Ù‡â€ŒÙ‡Ø§ÛŒ analytics Ùˆ ranking Ø¨Ù‡ Ù…Ù†Ø¨Ø¹ Ù…Ø¬Ø§Ø² Ù†ÛŒØ§Ø² Ø¯Ø§Ø±Ù†Ø¯. ØªØ£ÛŒÛŒØ¯ Human Owner Ø¨Ø±Ø§ÛŒ Ù…ÙˆØ§Ø±Ø¯ Ø®Ø§Ø±Ø¬ Ø§Ø² ØªÙˆØ§Ù† Ùˆ ØªØ¹Ù‡Ø¯Ø§Øª ØªØ¬Ø§Ø±ÛŒ Ù„Ø§Ø²Ù… Ø§Ø³Øª. Ø¨Ø±Ø±Ø³ÛŒ build/type Ù…Ø±Ø¨ÙˆØ· Ø¨Ù‡ frontend Ø¨Ø±Ø§ÛŒ ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ ØªØºÛŒÛŒØ±Ú©Ø±Ø¯Ù‡ Ú©Ø§Ø±Ø¨Ø±Ø¯ Ù†Ø¯Ø§Ø´Øª.
 
-## درخت منبع
+# Ú¯Ø²Ø§Ø±Ø´ ÙÙ†ÛŒ ÙØ§Ø² Ø§ØµÙ„Ø§Ø­ÛŒ Û´ â€” Ø§ÛŒÙ…Ù†ÛŒ Ø§Ø³ØªÙ‚Ø±Ø§Ø± Ùˆ Ù¾Ø§Ú©â€ŒØ³Ø§Ø²ÛŒ Release
 
-```text
-services/orchestrator/app/{db.py,main.py,config.py,agent_service.py,autonomy.py,recovery.py,self_improvement.py}
-services/orchestrator/app/coordination/{models.py,roles.py,store.py,scheduler.py,bus.py,context.py,supervisor.py,e2e.py}
-services/orchestrator/app/memory/{models.py,store.py,sanitizer.py}
-services/model-gateway/app/*
-services/local-agent/app/*
-services/provider-router/server/*
-apps/control-center/*
-apps/desktop/*
-start-ai-engineer.ps1
-```
-
-هیچ secret واقعی به source یا گزارشها افزوده نشده است. push خودکار Git غیرفعال است.
-
-## هسته سازمانی Phase 8A
-
-### معماری سازمانی
-
-لایه سازمانی پایدار بالای Supervisor هماهنگی موجود قرار گرفته است. Company Director
-یک هماهنگ‌کننده اجرایی read-only است؛ محدوده را ارزیابی می‌کند، تیم می‌سازد، اعضای
-blocked/stalled را پایش می‌کند و گزارش اجرایی می‌دهد. اجرای فنی همچنان به DAG وظایف و
-نقش‌های تخصصی فعلی واگذار می‌شود.
-
-### پروفایل کارکنان و دپارتمان‌ها
-
-Migration شماره ۷ جدول‌های agent_profiles و project_team_members را اضافه و
-ستون‌های رهبری، دپارتمان، phase، priority و team state را به projects اضافه می‌کند.
-پروفایل شامل شناسه پایدار، role، نام نمایشی، دپارتمان، قابلیت، تخصص، ابزار مجاز،
-مجوز نوشتن، model profile، وضعیت عملیاتی، پروژه فعال، وظایف جاری، خلاصه تجربه و
-timestampها است. دپارتمان‌ها EXECUTIVE، PRODUCT، ENGINEERING، QUALITY، SECURITY،
-RESEARCH، OPERATIONS و DOCUMENTATION هستند و امتیاز شخصیت یا هوش ذخیره نمی‌شود.
-
-### مدل نقش و تشکیل تیم پویا
-
-registry نقش موجود حفظ شده و نقش‌های company_director، project_manager،
-engineering_manager و operations با aliasهای سازگار اضافه شده‌اند. TeamPlanner
-بر اساس شواهد، سیاست کوچک (Engineering Manager، Implementer، Tester، Reviewer)،
-متوسط (با Architect، Integration و Documentation) یا بزرگ (Project Manager،
-Requirements، Engineering Manager، Architect، Backend، Frontend، Integration،
-Tester، Security، Documentation و Release Verifier) را انتخاب می‌کند. ایجاد پروژه
-تیم کوچک پیش‌فرض می‌سازد و برنامه‌ریزی صریح امکان تغییر اندازه دارد.
-
-### API و آزمون
-
-endpointهای سازمانی زیر /v1/organization برای دپارتمان، کارکنان، وضعیت، تشکیل تیم،
-مشاهده تیم و گزارش اجرایی در دسترس هستند. آزمون‌های Phase 8A با SQLite ایزوله،
-ماندگاری و restart پروفایل، Director، دپارتمان، سازگاری نقش، تیم کوچک و بزرگ،
-ماندگاری پروژه/تیم، migration idempotence و inference محدود را پوشش می‌دهند. task،
-message و memory جدیدی ساخته نشده و primitiveهای قبلی تنها منبع اجرا هستند.
-
-### محدودیت‌ها
-
-Company Director مستقیماً کد اجرا نمی‌کند، adapter مستقل workerها همچنان بدهی مستند
-است و SQLite برای یک orchestrator طراحی شده است. کمبود وابستگی‌های JavaScript نیز
-شرط انتشار قبلی باقی می‌ماند.
-
-## ?? ?? 埪? ?  ?
-
-|  | 租 |
+| Ù…ÙˆØ±Ø¯ | Ù…Ù‚Ø¯Ø§Ø± |
 |---|---|
-| ? ?韧? | 2026-09-18 |
-| ? ? | 1405-06-27 |
-|  | ?? ?? ?? ???  ?  ?? ????? |
-| ? | ????  㢠? ? 埪 ? 䟪 묧  |
+| ØªØ§Ø±ÛŒØ® Ù…ÛŒÙ„Ø§Ø¯ÛŒ | 2026-09-20 |
+| ØªØ§Ø±ÛŒØ® Ø¬Ù„Ø§Ù„ÛŒ | 1405-06-29 |
+| Ø¯Ø§Ù…Ù†Ù‡ | exposure Ø¯Ø± IISØŒ Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª control-planeØŒ Ø­ÙØ§Ø¸Øª gatewayØŒ Ø§ÛŒÙ…Ù†ÛŒ autonomy/configØŒ Ø¨Ø³ØªÙ‡â€ŒØ¨Ù†Ø¯ÛŒ release |
+| Ø§Ø³ØªÙ‚Ø±Ø§Ø± | Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯ |
+| push Ø§Ø² Ø±Ø§Ù‡ Ø¯ÙˆØ± | Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯ |
 
-### ?? ?  埪 ?
+## Ù…Ø±Ø² Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª
 
-?? ??  ? ??? ꥧ?? ???? ?? ??? ?? 묫?? ?? ? ?  ?? ꥧ    ????  ? ???  ? ???. ??? `app/coordination/collaboration.py`  `collaboration_store.py`  ? ? ???. ?? ?? ? `/v1/collaboration`  ?  ? ???   ??? ?? ????   ?颩 ??? ?? ꥧ    ??.
+ÙØ§ÛŒÙ„ `services/orchestrator/app/security.py`ØŒ `ControlPlaneAuthMiddleware` Ø±Ø§ Ø§Ø¶Ø§ÙÙ‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. healthØŒ readiness Ùˆ Ù…Ø³ØªÙ†Ø¯Ø§Øª Ø¨Ø±Ø§ÛŒ liveness Ø¹Ù…ÙˆÙ…ÛŒ Ø¨Ø§Ù‚ÛŒ Ù…ÛŒâ€ŒÙ…Ø§Ù†Ù†Ø¯ Ùˆ Ø³Ø§ÛŒØ± Ù…Ø³ÛŒØ±Ù‡Ø§ Ø¨Ù‡ `X-AI-Engine-Token` ÛŒØ§ `Authorization: Bearer` Ù†ÛŒØ§Ø² Ø¯Ø§Ø±Ù†Ø¯. Ø®Ø§Ù†ÙˆØ§Ø¯Ù‡ Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ Ù¾Ø±Ø±ÛŒØ³Ú© (`/v1/developer`ØŒ `/v1/self-improvement`ØŒ `/v1/owner`ØŒ Ú©Ù†ØªØ±Ù„ recovery Ùˆ Ú©Ù†ØªØ±Ù„ Ù¾Ø±ÙˆÚ˜Ù‡ agent) Ø¹Ù„Ø§ÙˆÙ‡ Ø¨Ø± Ø¢Ù† Ø¨Ù‡ `X-AI-Engine-Owner-Token` Ù†ÛŒØ§Ø² Ø¯Ø§Ø±Ù†Ø¯. ØªÙˆÚ©Ù†â€ŒÙ‡Ø§ Ø¨Ø§ `SecretStr` Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ùˆ Ø¨Ø§ `hmac.compare_digest` Ù…Ù‚Ø§ÛŒØ³Ù‡ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯.
 
-### ?? ??  埪 ?
+ÙØ§ÛŒÙ„ `services/model-gateway/app/security.py`ØŒ `GatewayAuthMiddleware` Ø±Ø§ Ø§Ø¶Ø§ÙÙ‡ Ù…ÛŒâ€ŒÚ©Ù†Ø¯Ø› Ø¯Ø± Ø­Ø§Ù„Øª `GATEWAY_AUTH_REQUIRED=true` ÙÙ‚Ø· Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ liveness Ùˆ Ù…Ø³ØªÙ†Ø¯Ø§Øª Ø¹Ù…ÙˆÙ…ÛŒ Ù‡Ø³ØªÙ†Ø¯. Ø¯Ø±Ø®ÙˆØ§Ø³Øªâ€ŒÙ‡Ø§ÛŒ Ø¯Ø§Ø®Ù„ÛŒ Orchestrator ÙÙ‚Ø· Ø¨Ù‡ URL gateway ØªÙ†Ø¸ÛŒÙ…â€ŒØ´Ø¯Ù‡ØŒ `MODEL_GATEWAY_TOKEN` Ø±Ø§ Ù…Ù†ØªÙ‚Ù„ Ù…ÛŒâ€ŒÚ©Ù†Ù†Ø¯.
 
-? `app/coordination/project_management.py` ? ?? Project Manager   ???  ? Project Manager   Engineering Manager  ? ??. ?? ? ?    ????? ???? ?? ???   ?? ? ? ? ??. ?? ??   ?? : 骟 ? ??  ????  ? ?? `tests_passed`  `review_accepted` ? ???? 뢬 ???  ?? `security_review`    ? ???  ? ???  뢬 韪 .
+## Ø­ÙØ§Ø¸Øª Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ privileged
 
-?? ???     ?? .  ?? ? ???  ? ??  ? ? ?  ???  ??? ? ???? ?? ?  ??  ?? ? ? 㟩  ?? ?? 럠 ?럩 ? ??. ?? ?? ??  . `blackboard()` ?? ? ?  ? 㢠   ???? ? ? ???? ??? ??? ?? ? ???? ??  ? 뢬   ????    ?  ?.
+Ù…Ø±Ø² Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØª Ø¯Ø± Ø³Ù…Øª Ø³Ø±ÙˆØ± Ø§Ø³Øª Ùˆ Ø¨Ù‡ ÙÛŒÙ„Ø¯Ù‡Ø§ÛŒÛŒ Ù…Ø§Ù†Ù†Ø¯ `approved=true` Ø§Ø¹ØªÙ…Ø§Ø¯ Ù†Ù…ÛŒâ€ŒÚ©Ù†Ø¯. IIS ØµØ±ÙØ§Ù‹ reverse proxy Ø§Ø³Øª Ùˆ `httpErrors existingResponse="PassThrough"` Ù¾Ø§Ø³Ø®â€ŒÙ‡Ø§ÛŒ 401/403 Ø±Ø§ Ø­ÙØ¸ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. ØªÙˆÚ©Ù† privileged Ø¯Ø± frontend Ø§Ø³ØªØ§ØªÛŒÚ© Ù‚Ø±Ø§Ø± Ù†Ù…ÛŒâ€ŒÚ¯ÛŒØ±Ø¯. startup Ø¯Ø± Ù†Ø¨ÙˆØ¯ ØªÙˆÚ©Ù†â€ŒÙ‡Ø§ÛŒ Ù„Ø§Ø²Ù… fail-closed Ù…ÛŒâ€ŒØ´ÙˆØ¯.
 
-### ?? ???
+## Ø§ÛŒÙ…Ù†ÛŒ autonomy
 
-쟤 ? ??? ??? 묫?? ?? ?  婟 ??   ???. 쟤 ? ?? ? ?  ? ???? ?? ???  `agent_work_queue`   ???  租? 媟?? idempotent  ???. ?? ? ???? ?? ???? handoff  ?  ?. 뫦 ?  ? ? ?? ??  뫦 ? ??  ??.
+SettingsØŒ ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ `.env.example` Ùˆ Ù„Ø§Ù†Ú†Ø± WindowsØŒ `AUTONOMOUS_MODE_ENABLED=false` Ùˆ `AUTONOMOUS_AUTO_PUSH=false` Ø±Ø§ Ø¨Ù‡â€ŒØ¹Ù†ÙˆØ§Ù† Ù¾ÛŒØ´â€ŒÙØ±Ø¶ Ø¯Ø§Ø±Ù†Ø¯. ÙØ¹Ø§Ù„â€ŒØ³Ø§Ø²ÛŒ ÙÙ‚Ø· Ø¨Ø§ Ù…ØªØºÛŒØ±Ù‡Ø§ÛŒ machine Ù…Ø­Ø§ÙØ¸Øªâ€ŒØ´Ø¯Ù‡ `AI_ENGINE_AUTONOMOUS_MODE_ENABLED` Ùˆ `AI_ENGINE_AUTONOMOUS_AUTO_PUSH` Ø§Ù†Ø¬Ø§Ù… Ù…ÛŒâ€ŒØ´ÙˆØ¯. ÙØ§ÛŒÙ„ `.env` ÙØ¹Ù„ÛŒ Ø³Ø±ÙˆØ± ÛŒÚ© ØªÙ†Ø¸ÛŒÙ… runtime Ù…ÙˆØ¬ÙˆØ¯ Ùˆ opt-in Ø§Ø³Øª (`AUTONOMOUS_MODE_ENABLED=true` Ùˆ auto-push=false) Ùˆ Ù¾ÛŒØ´ Ø§Ø² restartØŒ blocker Ø¨Ø±Ø±Ø³ÛŒ Ø§Ø³Øª Ù†Ù‡ Ù¾ÛŒØ´â€ŒÙØ±Ø¶ source.
 
-###  㢠?
+## Ù¾ÛŒÚ©Ø±Ø¨Ù†Ø¯ÛŒ Ùˆ Ù…Ø³ØªÙ†Ø¯Ø§Øª
 
--  ? Orchestrator: **???  ? ?  skip **.
-- ?? ?? ?? 埪 ?: **? **.
-- ?? ?? 埪 ?: **? **.
-- ?? Model Gateway: **?? **.
-- ?? Local Agent: **? **.
-- ? ??? : **?? ? ???  ** ?  ?? ??.
-- ? ?  import: **??? ?**  **?? ? ??**  **?? ? ?? ??**? ? ?? health 租 `True` .
--  ??: ??? **????? ????  ????** ? HTTP 200 .
+Ù†Ù…ÙˆÙ†Ù‡â€ŒÙ‡Ø§ÛŒ Ù…Ø­ÛŒØ· Ø³Ø±ÙˆÛŒØ³ØŒ Ù…Ø±Ø¬Ø¹ schema version (13)ØŒ Ù…Ø¹Ù…Ø§Ø±ÛŒ ElectronØŒ Ø§Ù„Ø²Ø§Ù…Ø§Øª Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØªØŒ Ø¯Ø³ØªÙˆØ±Ù‡Ø§ÛŒ deployment Ùˆ runbook rollback Ø¨Ù‡â€ŒØ±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ Ø´Ø¯Ù†Ø¯. Ù„Ø§Ù†Ú†Ø± Ø±ÛŒØ´Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ø±Ø§ Ø§Ø² Ù…Ø­ÛŒØ· ÛŒØ§ Ù…Ø³ÛŒØ± Ø§Ø³Ú©Ø±ÛŒÙ¾Øª Ù¾ÛŒØ¯Ø§ Ù…ÛŒâ€ŒÚ©Ù†Ø¯ Ùˆ Ù¾ÙˆØ±Øªâ€ŒÙ‡Ø§ÛŒ loopback Ø¨Ø±Ø§Ø¨Ø± 8010/8011/8012 Ù‡Ø³ØªÙ†Ø¯.
 
-### ꥧ?  ??
+## Ù¾Ø§Ú©â€ŒØ³Ø§Ø²ÛŒ release
 
-??  ??? ? ꠢ?  ?    SQLite 쫢?  ?? ? ??? ? 맟????? ? ???  맟. ? ???   ? Supervisor  worker/model  ? ???? JavaScript ?  뢬 . ?? commit ? push ? 뤟 묧. 埪 ? 䟪 묧 .
+`deploy/windows-server/package-release.ps1` ÛŒÚ© ZIP Ù¾Ø§Ú©â€ŒØ³Ø§Ø²ÛŒâ€ŒØ´Ø¯Ù‡ Ù…ÛŒâ€ŒØ³Ø§Ø²Ø¯ Ùˆ `.git`ØŒ virtual environmentØŒ `node_modules`ØŒ cacheØŒ Ù„Ø§Ú¯ØŒ Ø¯Ø§Ø¯Ù‡ runtimeØŒ workspaceØŒ backupØŒ Ú©Ù¾ÛŒ Ù¾Ø§ÛŒÚ¯Ø§Ù‡â€ŒØ¯Ø§Ø¯Ù‡ØŒ credentialØŒ private key Ùˆ ÙØ§ÛŒÙ„â€ŒÙ‡Ø§ÛŒ `.env` Ù…Ø­Ù„ÛŒ Ø±Ø§ Ø­Ø°Ù Ù…ÛŒâ€ŒÚ©Ù†Ø¯. templateÙ‡Ø§ÛŒ Ø§Ù…Ù† `.env.example` Ù†Ú¯Ù‡ Ø¯Ø§Ø´ØªÙ‡ Ù…ÛŒâ€ŒØ´ÙˆÙ†Ø¯. Ø§Ø¬Ø±Ø§ÛŒ smoke Ø±ÙˆÛŒ Ø³Ø±ÙˆØ± archive Ø¨Ø§ Ø§Ù†Ø¯Ø§Ø²Ù‡ Û¶Ù¬Û·Û¸Û±Ù¬Û¸Û·Û¶ Ø¨Ø§ÛŒØª Ø³Ø§Ø®ØªØ› Ø§Ø³Ú©Ù† Ù…ÙˆØ§Ø±Ø¯ Ù…Ù…Ù†ÙˆØ¹ Ù†ØªÛŒØ¬Ù‡â€ŒØ§ÛŒ Ù†Ø¯Ø§Ø´Øª Ùˆ Ú†Ù‡Ø§Ø± `.env.example` Ø§Ù…Ù† ÙˆØ¬ÙˆØ¯ Ø¯Ø§Ø´Øª.
 
-### 韥  ?? 㢠?
+## health check Ø§Ø³ØªÙ‚Ø±Ø§Ø±
 
-? ?? **??? ? ?**? **?? ? ??**  **?? ? ?? ??**   ?. 㠟 ? ?? ? ?? ?? ?  ? 쩫 ? ?? ? ??  `docs/project-management.md`  .
+probe مربوط به HTTPS در devoria.ir هنگام برقراری اتصال شکست خورد. proxy عمومی HTTP فعلی برای مسیر gateway بدون احراز هویت HTTP 200 برگرداند، چون پردازش‌های در حال اجرا هنوز با middleware جدید restart نشده‌اند؛ هر دو مورد blocker صریح release هستند.
 
+## Ø¨Ø±Ù†Ø§Ù…Ù‡ rollback
 
----
+Ø§Ø¨ØªØ¯Ø§ gate Ú©Ø§Ù…Ù„ ØªØ³Øª/buildØŒ Ø³Ù¾Ø³ backup timestamped Ùˆ checksumØŒ ØªÙ†Ø¸ÛŒÙ… ØªÙˆÚ©Ù†â€ŒÙ‡Ø§ÛŒ Ù…Ø­Ø§ÙØ¸Øªâ€ŒØ´Ø¯Ù‡ØŒ restartØŒ health Ùˆ smoke Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØªâ€ŒØ´Ø¯Ù‡ Ø§Ø¬Ø±Ø§ Ø´ÙˆØ¯. Ø¯Ø± Ø´Ú©Ø³ØªØŒ Ù†Ù…ÙˆÙ†Ù‡ Ø¬Ø¯ÛŒØ¯ Ù…ØªÙˆÙ‚ÙØŒ backup ØªØ£ÛŒÛŒØ¯Ø´Ø¯Ù‡ checkout/data Ø¨Ø§Ø²ÛŒØ§Ø¨ÛŒØŒ Ù†Ø³Ø®Ù‡ Ù‚Ø¨Ù„ÛŒ restart Ùˆ health Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø§Ø¬Ø±Ø§ Ø´ÙˆØ¯. Ù‡ÛŒÚ† deployment Ø¨Ø±Ú¯Ø´Øªâ€ŒÙ†Ø§Ù¾Ø°ÛŒØ±ÛŒ Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.
 
-## 埪 ?D - ?? ? ???? ?  ?뢩 ? 뫟?
+## Ù†ØªØ§ÛŒØ¬ Ø¯Ù‚ÛŒÙ‚ Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ
 
-**? ?韧?:** 2026-09-18  
-**? ?:** 1405-06-27  
-**:** ????  㢠? ? ?? ? 埪 ?D
+| Ø¨Ø±Ø±Ø³ÛŒ | Ù†ØªÛŒØ¬Ù‡ |
+|---|---|
+| unittest Ú©Ø§Ù…Ù„ Orchestrator | PASS â€” Û²Û´Û· Ù…ÙˆÙÙ‚ØŒ Û± skipØŒ ØµÙØ± Ø´Ú©Ø³Øª |
+| ØªØ³Øª Ø§Ù…Ù†ÛŒØª deployment Ø¯Ø± Orchestrator | PASS â€” Û´ Ù…ÙˆÙÙ‚ |
+| pytest Ú©Ø§Ù…Ù„ Model Gateway | PASS â€” Û²Û· Ù…ÙˆÙÙ‚ØŒ ØµÙØ± Ø´Ú©Ø³Øª |
+| ØªØ³Øª Ø§Ù…Ù†ÛŒØª Model Gateway | PASS â€” Û± Ù…ÙˆÙÙ‚ |
+| unittest Ú©Ø§Ù…Ù„ Local Agent | PASS â€” Û² Ù…ÙˆÙÙ‚ØŒ ØµÙØ± Ø´Ú©Ø³Øª |
+| Ø²ÛŒØ±Ù…Ø¬Ù…ÙˆØ¹Ù‡ SEO/company integration | PASS â€” Û³Û³ Ù…ÙˆÙÙ‚ØŒ ØµÙØ± Ø´Ú©Ø³Øª (Ø¯Ø± Ù…Ø¬Ù…ÙˆØ¹ Orchestrator Ù…Ø­Ø§Ø³Ø¨Ù‡ Ø´Ø¯Ù‡) |
+| Python compileall | PASS |
+| `git diff --check` | PASS (ÙÙ‚Ø· Ù‡Ø´Ø¯Ø§Ø± line ending) |
+| `npm run build` Ø¯Ø± Control Center | PASS (tsc Ùˆ Vite) |
+| build/typecheck Desktop | NOT_RUN â€” dependency Ù†ØµØ¨ Ù†ÛŒØ³Øª |
+| smoke Ø¨Ø³ØªÙ‡ sanitized | PASS â€” Û¶Ù¬Û·Û¸Û±Ù¬Û¸Û·Û¶ Ø¨Ø§ÛŒØª Ùˆ Ø¨Ø¯ÙˆÙ† Ù…ÙˆØ±Ø¯ Ù…Ù…Ù†ÙˆØ¹ |
+| health Ù‡ÙˆÛŒØª loopback | PASS â€” Ù‡Ø± Ø³Ù‡ Ø³Ø±ÙˆÛŒØ³ HTTP 200 |
+| health Ø¹Ù…ÙˆÙ…ÛŒ Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØªâ€ŒØ´Ø¯Ù‡ | NOT_RUN â€” ØªÙˆÚ©Ù† machine ÙˆØ¬ÙˆØ¯ Ù†Ø¯Ø§Ø±Ø¯ |
 
-### ? 
+## Ù…ÙˆØ§Ù†Ø¹ Ø¨Ø§Ù‚ÛŒâ€ŒÙ…Ø§Ù†Ø¯Ù‡ Ø³Ø±ÙˆØ±
 
-? ?: services/orchestrator/app/coordination/incidents.py.
+`READY_FOR_DEPLOYMENT = NO`. Ù…ÙˆØ§Ù†Ø¹ Ø¯Ù‚ÛŒÙ‚: (Û±) ØªÙ†Ø¸ÛŒÙ… ØªÙˆÚ©Ù†â€ŒÙ‡Ø§ÛŒ machine Ø¨Ø±Ø§ÛŒ control-planeØŒ Ù…Ø§Ù„Ú© Ùˆ gatewayØ› (Û²) restart Ø³Ø±ÙˆÛŒØ³â€ŒÙ‡Ø§ Ø¨Ø±Ø§ÛŒ ÙØ¹Ø§Ù„ Ø´Ø¯Ù† middlewareØ› (Û³) ØªØºÛŒÛŒØ± ÛŒØ§ Ø¨Ø§Ø²Ø¨ÛŒÙ†ÛŒ autonomy ÙØ¹Ù„ÛŒ Ù‚Ø¨Ù„ Ø§Ø² restart Ø¹Ù…ÙˆÙ…ÛŒØ› (Û´) ØªÙ†Ø¸ÛŒÙ… Ùˆ ØªØ£ÛŒÛŒØ¯ HTTPS Ùˆ proxy Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØªâ€ŒØ´Ø¯Ù‡ IISØ› (Ûµ) Ù†ØµØ¨ dependencyÙ‡Ø§ÛŒ Desktop Ø§Ú¯Ø± build Ø¢Ù† Ø¬Ø²Ùˆ release Ø§Ø³ØªØ› (Û¶) Ø§Ø¬Ø±Ø§ÛŒ Ù…Ø¬Ø¯Ø¯ health Ùˆ smoke Ø§Ø­Ø±Ø§Ø² Ù‡ÙˆÛŒØªâ€ŒØ´Ø¯Ù‡ Ù¾Ø³ Ø§Ø² restart.
 
-? ?   ?? ???  ? detect? contain? diagnose? repair? verify? postmortem? learn  resolved   ???. ??? 㢠  ??  ? 埪 ? idempotent .  ? ??? ?? ?   ? ?   ꥧ  ???.
+### یادداشت اعتبارسنجی health script
 
-?   ???? ??   ??. 뢦      ?  埧 ???    ? ???? ???? ?  ?  ?? ???. 뢦 ? ? ??? ??   ? 뤟 ??     ? SQLite ? .
-
-### ?? ?
-
- postmortems  ???? ?  ??  ? ?? ????? ??? ?????? ?? ?????  럫    ? ??. ?    ?    sanitizer  ?    埧 ???.    ? ? 矠? ? ??.
-
-###  ?
-
-?? ??  project_id ?   ??  ??.       ??  ??? ??? MemoryStore 뤟 ??. ?? ?  ??  ??? ???? ??.
-
-### ???? ?
-
-?? agent_performance   ?  埧 ??. ? 뢦 ???  ? ???? ?? ?  멦 ? / . collaboration_quality ?韢 ?? ??    ??        ꥧ  ???.
-
-### ?뢩 ?
-
-? ?: services/orchestrator/app/coordination/owner_control.py.
-
-租 㟧? ?    ? ? ? ??  ??. 租 start_project? pause_project? resume_project? cancel_project? change_priority? request_report? approve_major_decision? reject_major_decision  request_review ??? ??. ? ???  ? ? 뫟?  ? pending_approval ??. ?? ???  requires_explicit_external_operator   ???  ?? 穟? 뢬? ? ??? 㢠?? ? ?   ???.
-
-?? ?  human_owner  ??  payload ???? ??.  ? 穟 ? ?   HTTP    ? 埪 identity provider ??  묧 .
-
-### 뢪 ? ?? ?
-
-owner_control.py ?韫?? ProjectOpportunity? ClientMessage? ProjectProposal? ClientRequirement  ClientApproval  ? ???.  project_opportunities ? 럫 ? ??? ? 韭? ???  ?  ? ??. ?   adapter     ?  묧 .
-
-### ?? ??? 
-
-Migration 10 媟??  idempotent    incidents? incident_events? incident_team_members? postmortems? collaboration_quality? owner_control_actions  project_opportunities   ?? ?? ꥧ? ??  index?  ??. 뫦 schema  10 .
-
-### ?? API
-
- ? services/orchestrator/app/routers/incident_control.py  app.main    endpoint? v1 ? ? ?? ??/?   ? ?? ??? ??? 租 ?  婭?  ???. API? ?  묧?.
-
-### 뢟? 
-
--   埪 ?D: ** - ? **
-- unittest ? Orchestrator: ** - ??? ? ?  ??**
-- Model Gateway  pytest: ** - ?? **
-- Local Agent  unittest: ** - ? **
-- compile ??? ???: ****
-- import  FastAPI: ** - ??? route?  ? route **
-- push/deploy ?  ? ?: **  묧**
-
-### ꥧ??? 럦?
-
-?뢩 HTTP    ? 穟 ?  . ?? SQLite  ???? ?? ??? 쫢. ?? ?  worker ? ?맟? ???. adapter? 婭 ?? 穟 ?? 뢬     ?  ? ? ?.
-
-## ÙØ§Ø² Û¸E â€” Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ ÛŒÚ©Ù¾Ø§Ø±Ú†Ù‡ Ø´Ø±Ú©Øª Ù†Ø±Ù…â€ŒØ§ÙØ²Ø§Ø±ÛŒ Ù‡ÙˆØ´ Ù…ØµÙ†ÙˆØ¹ÛŒ (2026-09-18 / 1405-06-27)
-
-### Ø¯Ø§Ù…Ù†Ù‡ Ùˆ Ù†ØªÛŒØ¬Ù‡
-
-Ø¯Ø± ÙØ§Ø² Û¸E Ø³Ø§Ù…Ø§Ù†Ù‡Ù” Ø¯ÙˆÙ… Ø¨Ø±Ø§ÛŒ ØªØ³Ú©ØŒ Ù¾ÛŒØ§Ù… ÛŒØ§ Ø­Ø§ÙØ¸Ù‡ Ø³Ø§Ø®ØªÙ‡ Ù†Ø´Ø¯. ØªÙ†Ù‡Ø§ Ø¯ÙØªØ± Ø±ÙˆÛŒØ¯Ø§Ø¯ Ù¾Ø§ÛŒØ¯Ø§Ø± `company_events` Ùˆ Ù„Ø§ÛŒÙ‡Ù” `coordination/company_trace.py` Ø±ÙˆÛŒ Ø³ÛŒØ³ØªÙ…â€ŒÙ‡Ø§ÛŒ Ù…ÙˆØ¬ÙˆØ¯ Ø³Ø§Ø²Ù…Ø§Ù†ØŒ DAG ØªØ³Ú©ØŒ Ù‡Ù…Ú©Ø§Ø±ÛŒØŒ ØªØ­ÙˆÛŒÙ„ Ú©Ø§Ø±ØŒ Ø±Ø®Ø¯Ø§Ø¯ØŒ Ø­Ø§ÙØ¸Ù‡ØŒ Ù…Ø¯ÛŒØ±ÛŒØª Ù¾Ø±ÙˆÚ˜Ù‡ØŒ Ø¨Ø§Ø²ÛŒØ§Ø¨ÛŒ Ùˆ Ø¯Ù…ÙˆÛŒ Ù…Ù‡Ù†Ø¯Ø³ÛŒ Ø§ÙØ²ÙˆØ¯Ù‡ Ø´Ø¯. Ø´Ø¨ÛŒÙ‡â€ŒØ³Ø§Ø²ÛŒ Ù‚Ø·Ø¹ÛŒ Ø´Ø±Ú©Øª Ø¨Ø±Ø§ÛŒ Ù‡Ø¯Ù ÙÙˆÙ„â€ŒØ§Ø³ØªÚ© Ù…ÙˆØ±Ø¯Ù†Ø¸Ø± Ø¨Ø§ Ù…ÙˆÙÙ‚ÛŒØª Ø§Ø¬Ø±Ø§ Ùˆ Ø±Ø¯Ù¾Ø§ÛŒ JSON/Markdown ØªÙˆÙ„ÛŒØ¯ Ø´Ø¯.
-
-### Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ
-
-- Orchestrator: **Û±Û²Û° Ù…ÙˆÙÙ‚ØŒ Û± Ù…ÙˆØ±Ø¯ Ø±Ø¯Ø´Ø¯Ù‡ Ø¨Ù‡â€ŒØ¯Ù„ÛŒÙ„ Ø§Ø®ØªÛŒØ§Ø±ÛŒ Ø¨ÙˆØ¯Ù† ØªØ³Øª Ù…Ø¯Ù„ ÙˆØ§Ù‚Ø¹ÛŒ**.
-- Model Gateway: **Û²Û¶ Ù…ÙˆÙÙ‚**.
-- Local Agent: **Û² Ù…ÙˆÙÙ‚**.
-- Ú©Ø§Ù…Ù¾Ø§ÛŒÙ„ Ù…Ø§Ú˜ÙˆÙ„â€ŒÙ‡Ø§ÛŒ Ù¾Ø§ÛŒØªÙˆÙ† ØªØºÛŒÛŒØ±Ú©Ø±Ø¯Ù‡ Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.
-- Ù…Ø³ÛŒØ±Ù‡Ø§ÛŒ Ø±Ø¯Ù¾Ø§ÛŒ Ø´Ø±Ú©Øª Ø«Ø¨Øª Ø´Ø¯Ù†Ø¯: `/v1/company/events`ØŒ `/v1/company/projects/{project_id}/trace` Ùˆ `/v1/company/projects/{project_id}/trace/markdown`.
-
-### Ø´ÙˆØ§Ù‡Ø¯ Ùˆ Ù…Ø­Ø¯ÙˆØ¯ÛŒØªâ€ŒÙ‡Ø§
-
-Ø±Ø¯Ù¾Ø§ Ø´Ø§Ù…Ù„ Ø³Ø§Ø®Øª Ø³Ø§Ø²Ù…Ø§Ù†/ØªÛŒÙ…ØŒ ØªØ®ØµÛŒØµâ€ŒÙ‡Ø§ØŒ DAG ØªØ³Ú©ØŒ Ù¾ÛŒØ§Ù…â€ŒÙ‡Ø§ Ùˆ Ú†Ø§Ù„Ø´/Ø­Ù„ Ø§Ø®ØªÙ„Ø§ÙØŒ ØªØµÙ…ÛŒÙ…â€ŒÙ‡Ø§ØŒ Ø¬Ù„Ø³Ù‡ Ùˆ Ø§Ù‚Ø¯Ø§Ù…ØŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª/Ù¾Ø§Ø³Ø® Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯ APIØŒ handoffØŒ Ø±Ø®Ø¯Ø§Ø¯/Ù¾Ø³Ø§Ù…Ø±Ú¯/Ø¯Ø±Ø³â€ŒØ¢Ù…ÙˆØ®ØªÙ‡ØŒ Ø¨Ø§Ø²ÛŒØ§Ø¨ÛŒ Ù¾Ø³ Ø§Ø² restartØŒ Ø´ÙˆØ§Ù‡Ø¯ ØªØ³Øª Ùˆ Ø¨Ø§Ø²Ø¨ÛŒÙ†ÛŒ Ùˆ Ø±ÙˆÛŒØ¯Ø§Ø¯Ù‡Ø§ÛŒ Ø¢Ù…Ø§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ø§Ù†ØªØ´Ø§Ø± Ùˆ ØªÚ©Ù…ÛŒÙ„ Ø§Ø³Øª. Ø¯Ø±Ø¬ Ø±ÙˆÛŒØ¯Ø§Ø¯ Ø¨Ø§ Ø´Ù†Ø§Ø³Ù‡Ù” Ø±ÙˆÛŒØ¯Ø§Ø¯ idempotent Ø§Ø³Øª Ùˆ Ù¾Ø±Ø³â€ŒÙˆØ¬ÙˆÙ‡Ø§ Ø¨Ù‡ Ù¾Ø±ÙˆÚ˜Ù‡ Ù…Ø­Ø¯ÙˆØ¯ Ù…ÛŒâ€ŒÙ…Ø§Ù†Ù†Ø¯. Ø´Ø¨ÛŒÙ‡â€ŒØ³Ø§Ø²ÛŒ Ù‚Ø·Ø¹ÛŒ Ø§Ø³Øª Ùˆ Ù…Ù†Ø·Ù‚ ÙˆØ§Ù‚Ø¹ÛŒ persistence Ùˆ orchestration Ø±Ø§ Ø§Ø¬Ø±Ø§ Ù…ÛŒâ€ŒÚ©Ù†Ø¯Ø› Ø§Ø¯Ø¹Ø§ÛŒ ÙØ±Ø§Ø®ÙˆØ§Ù†ÛŒ Ù…Ø¯Ù„ Ø®Ø§Ø±Ø¬ÛŒØŒ push ÛŒØ§ Ø§Ø³ØªÙ‚Ø±Ø§Ø± Production Ù†Ø¯Ø§Ø±Ø¯.
-
-### Ù¾Ø§ÛŒÚ¯Ø§Ù‡ Ø¯Ø§Ø¯Ù‡
-
-Migration 11 Ø¬Ø¯ÙˆÙ„ `company_events` Ø±Ø§ Ø¨Ø§ Ø§Ø±Ø¬Ø§Ø¹ Ù¾Ø±ÙˆÚ˜Ù‡/Ø§Ø¬Ø±Ø§/ØªØ³Ú©ØŒ Ø§Ø·Ù„Ø§Ø¹Ø§Øª actorØŒ payload JSON Ù¾Ø§Ù„Ø§ÛŒØ´â€ŒØ´Ø¯Ù‡ØŒ timestamp Ùˆ Ø§ÛŒÙ†Ø¯Ú©Ø³â€ŒÙ‡Ø§ÛŒ Ù¾Ø±ÙˆÚ˜Ù‡/Ø§Ø¬Ø±Ø§/Ù†ÙˆØ¹ Ø§ÛŒØ¬Ø§Ø¯ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ù…Ù‚Ø¯Ø§Ø±Ø¯Ù‡ÛŒ migration Ù‡Ù…Ú†Ù†Ø§Ù† Ø§ÙØ²Ø§ÛŒØ´ÛŒ Ùˆ idempotent Ø§Ø³Øª.
-
-
-## ØªØ­ÙˆÛŒÙ„ SEO Manager â€” Û²Û°Û²Û¶-Û°Û¹-Û±Û¹ / Û±Û´Û°Ûµ-Û°Û¶-Û²Û¸
-
-Ù†Ù‚Ø´ ÛŒÚ©Ù¾Ø§Ø±Ú†Ù‡ `seo_manager` Ø¨Ù‡â€ŒØ¹Ù†ÙˆØ§Ù† Ù…Ø¯ÛŒØ± ÙÙ‚Ø·â€ŒØ®ÙˆØ§Ù†Ø¯Ù†ÛŒ Ø±ÙˆÛŒ Ø²ÛŒØ±Ø³Ø§Ø®Øª ÙØ¹Ù„ÛŒ Ø´Ø±Ú©Øª AI Ù¾ÛŒØ§Ø¯Ù‡â€ŒØ³Ø§Ø²ÛŒ Ø´Ø¯. Ø§ÛŒÙ† Ù†Ù‚Ø´ Ù¾Ø±ÙˆÙØ§ÛŒÙ„ Ù¾Ø±ÙˆÚ˜Ù‡â€ŒÙ…Ø­ÙˆØ± Ø³Ø§ÛŒØªØŒ audit Ù…Ø¨ØªÙ†ÛŒ Ø¨Ø± evidenceØŒ Ù†Ú¯Ø§Ø´Øª Ú©Ù„Ù…Ù‡ Ø¨Ù‡ ØµÙØ­Ù‡ØŒ taskÙ‡Ø§ÛŒ DAGØŒ handoffØŒ ØªØµÙ…ÛŒÙ…â€ŒÙ‡Ø§ØŒ quality gateØŒ Ø­Ø§ÙØ¸Ù‡ Ù…Ø¹ØªØ¨Ø± Ùˆ Ú¯Ø²Ø§Ø±Ø´ Ø³Ø¦Ùˆ Ø±Ø§ Ø§ÛŒØ¬Ø§Ø¯ Ù…ÛŒâ€ŒÚ©Ù†Ø¯. Ú†Ø§Ø±Ú†ÙˆØ¨ Ø¯ÙˆÙ… Ø¨Ø±Ø§ÛŒ agent/task/memory Ùˆ Ø¬Ø¯ÙˆÙ„ Ø§Ø®ØªØµØ§ØµÛŒ Ø³Ø¦Ùˆ Ø§Ø¶Ø§ÙÙ‡ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.
-
-Ø§Ø¹ØªØ¨Ø§Ø±Ø³Ù†Ø¬ÛŒ: Û±Û± ØªØ³Øª Ù…ØªÙ…Ø±Ú©Ø² Ø³Ø¦Ùˆ Ù…ÙˆÙÙ‚Ø› Û²Û±Û³ ØªØ³Øª Ø§Ø±Ú©Ø³ØªØ±ÛŒØªÙˆØ± Ø¨Ø§ Û± skip Ù…ÙˆÙÙ‚Ø› Û²Û¶ ØªØ³Øª pytest Ù…Ø¯Ù„â€ŒÚ¯ÛŒØªâ€ŒÙˆÛŒ Ù…ÙˆÙÙ‚Ø› Û² ØªØ³Øª Local Agent Ù…ÙˆÙÙ‚Ø› compile Ùˆ health/role Ø²Ù†Ø¯Ù‡ Ù…ÙˆÙÙ‚. Ù…Ù†Ø¨Ø¹ analyticsØŒ ranking Ùˆ Core Web Vitals Ù…ØªØµÙ„ Ù†ÛŒØ³Øª Ùˆ Ø¯Ø§Ø¯Ù‡ Ø³Ø§Ø®ØªÚ¯ÛŒ ØªÙˆÙ„ÛŒØ¯ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯.
-
-## به‌روزرسانی متخصص سئو (2026-09-19 / 1405-06-28)
-
-کارمند فقط‌خواندنی seo_specialist برای تحلیل مستند Technical و On-Page SEO، خوشه‌بندی و نگاشت کلمات کلیدی، شکاف و brief محتوا، پیشنهاد لینک داخلی، handoff پیاده‌سازی، راستی‌آزمایی مستقل و ارتقای حافظه پروژه اضافه شد. ۱۰ آزمون قطعی اضافه شد و کل آزمون‌های Orchestrator با یک آزمون skip‌شده قبلی موفق شد. ادعاهای رتبه، ترافیک، analytics، Search Console، حجم جست‌وجو و Core Web Vitals بدون منبع مجاز در دسترس نیستند.
+اسکریپت health با توکن‌های آزمایشی موقت و غیرمحرمانه، بررسی شکل پاسخ و assertionهای ایمنی را در proxy قابل دسترس HTTP با موفقیت انجام داد. این فقط منطق اسکریپت را تأیید می‌کند؛ اعتبارسنجی واقعی Production تا زمان تنظیم توکن‌های machine و restart سرویس‌ها NOT_RUN است.

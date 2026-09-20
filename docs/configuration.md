@@ -26,11 +26,18 @@ The root is resolved at process startup. It must be an absolute path in producti
 
 The desktop process uses the same root variables and otherwise resolves three levels above its Electron entrypoint. No source code assumes a specific drive letter.
 
+## Public deployment authentication
+
+- The public IIS site may serve the static Control Center, but `/api/orchestrator/*` and `/api/gateway/*` are not anonymous control-plane APIs.
+- The Windows launcher requires `AI_ENGINE_CONTROL_PLANE_TOKEN`, `AI_ENGINE_OWNER_TOKEN`, and `AI_ENGINE_GATEWAY_TOKEN` as machine/user environment variables. Values are never stored in source, URLs, or logs.
+- Orchestrator uses `CONTROL_PLANE_TOKEN` for ordinary `/v1/*` calls and `OWNER_CONTROL_TOKEN` for Git/process/self-improvement/owner-control paths. Gateway uses `GATEWAY_AUTH_TOKEN` for `/v1/*` model access. Health endpoints remain intentionally public for liveness checks.
+- Development defaults leave service authentication disabled only on loopback. Production launchers set the required auth flags and fail closed when a token is missing.
+
 ## Autonomous safety defaults
 
 - `AUTONOMOUS_MODE_ENABLED` defaults to `false`.
 - `AUTONOMOUS_AUTO_PUSH` defaults to `false`; enabling it is an explicit deployment decision.
-- The Windows server launcher propagates `AI_ENGINE_PROJECT_ROOT` to every service and starts with auto-push disabled.
+- The Windows server launcher propagates `AI_ENGINE_PROJECT_ROOT` to every service, requires deployment tokens, and starts with autonomous execution and auto-push disabled unless explicitly enabled through environment variables.
 - Existing environment variable names remain accepted by Pydantic settings. Unknown variables are ignored to preserve deployment compatibility.
 
 ## Service defaults

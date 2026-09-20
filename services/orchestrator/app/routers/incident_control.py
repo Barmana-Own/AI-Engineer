@@ -12,6 +12,10 @@ from app.schemas import (
     IncidentTeamRequest,
     IncidentTransitionRequest,
     OpportunityCreateRequest,
+    OpportunityAnalyzeRequest,
+    OpportunityConvertRequest,
+    OpportunityQualifyRequest,
+    OpportunityStartRequest,
     OrganizationalLessonRequest,
     OwnerActionRequest,
     OwnerResolutionRequest,
@@ -240,14 +244,52 @@ def owner_action_resolve(
 @router.post("/opportunities")
 def opportunity_create(request: OpportunityCreateRequest) -> dict[str, object]:
     try:
-        return owner_control.create_project_opportunity(
-            request.source,
-            request.title,
-            external_ref=request.external_ref,
-            summary=request.summary,
-            requirements=request.requirements,
-            status=request.status,
-        )
+        from app.organization.intake import OpportunityIntakeService
+        return OpportunityIntakeService().receive(source=request.source, title=request.title, body=request.summary, requirements=request.requirements, external_ref=request.external_ref)
+    except Exception as exc:
+        raise _http(exc) from exc
+
+
+@router.get("/opportunities/{opportunity_id}")
+def opportunity_get(opportunity_id: str) -> dict[str, object]:
+    item = owner_control.get_project_opportunity(opportunity_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Opportunity not found.")
+    return item
+
+
+@router.post("/opportunities/{opportunity_id}/analyze")
+def opportunity_analyze(opportunity_id: str, request: OpportunityAnalyzeRequest) -> dict[str, object]:
+    try:
+        from app.organization.intake import OpportunityIntakeService
+        return OpportunityIntakeService().analyze(opportunity_id, company_capabilities=request.company_capabilities)
+    except Exception as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/opportunities/{opportunity_id}/qualify")
+def opportunity_qualify(opportunity_id: str, request: OpportunityQualifyRequest) -> dict[str, object]:
+    try:
+        from app.organization.intake import OpportunityIntakeService
+        return OpportunityIntakeService().qualify(opportunity_id, owner_approved=request.owner_approved)
+    except Exception as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/opportunities/{opportunity_id}/convert")
+def opportunity_convert(opportunity_id: str, request: OpportunityConvertRequest) -> dict[str, object]:
+    try:
+        from app.organization.intake import OpportunityIntakeService
+        return OpportunityIntakeService().convert(opportunity_id, project_name=request.project_name, workspace=request.workspace, objective=request.objective, owner_approved=request.owner_approved)
+    except Exception as exc:
+        raise _http(exc) from exc
+
+
+@router.post("/opportunities/{opportunity_id}/start")
+def opportunity_start(opportunity_id: str, request: OpportunityStartRequest) -> dict[str, object]:
+    try:
+        from app.organization.intake import OpportunityIntakeService
+        return OpportunityIntakeService().start(opportunity_id, objective=request.objective)
     except Exception as exc:
         raise _http(exc) from exc
 

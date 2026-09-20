@@ -9,6 +9,7 @@ from app.config import settings
 from app.autonomy import run_autonomy_scheduler
 from app.db import initialize_database
 from app.recovery import recover_incomplete_runs
+from app.security import ControlPlaneAuthMiddleware
 from app.routers.agent import router as agent_router
 from app.routers.developer import router as developer_router
 from app.routers.coordination import router as coordination_router
@@ -64,12 +65,30 @@ async def lifespan(_app: FastAPI):
             scheduler_thread.cancel()
             scheduler_thread.join(timeout=5)
 
+if settings.control_plane_auth_required:
+    control_token = settings.control_plane_token.get_secret_value() if settings.control_plane_token else ""
+    owner_token = settings.owner_control_token.get_secret_value() if settings.owner_control_token else ""
+    if not control_token or not owner_token:
+        raise RuntimeError(
+            "CONTROL_PLANE_TOKEN and OWNER_CONTROL_TOKEN are required when "
+            "CONTROL_PLANE_AUTH_REQUIRED=true."
+        )
+else:
+    control_token = ""
+    owner_token = ""
+
 app = FastAPI(
     title=settings.app_name,
     version="0.6.0",
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    ControlPlaneAuthMiddleware,
+    required=settings.control_plane_auth_required,
+    control_token=control_token,
+    owner_token=owner_token,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

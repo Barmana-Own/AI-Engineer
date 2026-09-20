@@ -40,6 +40,10 @@ _ROLE_DEPARTMENTS: dict[str, Department] = {
     "release_verifier": Department.OPERATIONS,
     "incident_manager": Department.OPERATIONS,
     "operations": Department.OPERATIONS,
+    "devops": Department.OPERATIONS,
+    "ux_designer": Department.ENGINEERING,
+    "seo_manager": Department.PRODUCT,
+    "seo_specialist": Department.RESEARCH,
 }
 
 
@@ -119,6 +123,63 @@ def _row_to_member(row: Any) -> ProjectTeamMember:
 
 def _agent_id_for_role(role: str) -> str:
     return f"employee-{role.replace('_', '-')}"
+
+
+def _team_plan(row: Any) -> dict[str, Any]:
+    def load_json(column: str, default: object) -> object:
+        try:
+            value = json.loads(row[column] or "")
+        except (TypeError, json.JSONDecodeError):
+            return default
+        return value
+
+    selected = load_json("selected_roles_json", [])
+    reasons = load_json("role_reasons_json", {})
+    responsibilities = load_json("role_responsibilities_json", {})
+    basis = load_json("selection_basis_json", [])
+    assigned = load_json("assigned_tasks_json", {})
+    return {
+        "plan_id": str(row["plan_id"]),
+        "project_id": str(row["project_id"]),
+        "objective": str(row["objective"]),
+        "complexity": str(row["complexity"]),
+        "selected_roles": list(selected) if isinstance(selected, list) else [],
+        "role_reasons": dict(reasons) if isinstance(reasons, dict) else {},
+        "role_responsibilities": dict(responsibilities) if isinstance(responsibilities, dict) else {},
+        "selection_basis": list(basis) if isinstance(basis, list) else [],
+        "assigned_tasks": dict(assigned) if isinstance(assigned, dict) else {},
+        "created_at": str(row["created_at"]),
+        "updated_at": str(row["updated_at"]),
+    }
+
+
+def get_project_team_plan(
+    project_id: str, *, database_path: str | Path | None = None
+) -> dict[str, Any] | None:
+    db.initialize_database(database_path)
+    with db.connect(database_path) as database:
+        row = database.execute(
+            "SELECT * FROM project_team_plans WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+    return _team_plan(row) if row else None
+
+def update_team_plan_assignments(
+    project_id: str, assignments: dict[str, list[str]], *, database_path: str | Path | None = None
+) -> dict[str, Any] | None:
+    db.initialize_database(database_path)
+    with db.connect(database_path) as database:
+        result = database.execute(
+            "UPDATE project_team_plans SET assigned_tasks_json = ?, updated_at = ? WHERE project_id = ?",
+            (json.dumps(assignments, ensure_ascii=False), db.utc_now(), project_id),
+        )
+        if result.rowcount == 0:
+            return None
+        row = database.execute(
+            "SELECT * FROM project_team_plans WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+    return _team_plan(row) if row else None
 
 
 def ensure_employee(
@@ -280,6 +341,7 @@ def save_project_organization(
     plan: ProjectOrganizationPlan,
     *,
     database_path: str | Path | None = None,
+    persist_team_plan: bool = True,
 ) -> ProjectOrganization:
     db.initialize_database(database_path)
     now = db.utc_now()
@@ -298,6 +360,40 @@ def save_project_organization(
                 status=member.status,
                 active_project=plan.project_id,
                 database_path=database_path,
+            )
+        if persist_team_plan:
+            plan_id = plan.plan_id or f"team-plan-{plan.project_id}"
+            database.execute(
+                """
+                INSERT INTO project_team_plans(
+                    plan_id, project_id, objective, complexity,
+                    selected_roles_json, role_reasons_json,
+                    role_responsibilities_json, selection_basis_json, assigned_tasks_json,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(project_id) DO UPDATE SET
+                    plan_id=excluded.plan_id,
+                    objective=excluded.objective,
+                    complexity=excluded.complexity,
+                    selected_roles_json=excluded.selected_roles_json,
+                    role_reasons_json=excluded.role_reasons_json,
+                    role_responsibilities_json=excluded.role_responsibilities_json,
+                    selection_basis_json=excluded.selection_basis_json,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    plan_id,
+                    plan.project_id,
+                    plan.objective[:20000],
+                    plan.complexity.value,
+                    json.dumps([member.role for member in plan.members], ensure_ascii=False),
+                    json.dumps(dict(plan.role_reasons), ensure_ascii=False),
+                    json.dumps(dict(plan.role_responsibilities), ensure_ascii=False),
+                    json.dumps(list(plan.selection_basis), ensure_ascii=False),
+                    json.dumps({}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
             )
         database.execute(
             """

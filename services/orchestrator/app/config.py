@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     environment: str = "development"
     host: str = "127.0.0.1"
     port: int = Field(default=8012, ge=1, le=65535)
+
+    # Production deployments set these explicitly. Development remains usable
+    # without a token so local unit tests and loopback clients keep existing behavior.
+    control_plane_auth_required: bool = False
+    control_plane_token: SecretStr | None = None
+    owner_control_token: SecretStr | None = None
+    model_gateway_token: SecretStr | None = None
 
     model_gateway_url: str = Field(default="http://127.0.0.1:8010", min_length=1, max_length=500)
     local_agent_url: str = Field(default="http://127.0.0.1:8011", min_length=1, max_length=500)

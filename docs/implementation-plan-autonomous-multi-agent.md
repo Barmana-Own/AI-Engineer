@@ -28,7 +28,7 @@ The orchestrator currently executes guarded single-agent tasks and a scheduled b
 
 The latest database snapshot contains 498 autonomy runs (335 completed, 163 failed), 1,110 tasks, 1,110 memories, and 1,110 handoffs. Only 30 memories record a changed path and every one points to README.md; the loop is therefore producing mostly no-op or recovery activity rather than substantive product evolution. The latest failures are dominated by autonomous timeouts, maximum-step exhaustion, restart reconciliation, and invalid model tool-call output.
 
-The immediate engineering objective is to stabilize the execution contract, then add coordination primitives incrementally while preserving the existing service boundaries and single-writer safety model. Automatic remote pushing must remain disabled during this work; the deployment script currently sets AUTONOMOUS_AUTO_PUSH=true and is a release-safety risk.
+The immediate engineering objective is to stabilize the execution contract, then add coordination primitives incrementally while preserving the existing service boundaries and single-writer safety model. Automatic remote pushing must remain disabled during this work; the production launcher now defaults AUTONOMOUS_AUTO_PUSH=false and requires explicit protected environment configuration to change it.
 
 ## 1. Current architecture
 
@@ -134,7 +134,7 @@ The implementation is a bounded improvement loop, not a general project delivery
 - A fixed 14-key backlog is rotated for fairness; selection uses recent memories and run history.
 - Every cycle is limited to one requested cycle, one writer phase and at most two concurrent readers in the server deployment.
 - Writers must checkpoint before mutation and a validation reader must succeed before a run can complete.
-- The deployment script starts the loop every five minutes and currently sets AUTONOMOUS_AUTO_PUSH=true.
+- The production launcher uses a five-minute default interval, keeps AUTONOMOUS_MODE_ENABLED=false and AUTONOMOUS_AUTO_PUSH=false by default, and requires explicit protected environment configuration to change either.
 - Checkpoint push verifies repository root, expected remote, branch and a clean tree outside allowed paths before pushing origin HEAD:main.
 - There is no intake of an arbitrary external repository, stack/environment detection, isolated project workspace creation, acceptance criteria, multi-stage plan-to-result contract, or final release report.
 - Repeated no-op cycles are counted as completed runs; elapsed run count is therefore not a completion metric.
@@ -433,11 +433,11 @@ Gate: no P0/P1 or Critical/High issue, all runnable required checks pass, unavai
 
 ## CURRENT STATE
 
-A locally runnable multi-service core exists: FastAPI Orchestrator, Local Agent, Model Gateway, Electron Desktop, React Control Center, SQLite memory, guarded tools, checkpoints and a bounded supervisor. The supervisor is enabled on the server and has produced hundreds of persisted runs, but evidence shows mostly no-op/recovery work rather than completed product changes.
+A locally runnable multi-service core exists: FastAPI Orchestrator, Local Agent, Model Gateway, Electron Desktop, React Control Center, SQLite memory, guarded tools, checkpoints and a bounded supervisor. Historical server telemetry recorded hundreds of persisted runs, mostly no-op/recovery work rather than completed product changes; the current public-deployment launcher requires explicit protected tokens and defaults autonomy off.
 
 ## PROBLEMS
 
-The principal blockers are invalid model tool-call output and timeout/step exhaustion, no completion/acceptance gate, no external-project intake, no DAG or durable inter-agent messaging, no Supervisor arbitration, incomplete restart/idempotency semantics, absent auth, stale/hard-coded configuration, documentation drift, missing Desktop/Provider Router dependencies, and auto-push enabled in deployment.
+The principal blockers are invalid model tool-call output and timeout/step exhaustion, no completion/acceptance gate, no external-project intake, no DAG or durable inter-agent messaging, no Supervisor arbitration, incomplete restart/idempotency semantics, historical absent auth and stale configuration findings, documentation drift, missing Desktop/Provider Router dependencies, and the former auto-push deployment setting. Current limitations and public-server blockers are documented in the current technical report.
 
 ## TARGET ARCHITECTURE
 

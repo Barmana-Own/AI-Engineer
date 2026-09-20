@@ -40,7 +40,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 13
 _SCHEMA_VERSION_TABLE = "schema_version"
 
 
@@ -984,6 +984,54 @@ def _migration_11(database: sqlite3.Connection) -> None:
     )
 
 
+def _migration_12(database: sqlite3.Connection) -> None:
+    """Persist the authoritative project execution team plan."""
+    database.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS project_team_plans (
+            plan_id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL UNIQUE,
+            objective TEXT NOT NULL,
+            complexity TEXT NOT NULL,
+            selected_roles_json TEXT NOT NULL DEFAULT '[]',
+            role_reasons_json TEXT NOT NULL DEFAULT '{}',
+            role_responsibilities_json TEXT NOT NULL DEFAULT '{}',
+            selection_basis_json TEXT NOT NULL DEFAULT '[]',
+            assigned_tasks_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_team_plans_project
+            ON project_team_plans(project_id, updated_at DESC);
+        """
+    )
+    columns = {str(row[1]) for row in database.execute("PRAGMA table_info(project_team_plans)").fetchall()}
+    if "assigned_tasks_json" not in columns:
+        database.execute("ALTER TABLE project_team_plans ADD COLUMN assigned_tasks_json TEXT NOT NULL DEFAULT '{}'")
+
+
+
+def _migration_13(database: sqlite3.Connection) -> None:
+    """Persist structured opportunity intake and conversion state."""
+    columns = {str(row[1]) for row in database.execute("PRAGMA table_info(project_opportunities)").fetchall()}
+    additions = (
+        ("brief_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("qualification_json", "TEXT NOT NULL DEFAULT '{}'"),
+        ("owner_gate_status", "TEXT NOT NULL DEFAULT 'not_required'"),
+        ("converted_project_id", "TEXT"),
+        ("converted_at", "TEXT"),
+        ("last_action", "TEXT NOT NULL DEFAULT ''"),
+    )
+    for name, definition in additions:
+        if name not in columns:
+            database.execute(f"ALTER TABLE project_opportunities ADD COLUMN {name} {definition}")
+    database.execute(
+        "CREATE INDEX IF NOT EXISTS idx_opportunities_converted_project "
+        "ON project_opportunities(converted_project_id)"
+    )
+
+
 def _schema_version(database: sqlite3.Connection) -> int:
     columns = {
         str(row[1])
@@ -1057,7 +1105,7 @@ def initialize_database(
                 f"version {SCHEMA_VERSION}."
             )
 
-        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4), (5, _migration_5), (6, _migration_6), (7, _migration_7), (8, _migration_8), (9, _migration_9), (10, _migration_10), (11, _migration_11))
+        migrations = ((1, _migration_1), (2, _migration_2), (3, _migration_3), (4, _migration_4), (5, _migration_5), (6, _migration_6), (7, _migration_7), (8, _migration_8), (9, _migration_9), (10, _migration_10), (11, _migration_11), (12, _migration_12), (13, _migration_13))
         for version, migration in migrations:
             if current < version:
                 migration(database)
@@ -1077,6 +1125,8 @@ def initialize_database(
         _migration_9(database)
         _migration_10(database)
         _migration_11(database)
+        _migration_12(database)
+        _migration_13(database)
         if current < SCHEMA_VERSION:
             _record_schema_version(database, SCHEMA_VERSION)
 

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import tempfile
 import unittest
@@ -81,7 +81,7 @@ class CoordinationEngineTests(unittest.TestCase):
     def test_supervisor_delegates_dag_and_completes_simulated_workflow(self) -> None:
         supervisor = Supervisor(self.db)
         started = supervisor.start_objective(project_id=self.project_id, objective="Add a small API endpoint and tests")
-        self.assertEqual(len(started["tasks"]), 10)
+        self.assertEqual(len(started["tasks"]), 5)
         guard = 0
         while guard < 30:
             batches = supervisor.next_ready(run_id=str(started["run_id"]), project_id=self.project_id)
@@ -93,8 +93,8 @@ class CoordinationEngineTests(unittest.TestCase):
             guard += 1
         status = supervisor.status(str(started["run_id"]))
         self.assertTrue(status["complete"], status)
-        self.assertEqual(status["states"][TaskState.COMPLETED.value], 10)
-        self.assertGreaterEqual(len(status["messages"]), 11)
+        self.assertEqual(status["states"][TaskState.COMPLETED.value], 5)
+        self.assertGreaterEqual(len(status["messages"]), 6)
 
     def test_failure_records_evidence_and_retries(self) -> None:
         supervisor = Supervisor(self.db, max_retries=1)
