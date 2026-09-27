@@ -1,17 +1,17 @@
 import os
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _project_root() -> Path:
-    configured = os.getenv("AI_ENGINE_PROJECT_ROOT") or os.getenv("PROJECT_ROOT")
+    configured = os.getenv('AI_ENGINE_PROJECT_ROOT') or os.getenv('PROJECT_ROOT')
     if configured and configured.strip():
         return Path(configured).expanduser().resolve()
     current = Path(__file__).resolve()
     for parent in (current.parent, *current.parents):
-        if (parent / "services").is_dir() and (parent / "apps").is_dir():
+        if (parent / 'services').is_dir() and (parent / 'apps').is_dir():
             return parent
     return current.parents[3]
 
@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     environment: str = "development"
     host: str = "127.0.0.1"
     port: int = Field(default=8012, ge=1, le=65535)
+
+    # Production deployments set these explicitly. Development remains usable
+    # without a token so local unit tests and loopback clients keep existing behavior.
+    control_plane_auth_required: bool = False
+    control_plane_token: SecretStr | None = None
+    owner_control_token: SecretStr | None = None
+    model_gateway_token: SecretStr | None = None
 
     model_gateway_url: str = Field(default="http://127.0.0.1:8010", min_length=1, max_length=500)
     local_agent_url: str = Field(default="http://127.0.0.1:8011", min_length=1, max_length=500)
@@ -48,14 +55,30 @@ class Settings(BaseSettings):
     autonomous_workspace: str = Field(default="ai-engineer", min_length=1, max_length=200)
     autonomous_subagents: str = Field(default="scout,planner,implementer,verifier,reviewer", min_length=1, max_length=1000)
     autonomous_max_subagents: int = Field(default=5, ge=1, le=16)
+    # Keep domain specialists opt-in so the default cycle spends its bounded
+    # model budget on one writer and one validation reader.
+    autonomous_include_section_specialist: bool = False
     # Read-only specialists may overlap on one immutable snapshot; writers remain serialized.
     autonomous_read_parallelism: int = Field(default=2, ge=1, le=8)
     autonomous_reconciliation_grace_seconds: int = Field(default=900, ge=0, le=86400)
+    # Durable execution recovery is enabled by default; leases are renewed by workers.
+    autonomous_recovery_enabled: bool = True
+    autonomous_lease_seconds: int = Field(default=600, ge=30, le=86400)
+    autonomous_recovery_stale_seconds: int = Field(default=900, ge=30, le=86400)
     autonomous_task_timeout_seconds: int = Field(default=360, ge=1, le=3600)
     autonomous_model_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     # Push only clean, verified checkpoints to the configured GitHub remote.
     # The supervisor never publishes an uncommitted or foreign-repository tree.
     autonomous_auto_push: bool = False
+    # Controlled self-improvement is opt-in and never pushes to remotes.
+    autonomous_improvement_enabled: bool = False
+    autonomous_max_changes_per_run: int = Field(default=1, ge=1, le=10)
+    autonomous_max_retries: int = Field(default=2, ge=0, le=10)
+    autonomous_max_runtime_seconds: int = Field(default=1800, ge=60, le=86400)
+    autonomous_max_files_changed: int = Field(default=8, ge=1, le=100)
+    autonomous_allowed_project_roots: str = Field(default="", max_length=2000)
+    autonomous_allowed_commands: str = Field(default="", max_length=4000)
+    autonomous_rollback_enabled: bool = False
     autonomous_repo_root: str = Field(
         default_factory=lambda: str(_project_root()),
         min_length=1,

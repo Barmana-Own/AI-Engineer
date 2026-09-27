@@ -1,149 +1,92 @@
-# AI Engineer
+﻿# AI-Engineer
 
-## Autonomous development
+Production-oriented autonomous engineering workspace built as a modular monolith with explicit service boundaries.
 
-This repository is maintained by a bounded five-minute supervisor with checkpointed sub-agent inspection, implementation, and verification.
-
-- Last bounded cycle checkpoint: b5b7712c
-
-This repository is maintained by a bounded, interval-configured supervisor with checkpointed sub-agent inspection, implementation, and verification.
-
-- The latest bounded cycle is recorded as a Git checkpoint; inspect `git log -1 --oneline` for the current commit.
-
-پلتفرم مهندسی نرم‌افزار هوشمند شخصی، Local-First و قابل اجرا روی Windows 11.
-
-## وضعیت فعلی
-
-- مرحله فعال: **هسته Orchestrator و حلقه خودتکمیل کنترل‌شده**
-- مسیر پروژه: `F:\AI-Engineer`
-- Model Gateway، Local Agent و Desktop اولیه موجود هستند.
-- Orchestrator اکنون دو حالت `interactive` و `autonomous` دارد.
-- وضعیت زنده‌ی سرویس‌ها و cadence supervisor از `GET /health` و `GET /capabilities` قابل مشاهده است.
-- هر چرخه خودتکمیل قبل از تغییر Read و Git Checkpoint انجام می‌دهد، Validation اجرا می‌کند و نتیجه را در حافظه پروژه ثبت می‌کند.
-- مخزن Git محلی در ریشه پروژه نگهداری می‌شود.
-- API Key، رمزها و فایل‌های محرمانه نباید وارد Git شوند.
-
-## هدف محصول
-
-این سیستم در نسخه نهایی باید بتواند:
-
-1. نیازمندی را از Prompt، Word یا PDF دریافت کند.
-2. معماری، برنامه اجرای کار و کد پروژه را تولید کند.
-3. فایل‌ها و Workspace پروژه را مدیریت کند.
-4. فرمان‌های محدود و ثبت‌شده را در PowerShell، CMD یا محیط کنترل‌شده اجرا کند.
-5. محیط پروژه را از روی فایل‌هایی مانند `package.json`، `Dockerfile` و `pyproject.toml` تشخیص دهد.
-6. Build، Test، Debug، Review و Rollback انجام دهد.
-7. از چند Agent تخصصی و یک Model Gateway مستقل استفاده کند.
-8. حافظه دائمی پروژه، Task، تصمیم‌ها، خطاها و بازخورد کاربر داشته باشد.
-
-## اصول پایه
-
-- **Local-First:** داده‌ها و سرویس‌ها فعلاً روی لپ‌تاپ اجرا می‌شوند.
-- **Least Privilege:** اجرای Administrator فقط با تأیید صریح کاربر.
-- **Human Approval:** حذف، نصب، انتشار، تغییر تنظیمات سیستم و عملیات مخرب نیازمند تأیید است.
-- **Git Checkpoint:** پیش از تغییر مهم، checkpoint ساخته می‌شود.
-- **Observability:** فرمان‌ها، Taskها، خطاها، مصرف مدل و نتایج تست ثبت می‌شوند.
-- **Replaceable Model Provider:** وابستگی مستقیم Agentها به API یک شرکت مجاز نیست.
-- **Controlled Execution:** فرمان‌ها باید Timeout، توقف، ثبت خروجی و محدودیت دسترسی داشته باشند.
-
-## پروفایل منابع
-
-### Standard — سیستم فعلی
-
-- RAM: حدود 16 GB
-- CPU: Intel Core i7-8750H، شش هسته و دوازده Thread
-- GPU: NVIDIA GTX 1050 با 4 GB VRAM
-- سیاست اولیه: حداکثر دو Task پردازشی هم‌زمان
-- Docker و سرویس‌های سنگین فقط هنگام نیاز اجرا شوند.
-
-### Lite — سیستم احتمالی آینده
-
-- RAM: 4 GB
-- CPU: Core i3
-- سیاست اولیه: یک Task هم‌زمان
-- SQLite به‌جای PostgreSQL برای اجرای سبک
-- Docker به‌صورت پیش‌فرض خاموش
-- سرویس‌ها به‌صورت On-Demand اجرا شوند.
-- مدل محلی سنگین غیرفعال باشد.
-
-## ساختار Workspace
+## Current architecture
 
 ```text
-F:\AI-Engineer\
-├── apps\
-│   ├── desktop\
-│   ├── web-ui\
-│   └── vscode-extension\
-├── services\
-│   ├── orchestrator\
-│   ├── model-gateway\
-│   ├── local-agent\
-│   └── memory-service\
-├── packages\
-│   ├── shared-types\
-│   ├── agent-sdk\
-│   └── tool-sdk\
-├── workspaces\
-├── data\
-├── logs\
-├── backups\
-├── models\
-├── docs\
-└── scripts\
+React Control Center / Electron Desktop
+                 |
+                 v
+FastAPI Orchestrator (coordination, persistence, recovery, APIs)
+        |                         |
+        v                         v
+Model Gateway                 Local Agent
+(model/provider routing)      (files, git, terminal, processes)
+        |
+        v
+Provider Router (optional provider integration)
 ```
 
-## وضعیت ابزارهای سیستم در مرحله صفر
+The source of truth is the implementation under `services/` and `apps/`. The desktop application is Electron (`apps/desktop`), not Tauri. The React Control Center is under `apps/control-center`.
 
-در بررسی اولیه این ابزارها نصب تشخیص داده شدند:
+## Services
 
-- VS Code
-- Git
-- Python 3.11
-- Node.js و npm
-- Docker Desktop
-- WSL
-- XAMPP
+- `services/orchestrator`: FastAPI API, SQLite persistence (schema version 13), coordination task DAG, message bus, handoffs, memory, self-improvement, recovery and run observability.
+- `services/model-gateway`: model profiles, provider routing, caching, usage and health APIs.
+- `services/local-agent`: constrained file, terminal, process and Git tools.
+- `services/provider-router`: optional provider-facing integration; its own dependencies are required for its test command.
 
-XAMPP در `D:\xampp` قرار دارد. فرمان‌های `php`، `composer` و `mysql` در PATH فعلی ویندوز تشخیص داده نشدند. در این مرحله PATH تغییر داده نمی‌شود.
+The placeholder packages `services/memory-service`, `packages/agent-sdk`, `packages/tool-sdk`, `apps/web-ui`, and `apps/vscode-extension` are not production implementations.
 
-## محدودیت فضای پروژه
+## Configuration and startup
 
-درایو `F:` حدود 97 GB فضا دارد. بودجه اولیه پروژه **حداکثر 50 GB** در نظر گرفته می‌شود. در مراحل بعد برای `logs`، `backups`، `models` و Docker سیاست پاک‌سازی و سقف مصرف تعریف خواهد شد.
+Project-root discovery is portable. Set `AI_ENGINE_PROJECT_ROOT` (or the backward-compatible `PROJECT_ROOT`) when launching from another directory; otherwise the launcher discovers a parent containing `services` and `apps`.
 
-## ادامه کار
-
-برای شروع یک چرخه خودتکمیل محدود، پس از اجرای Orchestrator یک درخواست به این endpoint ارسال می‌شود:
-
-```http
-POST /v1/agent/projects/{project_id}/self-improve
-Content-Type: application/json
-
-{"goal":"Complete the highest-value safe improvement","cycles":1}
+```powershell
+$env:AI_ENGINE_PROJECT_ROOT = (Get-Location).Path
+.\start-ai-engineer.ps1
 ```
 
-وضعیت چرخه و حافظه از این مسیرها قابل مشاهده است:
+The launcher starts Model Gateway on 8010, Local Agent on 8011, Orchestrator on 8012 and the Control Center on 5175. Public deployment keeps autonomous execution and autonomous improvement disabled by default, requires control-plane/gateway tokens in the machine environment, and keeps `AUTONOMOUS_AUTO_PUSH=false`. The IIS site may serve the static frontend, but privileged `/api/orchestrator/*` and `/api/gateway/*` calls require authentication.
 
-```text
-GET /v1/agent/autonomy/runs/{run_id}
-GET /v1/agent/projects/{project_id}/memory
-GET /capabilities
+## Multi-agent execution
+
+`Supervisor.start_objective` creates a persisted run and dependency-aware DAG: requirements, planner, architect, independent implementation work, integration, testing, review and release verification. `MessageBus` persists typed messages (question, proposal, evidence, review, challenge, revision request, decision, handoff, blocker, status and result). `HandoffProtocol` records structured artifacts and verification. The scheduler batches independent read-only work and serializes writers with transactional workspace locks.
+
+The Supervisor currently owns orchestration and evidence; specialist model execution remains in the existing agent execution loop rather than a separate worker process per role. This is deliberate and documented as remaining debt, not a claimed feature.
+
+## Organizational layer
+
+The Company Director is the non-programming executive coordinator above the existing
+Supervisor. Persistent employee profiles (agent_profiles) use stable role identities,
+measurable capabilities, model profiles, tool permissions and operational statuses.
+Departments are EXECUTIVE, PRODUCT, ENGINEERING, QUALITY, SECURITY, RESEARCH,
+OPERATIONS and DOCUMENTATION.
+
+Creating a project forms the smallest useful team by default. Small projects use an
+Engineering Manager, Implementer, Tester and Reviewer; medium and large projects add
+only the planning, architecture, integration, security, documentation and release
+roles justified by scope. The existing coordination task DAG, message bus, handoffs,
+memory and recovery tables remain the execution primitives. Organization APIs are
+available under /v1/organization for employee profiles, team formation and executive
+project reports. See docs/organizational-core.md.
+
+## Memory and improvement
+
+Working, episodic, project, lesson and failure memories use candidate/validated/trusted/superseded/rejected lifecycle states. Retrieval is scoped and lexical/ranked; secrets are redacted. Self-improvement follows observe, diagnose, propose, plan, checkpoint, implement, test, review, accept/reject and learn gates with bounded retries, file/change/runtime limits and local checkpoints.
+
+## Validation
+
+From the service directories:
+
+```powershell
+cd services/orchestrator; .venv\Scripts\python.exe -m unittest discover -s tests -v
+cd ..\model-gateway; .venv\Scripts\python.exe -m pytest -q
+cd ..\local-agent; .venv\Scripts\python.exe -m unittest discover -s tests -v
+cd ..\..\apps\control-center; npm run build
 ```
 
-حالت خودکار فقط برای تغییرات فایلِ خوانده‌شده و پس از checkpoint فعال است؛ هر task می‌تواند `validation_command` مشخص داشته باشد تا در پایان همان پروژه اجرا شود. حذف، نصب، rollback، انتشار و تغییرات سیستم‌عامل همچنان نیازمند Policy/Approval هستند.
+The end-to-end deterministic workflow is covered by `services/orchestrator/tests/test_e2e_workflow.py`; its persisted trace is exposed at `GET /v1/coordination/runs/{run_id}/trace`.
 
-برای اینکه Supervisor خودش به‌صورت دوره‌ای بیدار شود، مقادیر نمونه‌ی
-`services/orchestrator/.env.example` را در `.env` کپی و
-`AUTONOMOUS_MODE_ENABLED=true` را فعال کنید. این حالت به‌صورت پیش‌فرض خاموش است.
+## Known limitations
 
-ادامه توسعه شامل حافظه مستقل، Task Graph چندAgent، Cancellation/Resume و Browser Validation است. اطلاعات موردنیاز برای اتصال Provider خارجی:
+- Desktop and Provider Router JavaScript validation require their local Node dependencies; in the audited environment `vite`/`vitest` were not installed for those packages.
+- The Local Agent package has unittest coverage; a separate pytest command is not available in its environment.
+- SQLite persistence is designed for a single orchestrator process. The scheduler, discussion controller and specialist-worker execution still have documented edge cases; see `docs/final-engineering-review.md`.
 
-- API Base URL
-- روش احراز هویت و نام Header
-- نمونه `curl` بدون کلید واقعی
-- Endpoint فهرست مدل‌ها
-- Endpoint درخواست Chat یا Completion
+For the verified architecture and release assessment, read `docs/final-engineering-review.md`.
 
+## Incident resilience and Human Owner control
 
-## SEO Engine
-
-The orchestrator exposes bounded, evidence-backed SEO analysis through `/v1/seo`. See [docs/seo-engine.md](docs/seo-engine.md) and the source import audit for platform detection, crawl safety, keyword planning, WordPress draft-first operations, and existing-task delegation.
+Phase 8D adds a persisted incident state machine (`detect -> contain -> diagnose -> repair -> verify -> postmortem -> learn -> resolved`), dynamic incident teams, postmortems, evidence-gated organizational lessons, measurable collaboration/performance signals and adapter-neutral opportunity intake. The Human Owner remains above the Company Director: normal project actions are persisted and high-risk operations stay pending approval with no automatic deployment, remote publication or financial execution. See `docs/incident-management.md` and the Phase 8D addenda in `reports/`.

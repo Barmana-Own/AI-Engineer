@@ -3,10 +3,15 @@ function apiBase(value: string | undefined, fallback: string): string {
 }
 
 // Same-origin paths are used in production behind IIS. Vite proxies the same
-// paths during local development, so the browser never needs a service token.
+// paths during local development, so the browser never needs a hard-coded
+// loopback URL or a cross-origin exception.
 const ORCHESTRATOR_URL = apiBase(
   import.meta.env.VITE_ORCHESTRATOR_URL,
   "/api/orchestrator",
+);
+const GATEWAY_URL = apiBase(
+  import.meta.env.VITE_GATEWAY_URL,
+  "/api/gateway",
 );
 
 export type Project = {
@@ -111,41 +116,7 @@ export type RuntimeModels = {
   candidate_order: string;
 };
 
-export type BrowserSession = {
-  authenticated: boolean;
-  role: "OWNER" | "CONTROL" | null;
-  username: string | null;
-  expires_at: string | null;
-  csrf_token: string | null;
-};
-
-export class ApiError extends Error {
-  readonly status: number;
-  readonly detail: string;
-
-  constructor(status: number, detail: string) {
-    super(detail);
-    this.name = "ApiError";
-    this.status = status;
-    this.detail = detail;
-  }
-}
-
-const API_TIMEOUT_MS = 10_000;
-let csrfToken: string | null = null;
-
-export function setCsrfToken(value: string | null): void {
-  csrfToken = value;
-}
-
-export function isUnauthorized(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 401;
-}
-
-export function isForbidden(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 403;
-}
-
+const API_TIMEOUT_MS = 10_000
 async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   let payload: unknown = null;
@@ -159,13 +130,9 @@ async function parseResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
-    const detail =
-      typeof payload === "object" && payload !== null && "detail" in payload
-        ? String((payload as { detail: unknown }).detail)
-        : typeof payload === "string"
-          ? payload
-          : JSON.stringify(payload, null, 2);
-    throw new ApiError(response.status, detail);
+    throw new Error(
+      typeof payload === "string" ? payload : JSON.stringify(payload, null, 2),
+    );
   }
 
   return payload as T;
@@ -175,41 +142,9 @@ function get<T>(url: string): Promise<T> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  return fetch(url, { signal: controller.signal, credentials: "include" })
+  return fetch(url, { signal: controller.signal })
     .then((response) => parseResponse<T>(response))
     .finally(() => window.clearTimeout(timeout));
-}
-
-async function mutate<T>(url: string, init: RequestInit): Promise<T> {
-  const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
-  if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
-  return parseResponse<T>(
-    await fetch(url, { ...init, headers, credentials: "include" }),
-  );
-}
-
-export async function getSession(): Promise<BrowserSession> {
-  const session = await get<BrowserSession>(`${ORCHESTRATOR_URL}/auth/session`);
-  setCsrfToken(session.authenticated ? session.csrf_token : null);
-  return session;
-}
-
-export async function login(username: string, password: string): Promise<BrowserSession> {
-  const session = await mutate<BrowserSession>(`${ORCHESTRATOR_URL}/auth/login`, {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-  setCsrfToken(session.csrf_token);
-  return session;
-}
-
-export async function logout(): Promise<void> {
-  try {
-    await mutate<BrowserSession>(`${ORCHESTRATOR_URL}/auth/logout`, { method: "POST" });
-  } finally {
-    setCsrfToken(null);
-  }
 }
 
 export function getHealth(): Promise<HealthResponse> {
@@ -221,7 +156,7 @@ export function getCapabilities(): Promise<CapabilitiesResponse> {
 }
 
 export function getRuntimeModels(): Promise<RuntimeModels> {
-  return get(`${ORCHESTRATOR_URL}/v1/control-center/runtime/models`);
+  return get(`${GATEWAY_URL}/v1/runtime/models`);
 }
 
 export function listSubagents(): Promise<SubagentRole[]> {
@@ -240,30 +175,39 @@ export async function createProject(
   name: string,
   workspace?: string,
 ): Promise<Project> {
-  return mutate<Project>(`${ORCHESTRATOR_URL}/v1/projects`, {
-    method: "POST",
-    body: JSON.stringify({ name, workspace: workspace || null }),
-  });
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, workspace: workspace || null }),
+    }),
+  );
 }
 
 export async function createAgentTask(
   projectId: string,
   instruction: string,
 ): Promise<AgentTask> {
-  return mutate<AgentTask>(`${ORCHESTRATOR_URL}/v1/agent/tasks`, {
-    method: "POST",
-    body: JSON.stringify({ project_id: projectId, instruction }),
-  });
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/tasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, instruction }),
+    }),
+  );
 }
 
 export async function startSelfImprove(
   projectId: string,
   goal: string,
 ): Promise<AutonomyRun> {
-  return mutate<AutonomyRun>(`${ORCHESTRATOR_URL}/v1/agent/projects/${projectId}/self-improve`, {
-    method: "POST",
-    body: JSON.stringify({ goal, cycles: 1 }),
-  });
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/projects/${projectId}/self-improve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal, cycles: 1 }),
+    }),
+  );
 }
 
 export function getAgentTask(taskId: string): Promise<AgentTask> {
@@ -305,8 +249,11 @@ export async function approveAgentTask(
   taskId: string,
   approved: boolean,
 ): Promise<AgentTask> {
-  return mutate<AgentTask>(`${ORCHESTRATOR_URL}/v1/agent/tasks/${taskId}/approval`, {
-    method: "POST",
-    body: JSON.stringify({ approved }),
-  });
+  return parseResponse(
+    await fetch(`${ORCHESTRATOR_URL}/v1/agent/tasks/${taskId}/approval`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approved }),
+    }),
+  );
 }

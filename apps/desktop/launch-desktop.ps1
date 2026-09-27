@@ -5,7 +5,9 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$root = "F:\AI-Engineer"
+$configuredRoot = if (-not [string]::IsNullOrWhiteSpace($env:AI_ENGINE_PROJECT_ROOT)) { $env:AI_ENGINE_PROJECT_ROOT } elseif (-not [string]::IsNullOrWhiteSpace($env:PROJECT_ROOT)) { $env:PROJECT_ROOT } else { $null }
+$root = if (-not [string]::IsNullOrWhiteSpace($configuredRoot)) { (Resolve-Path -LiteralPath $configuredRoot).Path } elseif (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path } else { throw "Could not resolve the AI Engineer repository root." }
+$env:AI_ENGINE_PROJECT_ROOT = $root
 $appRoot = "$root\apps\desktop"
 
 function Port-Is-Open([int]$Port) {

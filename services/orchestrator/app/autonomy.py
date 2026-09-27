@@ -35,7 +35,16 @@ from app.db import (
     update_autonomy_run,
 )
 from app.config import settings
+from app.memory import MemoryStore
 from app.subagents import SUBAGENT_ROLES, build_execution_phases, build_role_instruction, configured_subagent_roles
+from app.self_improvement import SelfImprovementEngine
+from app.recovery import (
+    WAITING_TASK_STATUSES,
+    pause_task_for_dependency,
+    recover_incomplete_runs,
+    record_run_heartbeat,
+    requeue_waiting_task,
+)
 
 MAX_MEMORY_CONTEXT_CHARS = 4_000
 RECONCILIATION_GRACE_SECONDS = 300
@@ -75,6 +84,26 @@ def _task_changed_paths(task_ids: list[str]) -> set[str]:
     return paths
 
 
+def _run_has_successful_validation(task_ids: list[str]) -> bool:
+    """Require a successful validation after a mutation before publishing."""
+    mutation_tools = {"write_file", "replace_text", "apply_patch"}
+    mutation_seen = False
+    for task_id in task_ids:
+        task = get_task(task_id)
+        if not task:
+            continue
+        for record in task.get("results") or []:
+            step = record.get("step") or {}
+            outcome = record.get("outcome") or {}
+            tool = str(outcome.get("tool") or step.get("tool") or "").casefold()
+            if not outcome.get("ok"):
+                continue
+            if tool in mutation_tools:
+                mutation_seen = True
+            elif mutation_seen and tool == "run_terminal":
+                return True
+    return False
+
 def _working_tree_paths(status_text: str) -> set[str]:
     """Extract paths from porcelain output without exposing file contents."""
     paths: set[str] = set()
@@ -92,100 +121,15 @@ def _push_verified_checkpoint(
     allowed_paths: set[str] | None = None,
     run_id: str | None = None,
 ) -> dict[str, object]:
-    """Commit and push only verified paths to the owned GitHub remote.
+    """Report the local-only policy for autonomous cycles.
 
-    This runs after a complete autonomous cycle.  It is deliberately separate
-    from the agent tool policy: agents can checkpoint locally, while the
-    supervisor is the only component allowed to publish a verified result.
+    Autonomous cycles may create local checkpoints, but remote commits and pushes
+    are intentionally unavailable from the scheduler. Explicit human-reviewed
+    release workflows remain responsible for publication.
     """
     if not allowed_paths:
         return {"pushed": False, "reason": "no verified changes"}
-
-    if not bool(getattr(settings, "autonomous_auto_push", False)):
-        return {"pushed": False, "reason": "disabled"}
-
-    root = Path(
-        str(getattr(settings, "autonomous_repo_root", "") or os.getenv("AI_ENGINEER_REPO_ROOT", "F:\\AI-Engineer"))
-    ).expanduser()
-    try:
-        root = root.resolve()
-    except OSError:
-        return {"pushed": False, "reason": "repository root could not be resolved"}
-    if not root.is_dir() or not (root / ".git").exists():
-        return {"pushed": False, "reason": "repository root is unavailable"}
-
-    env = os.environ.copy()
-    env.update(
-        {
-            "GIT_TERMINAL_PROMPT": "0",
-            "GCM_INTERACTIVE": "Never",
-            "GIT_ASKPASS": "echo",
-            "GIT_EDITOR": "true",
-            "GIT_PAGER": "cat",
-            "GIT_OPTIONAL_LOCKS": "0",
-            "NO_COLOR": "1",
-        }
-    )
-
-    def git(*args: str, timeout: int = 30) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *args],
-            cwd=str(root),
-            env=env,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            shell=False,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-
-    remote = git("config", "--get", "remote.origin.url")
-    configured_remote = str(getattr(settings, "autonomous_git_remote", EXPECTED_GITHUB_REMOTE))
-    if remote.returncode != 0 or _normalise_git_remote(remote.stdout) != _normalise_git_remote(configured_remote):
-        return {"pushed": False, "reason": "origin is not the configured GitHub repository"}
-
-    branch = git("branch", "--show-current")
-    if branch.returncode != 0 or branch.stdout.strip().casefold() != "main":
-        return {"pushed": False, "reason": "repository is not on main"}
-
-    status = git("status", "--porcelain", "--untracked-files=all")
-    if status.returncode != 0:
-        return {"pushed": False, "reason": "could not inspect working tree"}
-    changed_paths = _working_tree_paths(status.stdout)
-    allowed = {str(path).replace("\\", "/").strip("/").casefold() for path in (allowed_paths or set())}
-    if changed_paths and not allowed:
-        return {"pushed": False, "reason": "working tree is not clean"}
-    if changed_paths - allowed:
-        return {"pushed": False, "reason": "working tree includes paths outside this cycle"}
-
-    if changed_paths:
-        staged = git("add", "--", *sorted(changed_paths))
-        if staged.returncode != 0:
-            return {"pushed": False, "reason": "could not stage verified autonomous changes"}
-        message = f"AI Engineer verified autonomous cycle {(run_id or 'checkpoint')[:8]}"
-        committed = git(
-            "commit",
-            "--no-verify",
-            "--no-gpg-sign",
-            "-m",
-            message,
-            timeout=120,
-        )
-        if committed.returncode != 0:
-            return {"pushed": False, "reason": "could not commit verified autonomous changes"}
-
-    head = git("rev-parse", "HEAD")
-    if head.returncode != 0 or not head.stdout.strip():
-        return {"pushed": False, "reason": "no checkpoint commit exists"}
-
-    pushed = git("push", "--porcelain", "origin", "HEAD:main", timeout=120)
-    if pushed.returncode != 0:
-        return {"pushed": False, "reason": "GitHub push failed", "exit_code": pushed.returncode}
-    return {"pushed": True, "commit": head.stdout.strip()[:40]}
+    return {"pushed": False, "reason": "automatic remote push disabled by safety policy"}
 
 
 @dataclass(frozen=True)
@@ -357,7 +301,12 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
         item for item in untouched
         if item.target.casefold() not in failed_targets
     ]
-    candidates = retryable or untouched or list(AUTONOMOUS_BACKLOG)
+    # Keep failed targets out of the first retry pass, but allow them back into
+    # the fairness pool once the other candidates have been attempted. A
+    # permanent failure blacklist can starve the backlog after transient model
+    # or validation failures.
+    fairness_pool = list(AUTONOMOUS_BACKLOG)
+    candidates = retryable or fairness_pool
 
     # One autonomy run represents one target attempt, unlike the many
     # specialist memories generated inside it.  Prefer targets absent from
@@ -368,6 +317,17 @@ def select_autonomous_backlog_item(project_id: str) -> AutonomousBacklogItem:
     fresh = [item for item in candidates if item.target.casefold() not in recent_targets]
     if fresh:
         return fresh[0]
+
+    # If the only untouched target has just produced a successful no-op, widen
+    # the pool so a previously changed target can receive a new improvement.
+    # This prevents a valid but unproductive target from starving the backlog.
+    non_recent = [
+        item
+        for item in fairness_pool
+        if item.target.casefold() not in recent_targets
+    ]
+    if non_recent:
+        candidates = non_recent
 
     # Once every candidate has appeared in the window, choose the least
     # recently attempted item.  Never-used targets sort before old attempts.
@@ -578,8 +538,9 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
     task_ids = list(run.get("task_ids") or [])
     update_autonomy_run(run_id, status="running", error=None)
+    experience_store = MemoryStore()
 
-    roles = configured_subagent_roles(settings.autonomous_subagents)
+    configured_roles = configured_subagent_roles(settings.autonomous_subagents)
     section_value = ""
     for line in str(run.get("goal") or "").splitlines():
         if line.strip().casefold().startswith("section:"):
@@ -595,11 +556,41 @@ async def run_autonomous_cycles(run_id: str) -> None:
         ),
         None,
     )
-    if section_role and section_role.key not in {role.key for role in roles}:
-        roles = [section_role, *roles]
-    # The deterministic monitor is the parent supervisor, not a child worker.
-    roles = [role for role in roles if role.key != "monitor"]
-    roles = roles[: max(int(settings.autonomous_max_subagents), 1)]
+    # Keep the writer and at least one validation-capable reader inside the
+    # bounded role budget. Optional specialists fill remaining slots instead of
+    # displacing the safety-critical handoff.
+    configured_roles = [role for role in configured_roles if role.key != "monitor"]
+    max_roles = max(int(settings.autonomous_max_subagents), 1)
+    writers = [role for role in configured_roles if not role.read_only]
+    validators = [
+        role for role in configured_roles if role.read_only and role.validation_required
+    ]
+    observers = [
+        role
+        for role in configured_roles
+        if role.read_only and not role.validation_required
+    ]
+    selected_roles: list[object] = []
+    for role in [*writers, *validators]:
+        if role.key not in {item.key for item in selected_roles}:
+            selected_roles.append(role)
+    include_section_specialist = bool(
+        getattr(settings, "autonomous_include_section_specialist", False)
+    )
+    if (
+        include_section_specialist
+        and section_role
+        and len(selected_roles) < max_roles
+    ):
+        # Keep the safety-critical writer/validator path first. Domain readers
+        # are optional evidence and must never displace that path.
+        selected_roles.append(section_role)
+    for role in observers:
+        if len(selected_roles) >= max_roles:
+            break
+        if role.key not in {item.key for item in selected_roles}:
+            selected_roles.append(role)
+    roles = selected_roles[:max_roles]
     if not roles:
         roles = configured_subagent_roles("implementer")
     previous_handoff_ids: list[str] = []
@@ -626,12 +617,24 @@ async def run_autonomous_cycles(run_id: str) -> None:
                 timeout=task_timeout,
             )
         except asyncio.TimeoutError:
+            pause_task_for_dependency(
+                task_id,
+                "worker",
+                f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds.",
+                run_id=run_id,
+                retry_after_seconds=60,
+            )
             return (
                 item,
                 get_task(task_id),
                 f"Sub-agent exceeded the autonomous timeout of {task_timeout} seconds.",
             )
         except Exception as exc:
+            dependency = getattr(exc, "dependency", None)
+            if dependency:
+                pause_task_for_dependency(
+                    task_id, str(dependency), exc, run_id=run_id
+                )
             return item, get_task(task_id), str(exc)
         finished = get_task(task_id)
         if not finished or finished.get("status") != "completed":
@@ -644,12 +647,28 @@ async def run_autonomous_cycles(run_id: str) -> None:
 
     completed_cycles = 0
     try:
+        record_run_heartbeat(
+            run_id,
+            stage="running",
+            ttl_seconds=max(int(getattr(settings, "autonomous_lease_seconds", 600)), 30),
+        )
         for cycle in range(1, int(run["requested_cycles"]) + 1):
+            record_run_heartbeat(
+                run_id,
+                stage=f"cycle:{cycle}",
+                ttl_seconds=max(int(getattr(settings, "autonomous_lease_seconds", 600)), 30),
+            )
             cycle_memories = search_memories(
                 run["project_id"],
                 query=str(run["goal"]),
                 limit=8,
             )
+            experience_records = experience_store.retrieve(project_id=run["project_id"], query=str(run["goal"]), role="supervisor", task_type="autonomous", run_id=run_id, limit=8, include_candidate=True)
+            if experience_records:
+                cycle_memories = [*cycle_memories, *[
+                    {"kind": "engineering_experience", "summary": str(item.get("summary") or "")[:500], "detail": {"lifecycle": item.get("lifecycle"), "confidence": item.get("confidence"), "usefulness": item.get("usefulness"), "memory_type": item.get("memory_type"), "content": item.get("content")}}
+                    for item in experience_records
+                ]]
             cycle_task_ids: list[str] = []
             phases = build_execution_phases(
                 roles,
@@ -688,6 +707,11 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         instruction=instruction,
                         mode="autonomous",
                     )
+                    update_task(
+                        task["id"],
+                        run_id=run_id,
+                        recovery_state="queued",
+                    )
                     task_ids.append(task["id"])
                     cycle_task_ids.append(task["id"])
                     handoff = create_subagent_handoff(
@@ -721,12 +745,37 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     *(execute_item(item) for item in phase_items)
                 )
                 phase_failed = False
+                writer_failed = False
+                validation_failed = False
                 for item, finished, problem in outcomes:
                     role, task, handoff = item
                     handoff_id = handoff["id"]
                     previous_handoff_ids.append(handoff_id)
                     if problem:
+                        if finished and finished.get("status") in WAITING_TASK_STATUSES:
+                            update_subagent_handoff(
+                                handoff_id,
+                                status="waiting",
+                                summary=problem[:4_000],
+                                blockers=[problem],
+                                next_action="Retry after the dependency lease becomes available.",
+                                confidence=0.0,
+                            )
+                            update_autonomy_run(
+                                run_id,
+                                task_ids=task_ids,
+                                completed_cycles=cycle - 1,
+                                status="waiting_dependency",
+                                error=problem[:2_000],
+                                current_stage="waiting_dependency",
+                                recovery_state="waiting_for_dependency",
+                            )
+                            return
                         phase_failed = True
+                        if not role.read_only:
+                            writer_failed = True
+                        if role.validation_required and role.read_only:
+                            validation_failed = True
                         if finished and finished.get("status") not in {"failed", "completed"}:
                             update_task(
                                 task["id"],
@@ -751,6 +800,10 @@ async def run_autonomous_cycles(run_id: str) -> None:
                             next_action="Reconcile the failed phase before starting a writer or later reader phase.",
                             confidence=0.0,
                         )
+                        try:
+                            experience_store.extract_task_experience(project_id=run["project_id"], run_id=run_id, task_id=str(task["id"]), role=role.key, task_type=role.section, summary=problem, evidence=payload["evidence"], changed_files=payload["changed_files"], validations=[str(item.get("command") or "") for item in payload["validations"]], success=False, failure_reason=problem, retry_count=int((finished or {}).get("retry_count") or 0), model_profile=getattr(role, "model_profile", "balanced"))
+                        except Exception:
+                            logger.exception("Failed to record autonomous failure experience", extra={"task_id": task.get("id")})
                         continue
 
                     payload = _handoff_payload(finished)
@@ -765,9 +818,13 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         next_action="Use this evidence as the input contract for the next specialist phase.",
                         confidence=0.85 if payload["blockers"] == [] else 0.55,
                     )
+                    try:
+                        experience_store.extract_task_experience(project_id=run["project_id"], run_id=run_id, task_id=str(task["id"]), role=role.key, task_type=role.section, summary=str(finished.get("final_output") or f"{role.title} completed."), evidence=payload["evidence"], changed_files=payload["changed_files"], validations=[str(item.get("command") or "") for item in payload["validations"]], success=True, retry_count=int(finished.get("retry_count") or 0), model_profile=getattr(role, "model_profile", "balanced"), tests_passed=True if role.validation_required else None, review_accepted=True if role.key == "reviewer" else None)
+                    except Exception:
+                        logger.exception("Failed to record autonomous success experience", extra={"task_id": task.get("id")})
 
-                if phase_failed:
-                    error = "One or more specialists failed; later phases were held behind the writer barrier."
+                if phase_failed and writer_failed:
+                    error = "The writer specialist failed; later phases were held behind the writer barrier."
                     update_autonomy_run(
                         run_id,
                         task_ids=task_ids,
@@ -776,6 +833,22 @@ async def run_autonomous_cycles(run_id: str) -> None:
                         error=error,
                     )
                     return
+                if validation_failed:
+                    update_autonomy_run(
+                        run_id,
+                        task_ids=task_ids,
+                        completed_cycles=cycle - 1,
+                        status="failed",
+                        error="Validation specialist failed; no checkpoint was published.",
+                    )
+                    return
+                if phase_failed:
+                    logger.warning(
+                        "One or more read-only specialists failed in phase %s/%s; "
+                        "continuing with the writer and validation evidence.",
+                        phase_index,
+                        len(phases),
+                    )
 
             completed_cycles = cycle
             update_autonomy_run(
@@ -790,6 +863,16 @@ async def run_autonomous_cycles(run_id: str) -> None:
                     cycle,
                 )
                 break
+        changed_paths = _task_changed_paths(task_ids)
+        if changed_paths and not _run_has_successful_validation(task_ids):
+            update_autonomy_run(
+                run_id,
+                task_ids=task_ids,
+                completed_cycles=completed_cycles,
+                status="failed",
+                error="Mutation completed without a successful post-change validation; no checkpoint was published.",
+            )
+            return
         update_autonomy_run(
             run_id,
             task_ids=task_ids,
@@ -799,7 +882,7 @@ async def run_autonomous_cycles(run_id: str) -> None:
         )
         push_result = await asyncio.to_thread(
             _push_verified_checkpoint,
-            _task_changed_paths(task_ids),
+            changed_paths,
             run_id,
         )
         if push_result.get("pushed"):
@@ -824,10 +907,19 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
     """Wake periodically for the configured workspace and reconcile stale workers."""
     interval_seconds = max(int(settings.autonomous_interval_minutes), 1) * 60
     target_workspace = str(settings.autonomous_workspace or "").strip().casefold()
-    active_statuses = {"queued", "planning", "running", "awaiting_approval"}
+    active_statuses = {
+        "queued", "planning", "running", "awaiting_approval", "needs_verification"
+    }
     reconciliation_grace = _reconciliation_grace_seconds()
 
     while not stop_event.is_set():
+        if bool(getattr(settings, "autonomous_recovery_enabled", True)):
+            recover_incomplete_runs(
+                stale_after_seconds=max(
+                    int(getattr(settings, "autonomous_recovery_stale_seconds", 900)),
+                    30,
+                )
+            )
         projects = list_projects()
         if target_workspace and not any(
             project["workspace"].casefold() == target_workspace
@@ -844,23 +936,45 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
                 continue
 
             project_tasks = list_tasks(project["id"])
-            active_tasks = [
-                task for task in project_tasks
-                if task.get("mode") == "autonomous"
-                and task.get("status") in active_statuses
-            ]
-            # A task left active by a dead worker must not block the next run,
-            # but a recently updated task may still belong to a worker that is
-            # finishing during a restart.  Use a grace period to avoid killing
-            # healthy work or creating duplicate runs.
-            for task in active_tasks:
-                if _record_age_seconds(task.get("updated_at")) < reconciliation_grace:
+            for task in project_tasks:
+                if task.get("mode") == "autonomous" and task.get("status") in WAITING_TASK_STATUSES:
+                    requeue_waiting_task(task["id"])
+
+            # Resume durable queued work before considering a fresh autonomous
+            # cycle. This keeps provider/local-agent recovery from losing the
+            # task graph after a scheduler or machine restart.
+            open_runs = list_autonomy_runs(project["id"], limit=100)
+            resumed_existing_work = False
+            for run in open_runs:
+                if run.get("status") not in {
+                    "queued", "planning", "running", "awaiting_approval",
+                    "waiting_dependency",
+                }:
                     continue
-                update_task(
-                    task["id"],
-                    status="failed",
-                    error="Reconciled after restart before a new autonomous cycle.",
-                )
+                run_task_ids = {
+                    str(task_id) for task_id in (run.get("task_ids") or [])
+                }
+                queued_tasks = [
+                    task for task in list_tasks(project["id"])
+                    if str(task.get("id")) in run_task_ids
+                    and task.get("mode") == "autonomous"
+                    and task.get("status") == "queued"
+                ]
+                if not queued_tasks:
+                    continue
+                from app.agent_service import run_agent_task
+                for task in queued_tasks:
+                    try:
+                        await run_agent_task(str(task["id"]))
+                    except Exception:
+                        logger.exception(
+                            "Durable task resume failed",
+                            extra={"task_id": task.get("id"), "run_id": run.get("id")},
+                        )
+                resumed_existing_work = True
+                break
+            if resumed_existing_work:
+                continue
 
             remaining_active_tasks = [
                 task for task in list_tasks(project["id"])
@@ -870,38 +984,43 @@ async def _run_autonomy_scheduler_loop(stop_event: asyncio.Event) -> None:
             if remaining_active_tasks:
                 continue
 
-            # Re-read after task reconciliation so the run that owned the stale
-            # task is closed before a fresh cycle is created.
             open_runs = list_autonomy_runs(project["id"], limit=100)
-            active_ids = {
-                task["id"]
-                for task in list_tasks(project["id"])
-                if task.get("mode") == "autonomous"
-                and task.get("status") in active_statuses
-            }
-            for run in open_runs:
-                if run["status"] not in {"queued", "planning", "running", "awaiting_approval"}:
-                    continue
-                if active_ids.intersection(set(run.get("task_ids") or [])):
-                    continue
-                if _record_age_seconds(run.get("updated_at")) < reconciliation_grace:
-                    continue
-                update_autonomy_run(
-                    run["id"],
-                    status="failed",
-                    error="Reconciled after restart: no active autonomous task was found.",
-                )
-
-            open_runs = list_autonomy_runs(project["id"], limit=100)
-            if any(run["status"] in {"queued", "planning", "running", "awaiting_approval"} for run in open_runs):
+            if any(run.get("status") in {
+                "queued", "planning", "running", "awaiting_approval",
+                "waiting_dependency", "recovery_required",
+            } for run in open_runs):
                 continue
 
+            improvement_engine = SelfImprovementEngine()
+            improvement_candidates: list[dict[str, object]] = []
+            try:
+                improvement_candidates = improvement_engine.observe_and_propose(project["id"])
+            except Exception:
+                logger.exception("Self-improvement observation failed; continuing with the regular backlog.")
             backlog_item = select_autonomous_backlog_item(project["id"])
+            goal = build_backlog_goal(backlog_item)
+            if bool(getattr(settings, "autonomous_improvement_enabled", False)):
+                ranked = improvement_engine.prioritize(project["id"], limit=1)
+                if ranked:
+                    goal = improvement_engine.render_goal(ranked[0])
             run = create_autonomy_run(
                 project_id=project["id"],
-                goal=build_backlog_goal(backlog_item),
+                goal=goal,
                 requested_cycles=max(int(settings.autonomous_cycles_per_run), 1),
             )
+            if bool(getattr(settings, "autonomous_improvement_enabled", False)) and improvement_candidates:
+                chosen = improvement_engine.prioritize(project["id"], limit=1)
+                if chosen:
+                    try:
+                        cycle = improvement_engine.start_cycle(
+                            chosen[0]["id"],
+                            project_id=project["id"],
+                            run_id=run["id"],
+                        )
+                        if cycle.get("stage") == "planned":
+                            improvement_engine.checkpoint(cycle["id"])
+                    except (KeyError, RuntimeError, ValueError):
+                        logger.exception("Self-improvement checkpoint failed; run remains resumable.")
             await run_autonomous_cycles(run["id"])
 
         try:
@@ -924,3 +1043,4 @@ async def run_autonomy_scheduler(stop_event: asyncio.Event) -> None:
                 await asyncio.wait_for(stop_event.wait(), timeout=5)
             except asyncio.TimeoutError:
                 continue
+

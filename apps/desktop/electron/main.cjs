@@ -8,7 +8,11 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 
-const PROJECT_ROOT = "F:\\AI-Engineer";
+const configuredProjectRoot =
+  process.env.AI_ENGINE_PROJECT_ROOT || process.env.PROJECT_ROOT;
+const PROJECT_ROOT = configuredProjectRoot
+  ? path.resolve(configuredProjectRoot)
+  : path.resolve(__dirname, "..", "..", "..");
 const WORKSPACE_ROOT = path.resolve(PROJECT_ROOT, "workspaces");
 const SELF_WORKSPACE_NAME = "ai-engineer";
 
@@ -176,7 +180,7 @@ if (!gotLock) {
       const code = findVSCode();
 
       if (!code) {
-        throw new Error("Visual Studio Code پیدا نشد.");
+        throw new Error("Visual Studio Code Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.");
       }
 
       const child = spawn(code, [projectPath], {

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from pydantic import Field
@@ -5,7 +6,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    configured = os.getenv('AI_ENGINE_PROJECT_ROOT') or os.getenv('PROJECT_ROOT')
+    if configured and configured.strip():
+        return Path(configured).expanduser().resolve()
+    current = Path(__file__).resolve()
+    for parent in (current.parent, *current.parents):
+        if (parent / 'services').is_dir() and (parent / 'apps').is_dir():
+            return parent
+    return current.parents[3]
 
 
 class Settings(BaseSettings):

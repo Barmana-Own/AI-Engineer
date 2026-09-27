@@ -159,3 +159,70 @@ async def test_provider_maps_no_such_model_to_retryable_error(test_settings):
                 temperature=0,
                 max_tokens=8,
             )
+
+
+@pytest.mark.asyncio
+async def test_native_ollama_chat_contract(test_settings):
+    captured_path = None
+    captured_json = None
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_path, captured_json
+        captured_path = request.url.path
+        captured_json = __import__("json").loads(request.content.decode("utf-8"))
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:8b",
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "finish_task",
+                                "arguments": {"status": "success"},
+                            }
+                        }
+                    ],
+                },
+                "done": True,
+                "done_reason": "stop",
+                "prompt_eval_count": 5,
+                "eval_count": 3,
+            },
+        )
+    settings = test_settings.model_copy(
+        update={"barmana_base_url": "http://127.0.0.1:11434/v1"}
+    )
+    async with httpx.AsyncClient(
+        base_url=settings.normalized_base_url,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        provider = BarmanaProvider(settings, client=client)
+        result = await provider.chat_completion(
+            model="qwen3:8b",
+            messages=[ChatMessage(role="user", content="Reply with a tool call")],
+            temperature=0,
+            max_tokens=8,
+            tools=[
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "finish_task",
+                        "parameters": {"type": "object"},
+                    },
+                }
+            ],
+            tool_choice={"type": "function", "function": {"name": "finish_task"}},
+            response_format={"type": "json_object"},
+        )
+    assert captured_path == "/api/chat"
+    assert captured_json["think"] is False
+    assert captured_json["stream"] is False
+    assert captured_json["options"] == {"temperature": 0, "num_predict": 8}
+    assert captured_json["tools"][0]["function"]["name"] == "finish_task"
+    assert "tool_choice" not in captured_json
+    assert captured_json["format"] == "json"
+    assert result.model == "qwen3:8b"
+    assert result.choices[0].message["tool_calls"][0]["function"]["name"] == "finish_task"
+    assert result.usage.total_tokens == 8

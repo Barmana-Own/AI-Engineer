@@ -13,8 +13,14 @@ from app.providers.base import ProviderProfile
 
 
 def _project_root() -> Path:
-    # app/config.py -> model-gateway -> services -> AI-Engineer
-    return Path(__file__).resolve().parents[3]
+    configured = os.getenv('AI_ENGINE_PROJECT_ROOT') or os.getenv('PROJECT_ROOT')
+    if configured and configured.strip():
+        return Path(configured).expanduser().resolve()
+    current = Path(__file__).resolve()
+    for parent in (current.parent, *current.parents):
+        if (parent / 'services').is_dir() and (parent / 'apps').is_dir():
+            return parent
+    return current.parents[3]
 
 
 def _default_cache_path() -> Path:
@@ -73,6 +79,8 @@ class Settings(BaseSettings):
     gateway_host: str = Field(default="127.0.0.1", min_length=1, max_length=255)
     gateway_port: int = Field(default=8010, ge=1024, le=65535)
     gateway_log_level: str = Field(default="INFO", min_length=1, max_length=32)
+    gateway_auth_required: bool = False
+    gateway_auth_token: SecretStr | None = None
 
     barmana_base_url: AnyHttpUrl = "https://api.codemain.ir/v2/api"
     barmana_api_key: SecretStr | None = None

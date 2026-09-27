@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.config import settings
 from app.db import create_project, get_project, list_projects
 from app.schemas import ProjectCreateRequest, ProjectResponse
+from app.organization.director import CompanyDirector
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
@@ -91,5 +92,17 @@ def project_create(request: ProjectCreateRequest) -> ProjectResponse:
                 detail="A project already uses this workspace.",
             ) from exc
         raise
+
+    # Organization is created as part of the write workflow. Keeping this
+    # side effect out of GET makes project retrieval safe to repeat and keeps
+    # the persisted project response authoritative.
+    try:
+        CompanyDirector().organize_project(project["id"], request.name.strip(), persist_execution_plan=False)
+        project = get_project(project["id"]) or project
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Project was created but its organization could not be formed.",
+        ) from exc
 
     return ProjectResponse(**project)

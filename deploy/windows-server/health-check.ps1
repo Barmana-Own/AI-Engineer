@@ -1,47 +1,96 @@
 #requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$PublicBaseUrl = "https://devoria.ir",
-    [switch]$Chat
+    [switch]$Chat,
+    [string]$BaseUrl = "https://devoria.ir"
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$checks = @(
-    @{ Name = "Ollama"; Url = "http://127.0.0.1:11434/api/version"; ExpectedField = "version"; ExpectedValue = $null },
-    @{ Name = "Model Gateway"; Url = "http://127.0.0.1:8010/health/ready"; ExpectedField = "status"; ExpectedValue = "ready" },
-    @{ Name = "Local Agent"; Url = "http://127.0.0.1:8011/health"; ExpectedField = "status"; ExpectedValue = "ok" },
-    @{ Name = "Orchestrator"; Url = "http://127.0.0.1:8012/health"; ExpectedField = "status"; ExpectedValue = "ok" },
-    @{ Name = "Control Center"; Url = ($PublicBaseUrl.TrimEnd('/') + "/"); ExpectedField = "html"; ExpectedValue = $null },
-    @{ Name = "Orchestrator Proxy"; Url = ($PublicBaseUrl.TrimEnd('/') + "/api/orchestrator/health"); ExpectedField = "service"; ExpectedValue = $null }
-)
-
-function Get-PropertyValue($Object, [string]$Name) {
-    $property = $Object.PSObject.Properties[$Name]
-    if ($null -eq $property) { return $null }
-    return $property.Value
+function Get-RequiredSecret([string]$Name) {
+    $value = [Environment]::GetEnvironmentVariable($Name)
+    if ([string]::IsNullOrWhiteSpace($value)) { throw "$Name is required for authenticated proxy checks." }
+    return $value
 }
 
-foreach ($check in $checks) {
+function Invoke-JsonCheck([string]$Name, [string]$Url, [string]$ExpectedService, [hashtable]$Headers = @{}) {
     try {
-        $response = Invoke-WebRequest -UseBasicParsing -Uri $check.Url -TimeoutSec 20
-        if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) { throw "HTTP $($response.StatusCode)" }
-        if ($check.ExpectedField -eq "html") {
-            if ($response.Content -notmatch '(?i)<html|<!doctype') { throw "response is not HTML" }
-        } else {
-            $payload = $response.Content | ConvertFrom-Json
-            $value = Get-PropertyValue $payload $check.ExpectedField
-            if ([string]::IsNullOrWhiteSpace([string]$value)) { throw "missing identity field $($check.ExpectedField)" }
-            if ($null -ne $check.ExpectedValue -and $value -ne $check.ExpectedValue) { throw "expected $($check.ExpectedField)=$($check.ExpectedValue), received $value" }
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -Headers $Headers -TimeoutSec 20
+        if ($response.StatusCode -ne 200) { throw "HTTP $($response.StatusCode)" }
+        $payload = $response.Content | ConvertFrom-Json
+        if ($payload.status -ne "ok") { throw "unexpected status: $($payload.status)" }
+        if ($ExpectedService -and $payload.service -notlike "*$ExpectedService*") {
+            throw "unexpected service identity: $($payload.service)"
         }
-        Write-Host ("PASS {0} ({1})" -f $check.Name, $response.StatusCode) -ForegroundColor Green
+        Write-Host ("PASS {0} ({1})" -f $Name, $response.StatusCode) -ForegroundColor Green
+        return $payload
     }
     catch {
-        Write-Host ("FAIL {0}: {1}" -f $check.Name, $_.Exception.Message) -ForegroundColor Red
-        exit 1
+        Write-Host ("FAIL {0}: {1}" -f $Name, $_.Exception.Message) -ForegroundColor Red
+        throw
     }
 }
+
+function Invoke-HttpCheck([string]$Name, [string]$Url, [hashtable]$Headers = @{}) {
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -Headers $Headers -TimeoutSec 20
+        if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) { throw "HTTP $($response.StatusCode)" }
+        Write-Host ("PASS {0} ({1})" -f $Name, $response.StatusCode) -ForegroundColor Green
+    }
+    catch {
+        Write-Host ("FAIL {0}: {1}" -f $Name, $_.Exception.Message) -ForegroundColor Red
+        throw
+    }
+}
+
+function Invoke-GatewayModelsCheck([string]$Name, [string]$Url, [hashtable]$Headers = @{}) {
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -Headers $Headers -TimeoutSec 20
+        if ($response.StatusCode -ne 200) { throw "HTTP $($response.StatusCode)" }
+        $payload = $response.Content | ConvertFrom-Json
+        if (-not $payload.provider -or -not $payload.default_model) {
+            throw "gateway model catalog response is missing provider/default_model."
+        }
+        Write-Host ("PASS {0} ({1})" -f $Name, $response.StatusCode) -ForegroundColor Green
+        return $payload
+    }
+    catch {
+        Write-Host ("FAIL {0}: {1}" -f $Name, $_.Exception.Message) -ForegroundColor Red
+        throw
+    }
+}
+
+function Invoke-CapabilitiesCheck([string]$Name, [string]$Url, [hashtable]$Headers = @{}) {
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri $Url -Headers $Headers -TimeoutSec 20
+        if ($response.StatusCode -ne 200) { throw "HTTP $($response.StatusCode)" }
+        $payload = $response.Content | ConvertFrom-Json
+        if ($payload.service -notlike "*Orchestrator*" -or $payload.workspace_guarded -ne $true -or $payload.mutation_requires_checkpoint -ne $true) {
+            throw "orchestrator capabilities response failed safety assertions."
+        }
+        Write-Host ("PASS {0} ({1})" -f $Name, $response.StatusCode) -ForegroundColor Green
+        return $payload
+    }
+    catch {
+        Write-Host ("FAIL {0}: {1}" -f $Name, $_.Exception.Message) -ForegroundColor Red
+        throw
+    }
+}
+
+$controlToken = Get-RequiredSecret "AI_ENGINE_CONTROL_PLANE_TOKEN"
+$gatewayToken = Get-RequiredSecret "AI_ENGINE_GATEWAY_TOKEN"
+$controlHeaders = @{ "X-AI-Engine-Token" = $controlToken }
+$gatewayHeaders = @{ "X-AI-Engine-Token" = $gatewayToken }
+
+Invoke-HttpCheck "Ollama" "http://127.0.0.1:11434/api/version"
+Invoke-JsonCheck "Model Gateway" "http://127.0.0.1:8010/health" "Gateway" | Out-Null
+Invoke-JsonCheck "Local Agent" "http://127.0.0.1:8011/health" "Local Agent" | Out-Null
+$orchestrator = Invoke-JsonCheck "Orchestrator" "http://127.0.0.1:8012/health" "Orchestrator"
+Invoke-HttpCheck "Control Center" "$BaseUrl/"
+Invoke-GatewayModelsCheck "Gateway Proxy" "$BaseUrl/api/gateway/v1/runtime/models" $gatewayHeaders | Out-Null
+Invoke-JsonCheck "Orchestrator Proxy" "$BaseUrl/api/orchestrator/health" "Orchestrator" | Out-Null
+Invoke-CapabilitiesCheck "Authenticated Orchestrator" "$BaseUrl/api/orchestrator/capabilities" $controlHeaders | Out-Null
 
 if ($Chat) {
     $body = @{
@@ -52,7 +101,9 @@ if ($Chat) {
         task_id = "server-smoke-test"
         agent_id = "system-test"
     } | ConvertTo-Json -Depth 8
-    $response = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8010/v1/chat/completions" -ContentType "application/json; charset=utf-8" -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 600
-    if ($null -eq $response.gateway.selected_model) { throw "Gateway chat response did not include selected_model" }
-    Write-Host "PASS Chat" -ForegroundColor Green
+    $response = Invoke-RestMethod -Method Post -Uri "$BaseUrl/api/gateway/v1/chat/completions" -Headers $gatewayHeaders -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 600
+    if (-not $response.gateway.selected_model) { throw "Gateway chat response did not include selected_model." }
+    Write-Host "PASS Chat model=$($response.gateway.selected_model)" -ForegroundColor Green
 }
+
+Write-Host "All deployment health checks passed." -ForegroundColor Green

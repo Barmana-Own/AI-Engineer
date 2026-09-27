@@ -2,87 +2,88 @@
 [CmdletBinding()]
 param(
     [string]$Root = "",
-    [string]$OutputDirectory = ""
+    [string]$OutputPath = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($Root)) {
-    $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-}
-$Root = [System.IO.Path]::GetFullPath($Root)
-if (-not (Test-Path -LiteralPath $Root -PathType Container)) { throw "Release root does not exist: $Root" }
-
-if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $Root "release"
-}
-$OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
-New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$projectName = Split-Path -Leaf $Root
-$stage = Join-Path $OutputDirectory ".stage-$timestamp"
-$archive = Join-Path $OutputDirectory "$projectName-$timestamp.zip"
-New-Item -ItemType Directory -Force -Path $stage | Out-Null
-
-$excludedDirectoryNames = @(
-    ".git", ".backups", "backups", "node_modules", ".venv", "__pycache__",
-    ".pytest_cache", ".mypy_cache", ".ruff_cache", "coverage", "dist", "build",
-    "runtime", "logs", "workspaces", "tmp", "models", "data", "Ollama", ".cache", ".turbo", ".next"
-)
-$excludedFileNames = @(
-    ".env", ".env.local", ".env.development.local", ".env.test.local",
-    ".env.production", ".env.production.local"
-)
-$excludedSuffixes = @(".db", ".sqlite", ".sqlite3", ".log", ".bak", ".tmp")
-$credentialPattern = '(?i)(password|passwd|secret|token|credential|private[-_ ]?key|service[-_ ]account)'
-
-function Test-IncludedFile([System.IO.FileInfo]$File) {
-    $relative = $File.FullName.Substring($Root.Length).TrimStart([char[]]@('\','/'))
-    $segments = $relative -split '[\\/]'
-    if (@($segments | Where-Object { $excludedDirectoryNames -contains $_ }).Count -gt 0) { return $false }
-    if ($excludedFileNames -contains $File.Name) { return $false }
-    if ($File.Name -match $credentialPattern -and $File.Extension -in @('.json','.yaml','.yml','.txt','.pem','.key','.p12')) { return $false }
-    if ($excludedSuffixes -contains $File.Extension.ToLowerInvariant()) { return $false }
-    return $true
-}
-
-$files = [System.Collections.Generic.List[System.IO.FileInfo]]::new()
-$directories = [System.Collections.Generic.Stack[System.IO.DirectoryInfo]]::new()
-$directories.Push((Get-Item -LiteralPath $Root))
-while ($directories.Count -gt 0) {
-    $directory = $directories.Pop()
-    foreach ($childDirectory in Get-ChildItem -LiteralPath $directory.FullName -Directory -Force) {
-        if ($excludedDirectoryNames -notcontains $childDirectory.Name) { $directories.Push($childDirectory) }
-    }
-    foreach ($file in Get-ChildItem -LiteralPath $directory.FullName -File -Force) {
-        if (Test-IncludedFile $file) { $files.Add($file) }
+    $Root = if (-not [string]::IsNullOrWhiteSpace($env:AI_ENGINE_PROJECT_ROOT)) {
+        $env:AI_ENGINE_PROJECT_ROOT
+    } else {
+        (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
     }
 }
-foreach ($file in $files) {
-    $relative = $file.FullName.Substring($Root.Length).TrimStart([char[]]@('\','/'))
-    $destination = Join-Path $stage $relative
-    $parent = Split-Path -Parent $destination
-    New-Item -ItemType Directory -Force -Path $parent | Out-Null
-    Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+$Root = (Resolve-Path -LiteralPath $Root).Path
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $OutputPath = Join-Path $Root "artifacts\AI-Engineer-release-$stamp.zip"
 }
+$OutputPath = [System.IO.Path]::GetFullPath($OutputPath)
+$outputDirectory = Split-Path -Parent $OutputPath
+New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
-$manifest = @"
-# AI Engineer sanitized release snapshot
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-engineer-release-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
-- Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss K')
-- Source root: repository source only
-- Secrets and runtime state were excluded.
+$excludedDirectories = @(
+    ".git", ".venv", "venv", "node_modules", "vendor", "__pycache__",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache", "coverage",
+    "htmlcov", ".next", ".nuxt", ".vite", "out", "target", "logs",
+    "data", "workspaces", "backups", ".backups", "artifacts", "tmp", "temp",
+    "docker-data", "postgres-data", "redis-data", "models"
+)
 
-Excluded categories: Git metadata, backups, dependency directories, virtual environments, caches, build output, local databases, logs, workspaces, temporary files, local environment files, and credential/private-key-like files.
+try {
+    Get-ChildItem -LiteralPath $Root -Recurse -File -Force |
+        Where-Object {
+            $relative = $_.FullName.Substring($Root.Length).TrimStart('\', '/')
+            $parts = $relative -split '[\\/]'
+            $excluded = $false
+            foreach ($part in $parts) {
+                if ($excludedDirectories -contains $part) { $excluded = $true; break }
+            }
+            if ($excluded) { return $false }
+            if ($_.Name -match '^\.env($|\.)' -and $_.Name -ne '.env.example') { return $false }
+            if ($_.Name -match '(?i)(^|\.)credentials?($|\.|_)|(^|\.)secrets?($|\.|_)') { return $false }
+            if ($_.Extension -match '(?i)^\.(db|sqlite|sqlite3|dump|bak|backup|zip|7z|tar|gz|log|tmp|temp|pem|key|pfx|p12)$') { return $false }
+            return $true
+        } |
+        ForEach-Object {
+            $relative = $_.FullName.Substring($Root.Length).TrimStart('\', '/')
+            $destination = Join-Path $tempRoot $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
+        }
 
-Install dependencies from the preserved package manifests and lockfiles before starting services.
-"@
-Write-Utf8 (Join-Path $stage "EXPORT-MANIFEST.md") $manifest
-Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal
-$hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
-Remove-Item -LiteralPath $stage -Recurse -Force
-Write-Output "ARCHIVE=$archive"
-Write-Output "SHA256=$hash"
-Write-Output "FILES=$(@($files).Count)"
+    $suspicious = Get-ChildItem -LiteralPath $tempRoot -Recurse -File -Force |
+        Where-Object { ((($_.Name -match '(?i)^\.env($|\.)') -and $_.Name -ne '.env.example') -or ($_.Name -match '(?i)(credentials?|secrets?|private-key|service-account)')) }
+    if ($suspicious) {
+        throw "Sanitized release contains a forbidden secret-like file: $($suspicious.FullName -join ', ')"
+    }
+
+    # Scan configuration/data files for high-confidence credential signatures.
+    # Source and test files may legitimately contain redaction fixtures.
+    $suspiciousContent = Get-ChildItem -LiteralPath $tempRoot -Recurse -File -Force |
+        Where-Object {
+            if ($_.Name -eq '.env.example' -or $_.Length -gt 2MB) { return $false }
+            if ($_.Name -match '(?i)(package-lock|yarn.lock|pnpm-lock)') { return $false }
+            if ($_.Extension -notmatch '(?i)^\.(json|ya?ml|toml|ini|cfg|conf)$') { return $false }
+            $content = [System.IO.File]::ReadAllText($_.FullName)
+            return $content -match '(?i)-----BEGIN (?:RSA|EC|OPENSSH|DSA|PRIVATE) PRIVATE KEY-----|(?:AKIA|ASIA)[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|sk-[A-Za-z0-9]{32,}|(?:postgres|mysql|mssql|redis|mongodb)(?:\+[^:]+)?://[^/\s:]+:[^@\s]{8,}@'
+        }
+    if ($suspiciousContent) {
+        throw "Sanitized release contains a high-confidence credential signature: $($suspiciousContent.FullName -join ', ')"
+    }
+
+    if (Test-Path -LiteralPath $OutputPath) { Remove-Item -LiteralPath $OutputPath -Force }
+    Compress-Archive -Path (Join-Path $tempRoot '*') -DestinationPath $OutputPath -CompressionLevel Optimal
+    Write-Host "Release archive: $OutputPath" -ForegroundColor Green
+    Write-Host "Excluded dependency, cache, runtime-data, and secret-like files by policy."
+}
+finally {
+    if (Test-Path -LiteralPath $tempRoot) {
+        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+    }
+}

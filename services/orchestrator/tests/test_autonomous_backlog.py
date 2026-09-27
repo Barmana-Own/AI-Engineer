@@ -1,10 +1,113 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from app import db
 from app.autonomy import AUTONOMOUS_BACKLOG, build_backlog_goal, select_autonomous_backlog_item
+from app.agent_service import _autonomous_known_repair, _autonomous_target_is_current
 
 
 class AutonomousBacklogTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary_directory = tempfile.TemporaryDirectory()
+        self.database_path = Path(self._temporary_directory.name) / "autonomy.db"
+        self._database_path_patch = patch.object(db, "DATABASE_PATH", self.database_path)
+        self._database_path_patch.start()
+        db.initialize_database()
+
+    def tearDown(self) -> None:
+        self._database_path_patch.stop()
+        self._temporary_directory.cleanup()
+
+    def test_security_boundary_target_recognizes_hardened_agent_service(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/agent_service.py"}
+            },
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/agent_service.py",
+                    "content": (
+                        "_normalise_model_edit_arguments MODEL_ACTION_ALIASES "
+                        "attempt_limit = 3 if autonomous _model_reported_verified_noop"
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(
+                results, ["services/orchestrator/app/agent_service.py"]
+            )
+        )
+
+    def test_test_subagents_target_recognizes_current_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/tests/test_subagents.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/tests/test_subagents.py",
+                    "content": "HANDOFF_SCHEMA_VERSION _normalize_tool_call def test_orchestrator_capabilities_contract",
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(
+                results, ["services/orchestrator/tests/test_subagents.py"]
+            )
+        )
+
+    def test_schemas_target_recognizes_current_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/schemas.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/schemas.py",
+                    "content": (
+                        "class AgentTaskCreateRequest class AgentTaskResponse "
+                        "class AutonomyRunResponse class SubagentHandoffResponse "
+                        "class SelfImproveRequest class GitCheckpointRequest"
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(results, ["services/orchestrator/app/schemas.py"])
+        )
+
+    def test_main_target_recognizes_current_startup_contract(self):
+        results = [{
+            "step": {"tool": "read_file", "arguments": {"path": "services/orchestrator/app/main.py"}},
+            "outcome": {
+                "tool": "read_file",
+                "ok": True,
+                "result": {
+                    "path": "services/orchestrator/app/main.py",
+                    "content": (
+                        "def _start_scheduler_thread autonomous_mode_enabled "
+                        'def capabilities "workspace_guarded": True '
+                        '"mutation_requires_checkpoint": True',
+                    ),
+                },
+            },
+        }]
+        self.assertTrue(
+            _autonomous_target_is_current(results, ["services/orchestrator/app/main.py"])
+        )
+
+
+    def test_known_repair_handles_explicit_target_without_name_error(self):
+        instruction = "TARGET FILE: apps/taskflow/src/styles.css" + "\n" + "Fix todo-card styling"
+        with patch(
+            "app.agent_service._autonomous_target_is_current",
+            return_value=False,
+        ):
+            self.assertIsNone(_autonomous_known_repair(instruction, []))
     def test_items_have_explicit_project_contracts(self):
         self.assertTrue(AUTONOMOUS_BACKLOG)
         for item in AUTONOMOUS_BACKLOG:
@@ -41,6 +144,19 @@ class AutonomousBacklogTests(unittest.TestCase):
 
         self.assertNotEqual(selected.target, failed.target)
 
+    def test_selection_reads_autonomy_runs_from_isolated_schema(self) -> None:
+        project = db.create_project("Autonomy selector", "selector-workspace")
+        first = AUTONOMOUS_BACKLOG[0]
+        db.create_autonomy_run(
+            project["id"],
+            f"TARGET FILE: {first.target}",
+            1,
+        )
+
+        selected = select_autonomous_backlog_item(project["id"])
+
+        self.assertNotEqual(selected.target, first.target)
+
     @patch("app.autonomy.search_memories")
     def test_selection_rotates_after_bounded_memory_window(self, search_memories):
         repeated = next(item for item in AUTONOMOUS_BACKLOG if item.key == "test-coverage")
@@ -73,6 +189,62 @@ class AutonomousBacklogTests(unittest.TestCase):
         selected = select_autonomous_backlog_item("project")
 
         self.assertEqual(selected.target, AUTONOMOUS_BACKLOG[2].target)
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
+    def test_selection_does_not_starve_backlog_after_untouched_noop(
+        self, search_memories, list_autonomy_runs
+    ):
+        noop_target = AUTONOMOUS_BACKLOG[-1]
+        search_memories.return_value = [
+            {
+                "kind": "success",
+                "detail": {
+                    "status": "completed",
+                    "instruction": f"TARGET FILE: {noop_target.target}",
+                    "changed_files": [
+                        item.target for item in AUTONOMOUS_BACKLOG[:-1]
+                    ],
+                },
+            }
+        ]
+        list_autonomy_runs.return_value = [
+            {
+                "status": "completed",
+                "goal": f"TARGET FILE: {noop_target.target}",
+            }
+        ]
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertNotEqual(selected.target, noop_target.target)
+
+    @patch("app.autonomy.list_autonomy_runs")
+    @patch("app.autonomy.search_memories")
+    def test_selection_retries_after_failed_targets_would_starve_backlog(
+        self, search_memories, list_autonomy_runs
+    ):
+        noop_target = AUTONOMOUS_BACKLOG[-1]
+        search_memories.return_value = [
+            {
+                "kind": "failed",
+                "detail": {
+                    "status": "failed",
+                    "instruction": f"TARGET FILE: {item.target}",
+                },
+            }
+            for item in AUTONOMOUS_BACKLOG[:-1]
+        ]
+        list_autonomy_runs.return_value = [
+            {
+                "status": "completed",
+                "goal": f"TARGET FILE: {noop_target.target}",
+            }
+        ]
+
+        selected = select_autonomous_backlog_item("project")
+
+        self.assertNotEqual(selected.target, noop_target.target)
+
     @patch("app.autonomy.list_autonomy_runs")
     @patch("app.autonomy.search_memories")
     def test_selection_skips_verified_changed_target(self, search_memories, list_autonomy_runs):
@@ -112,3 +284,23 @@ class AutonomousBacklogTests(unittest.TestCase):
                 "integration",
             }.issubset(sections)
         )
+
+    @patch("app.autonomy.get_task")
+    def test_validation_gate_requires_mutation_then_terminal_success(self, get_task):
+        from app import autonomy
+
+        def fake_task(task_id):
+            if task_id == "writer":
+                return {"results": [{"step": {"tool": "apply_patch"}, "outcome": {"tool": "apply_patch", "ok": True}}]}
+            return {"results": [{"step": {"tool": "run_terminal"}, "outcome": {"tool": "run_terminal", "ok": True}}]}
+
+        get_task.side_effect = fake_task
+        self.assertTrue(autonomy._run_has_successful_validation(["writer", "verifier"]))
+
+    @patch("app.autonomy.get_task")
+    def test_validation_gate_rejects_validation_before_mutation(self, get_task):
+        from app import autonomy
+
+        get_task.return_value = {"results": [{"step": {"tool": "run_terminal"}, "outcome": {"tool": "run_terminal", "ok": True}}]}
+
+        self.assertFalse(autonomy._run_has_successful_validation(["verifier"]))
