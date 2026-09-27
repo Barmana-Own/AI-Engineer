@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/design-system-ui-architecture/design-tokens.schema.json",
+  "title": "Stage 02 Design Tokens",
+  "type": "object",
+  "required": ["schema_version", "meta", "primitive", "semantic"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "meta": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "direction_support": {
+          "type": "array",
+          "items": {"enum": ["ltr", "rtl"]},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "primitive": {"type": "object"},
+    "semantic": {
+      "type": "object",
+      "required": ["color", "typography", "space", "radius", "motion", "breakpoint"],
+      "properties": {
+        "color": {"type": "object"},
+        "typography": {"type": "object"},
+        "space": {"type": "object"},
+        "radius": {"type": "object"},
+        "motion": {"type": "object"},
+        "breakpoint": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "component": {"type": "object"}
+  },
+  "additionalProperties": true
+}

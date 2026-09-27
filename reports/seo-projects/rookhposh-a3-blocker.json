@@ -1,0 +1,44 @@
+{
+  "project": "Rookhposh SEO",
+  "phase": "A3",
+  "status": "BLOCKED",
+  "blocker": "A2_PREREQUISITES_NOT_SATISFIED",
+  "generated_at": "2026-09-26T16:42:17+03:30",
+  "jalali_date": "1405-07-04",
+  "project_id": "04469407-8792-4ef9-b514-bbd6b91fc4b5",
+  "site_id": "d1711216-6c46-4b70-8920-a0411ded9e0a",
+  "baseline_snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220",
+  "foundation": {
+    "primary_findings": 8,
+    "provenance": {"observed": 6, "source_code": 2},
+    "open_categories": ["canonical", "robots", "sitemap", "image_alt", "title_heuristic"],
+    "stable": false
+  },
+  "data_sources": {
+    "search_console": "NOT_AVAILABLE",
+    "analytics": "NOT_AVAILABLE",
+    "user_keyword_export": "NOT_PROVIDED",
+    "competitor_research": "NOT_RUN"
+  },
+  "owner_decisions_needed": [
+    "Choose consumer virtual try-on, B2B fashion-store service, or a two-track architecture before approving acquisition routes."
+  ],
+  "artifacts_created": {
+    "keyword_clusters": [],
+    "keyword_page_map": [],
+    "proposed_routes": [],
+    "approved_routes": [],
+    "content_briefs": [],
+    "internal_link_map": []
+  },
+  "validation": {
+    "a2_worker_execution": "NOT_RUN_RUNTIME_MISSING",
+    "technical_reaudit": "NOT_RUN_A2_NOT_STARTED",
+    "focused_seo_tests": {"status": "PASS", "passed": 13, "failed": 0, "skipped": 0}
+  },
+  "next_gate": [
+    "Complete and verify Phase 9A/9B Agent Worker runtime",
+    "Execute and re-audit A2 technical remediation",
+    "Resolve the Human Owner acquisition-positioning decision"
+  ]
+}

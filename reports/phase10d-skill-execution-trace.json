@@ -1,0 +1,2048 @@
+{
+  "phase": "10D",
+  "generated_on": "2026-09-22",
+  "source": "SkillRouter + SkillContextLoader + effective_tool_permissions + orchestrator_database.agent_tasks.skill_trace_json",
+  "scenarios": [
+    {
+      "scenario": "A",
+      "objective": "Build a small full-stack application with authentication, API, frontend, tests, and documentation.",
+      "project_type": "full-stack",
+      "project_id": "c236f3aa-eb97-48d2-925b-30ebba0962a2",
+      "project_selected_skills": [
+        "project-analysis-prompt-engineering",
+        "design-system-ui-architecture",
+        "frontend-architecture",
+        "backend-architecture",
+        "database-architecture",
+        "api-integration",
+        "authentication-authorization",
+        "application-security",
+        "software-testing",
+        "qa-debugging",
+        "fullstack-final-review"
+      ],
+      "tasks": [
+        {
+          "task_id": "A-task-1",
+          "db_task_id": "893a4f05-32a3-48eb-ab0b-754ad252eb36",
+          "role": "project_manager",
+          "selected_skills": [
+            "project-analysis-prompt-engineering"
+          ],
+          "references_loaded": {
+            "project-analysis-prompt-engineering": [
+              "domain-integration-template.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "project-analysis-prompt-engineering"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "project-analysis-prompt-engineering",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-1",
+            "agent_id": "project_manager-agent",
+            "role": "project_manager",
+            "skill_ids": [
+              "project-analysis-prompt-engineering"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "project-analysis-prompt-engineering"
+              ],
+              "references_loaded": {
+                "project-analysis-prompt-engineering": [
+                  "domain-integration-template.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-2",
+          "db_task_id": "4603fa5c-d3fc-4bfd-b7e2-9392983a4ef1",
+          "role": "requirements",
+          "selected_skills": [
+            "project-analysis-prompt-engineering"
+          ],
+          "references_loaded": {
+            "project-analysis-prompt-engineering": [
+              "domain-integration-template.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "project-analysis-prompt-engineering"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "project-analysis-prompt-engineering",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-2",
+            "agent_id": "requirements-agent",
+            "role": "requirements",
+            "skill_ids": [
+              "project-analysis-prompt-engineering"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "project-analysis-prompt-engineering"
+              ],
+              "references_loaded": {
+                "project-analysis-prompt-engineering": [
+                  "domain-integration-template.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-3",
+          "db_task_id": "a622cab1-70aa-4ce7-b845-d0c7d686c584",
+          "role": "architect",
+          "selected_skills": [
+            "project-analysis-prompt-engineering",
+            "backend-architecture",
+            "api-integration",
+            "frontend-architecture",
+            "database-architecture"
+          ],
+          "references_loaded": {
+            "project-analysis-prompt-engineering": [
+              "domain-integration-template.md"
+            ],
+            "backend-architecture": [
+              "01-stage-contract-and-intake.md"
+            ],
+            "api-integration": [
+              "api-contract-standards.md"
+            ],
+            "frontend-architecture": [
+              "00-stage-contract.md"
+            ],
+            "database-architecture": [
+              "data-lifecycle.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "project-analysis-prompt-engineering",
+            "backend-architecture",
+            "api-integration",
+            "frontend-architecture",
+            "database-architecture"
+          ],
+          "tools_allowed": [
+            "api_test",
+            "backend_test",
+            "contract_test",
+            "database_inspection",
+            "evidence_write",
+            "frontend_build",
+            "frontend_test",
+            "list_files",
+            "migration_test",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "project-analysis-prompt-engineering",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "backend-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "api-integration",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-3",
+            "agent_id": "architect-agent",
+            "role": "architect",
+            "skill_ids": [
+              "project-analysis-prompt-engineering",
+              "backend-architecture",
+              "api-integration",
+              "frontend-architecture",
+              "database-architecture"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "project-analysis-prompt-engineering",
+                "backend-architecture",
+                "api-integration",
+                "frontend-architecture",
+                "database-architecture"
+              ],
+              "references_loaded": {
+                "project-analysis-prompt-engineering": [
+                  "domain-integration-template.md"
+                ],
+                "backend-architecture": [
+                  "01-stage-contract-and-intake.md"
+                ],
+                "api-integration": [
+                  "api-contract-standards.md"
+                ],
+                "frontend-architecture": [
+                  "00-stage-contract.md"
+                ],
+                "database-architecture": [
+                  "data-lifecycle.md"
+                ]
+              },
+              "tools_allowed": [
+                "api_test",
+                "backend_test",
+                "contract_test",
+                "database_inspection",
+                "evidence_write",
+                "frontend_build",
+                "frontend_test",
+                "list_files",
+                "migration_test",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-4",
+          "db_task_id": "a709b196-1d62-4684-a6fb-1177b8176a6e",
+          "role": "backend",
+          "selected_skills": [
+            "backend-architecture",
+            "database-architecture",
+            "api-integration",
+            "authentication-authorization"
+          ],
+          "references_loaded": {
+            "backend-architecture": [
+              "01-stage-contract-and-intake.md"
+            ],
+            "database-architecture": [
+              "data-lifecycle.md"
+            ],
+            "api-integration": [
+              "api-contract-standards.md"
+            ],
+            "authentication-authorization": [
+              "00-standards-and-principles.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "backend-architecture",
+            "database-architecture",
+            "api-integration",
+            "authentication-authorization"
+          ],
+          "tools_allowed": [
+            "api_test",
+            "backend_test",
+            "contract_test",
+            "database_inspection",
+            "evidence_write",
+            "list_files",
+            "migration_test",
+            "read_file",
+            "search",
+            "security_test"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "backend-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "database-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "authentication-authorization",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-4",
+            "agent_id": "backend-agent",
+            "role": "backend",
+            "skill_ids": [
+              "backend-architecture",
+              "database-architecture",
+              "api-integration",
+              "authentication-authorization"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "backend-architecture",
+                "database-architecture",
+                "api-integration",
+                "authentication-authorization"
+              ],
+              "references_loaded": {
+                "backend-architecture": [
+                  "01-stage-contract-and-intake.md"
+                ],
+                "database-architecture": [
+                  "data-lifecycle.md"
+                ],
+                "api-integration": [
+                  "api-contract-standards.md"
+                ],
+                "authentication-authorization": [
+                  "00-standards-and-principles.md"
+                ]
+              },
+              "tools_allowed": [
+                "api_test",
+                "backend_test",
+                "contract_test",
+                "database_inspection",
+                "evidence_write",
+                "list_files",
+                "migration_test",
+                "read_file",
+                "search",
+                "security_test"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-5",
+          "db_task_id": "872d0e37-7f56-4e63-a08d-78a249e44056",
+          "role": "frontend",
+          "selected_skills": [
+            "design-system-ui-architecture",
+            "frontend-architecture",
+            "api-integration"
+          ],
+          "references_loaded": {
+            "design-system-ui-architecture": [
+              "accessibility-contract.md"
+            ],
+            "frontend-architecture": [
+              "00-stage-contract.md"
+            ],
+            "api-integration": [
+              "api-contract-standards.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "design-system-ui-architecture",
+            "frontend-architecture",
+            "api-integration"
+          ],
+          "tools_allowed": [
+            "api_test",
+            "contract_test",
+            "evidence_write",
+            "frontend_build",
+            "frontend_test",
+            "list_files",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "design-system-ui-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "frontend-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-5",
+            "agent_id": "frontend-agent",
+            "role": "frontend",
+            "skill_ids": [
+              "design-system-ui-architecture",
+              "frontend-architecture",
+              "api-integration"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "design-system-ui-architecture",
+                "frontend-architecture",
+                "api-integration"
+              ],
+              "references_loaded": {
+                "design-system-ui-architecture": [
+                  "accessibility-contract.md"
+                ],
+                "frontend-architecture": [
+                  "00-stage-contract.md"
+                ],
+                "api-integration": [
+                  "api-contract-standards.md"
+                ]
+              },
+              "tools_allowed": [
+                "api_test",
+                "contract_test",
+                "evidence_write",
+                "frontend_build",
+                "frontend_test",
+                "list_files",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-6",
+          "db_task_id": "26bbe3e3-849f-480b-9548-e2dcdb8bf096",
+          "role": "security",
+          "selected_skills": [
+            "authentication-authorization",
+            "application-security"
+          ],
+          "references_loaded": {
+            "authentication-authorization": [
+              "00-standards-and-principles.md"
+            ],
+            "application-security": [
+              "ai-llm-security.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "authentication-authorization",
+            "application-security"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "search",
+            "security_scan",
+            "security_test"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "authentication-authorization",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "application-security",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-6",
+            "agent_id": "security-agent",
+            "role": "security",
+            "skill_ids": [
+              "authentication-authorization",
+              "application-security"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "authentication-authorization",
+                "application-security"
+              ],
+              "references_loaded": {
+                "authentication-authorization": [
+                  "00-standards-and-principles.md"
+                ],
+                "application-security": [
+                  "ai-llm-security.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "search",
+                "security_scan",
+                "security_test"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-7",
+          "db_task_id": "8b7a8f0f-4a2a-484e-b137-19b221b1864d",
+          "role": "tester",
+          "selected_skills": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-7",
+            "agent_id": "tester-agent",
+            "role": "tester",
+            "skill_ids": [
+              "software-testing",
+              "qa-debugging"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "qa-debugging"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-8",
+          "db_task_id": "0f6e1453-eaac-42f8-9502-583851393332",
+          "role": "reviewer",
+          "selected_skills": [
+            "software-testing",
+            "fullstack-final-review",
+            "application-security"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ],
+            "application-security": [
+              "ai-llm-security.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "fullstack-final-review",
+            "application-security"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "release_manifest_read",
+            "safe_validation",
+            "search",
+            "security_scan",
+            "security_test",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-8",
+            "agent_id": "reviewer-agent",
+            "role": "reviewer",
+            "skill_ids": [
+              "software-testing",
+              "fullstack-final-review",
+              "application-security"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "fullstack-final-review",
+                "application-security"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ],
+                "application-security": [
+                  "ai-llm-security.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "release_manifest_read",
+                "safe_validation",
+                "search",
+                "security_scan",
+                "security_test",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "A-task-9",
+          "db_task_id": "89809744-34d0-4886-a8ac-5e617256a5d6",
+          "role": "release_verifier",
+          "selected_skills": [
+            "fullstack-final-review"
+          ],
+          "references_loaded": {
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "fullstack-final-review"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "release_manifest_read",
+            "safe_validation",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "A-task-9",
+            "agent_id": "release_verifier-agent",
+            "role": "release_verifier",
+            "skill_ids": [
+              "fullstack-final-review"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "fullstack-final-review"
+              ],
+              "references_loaded": {
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "release_manifest_read",
+                "safe_validation",
+                "search"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "B",
+      "objective": "Fix a transaction migration defect in an existing backend and add regression tests.",
+      "project_type": "backend-only",
+      "project_id": "dbae2a12-fad8-4259-bd58-856a77021a36",
+      "project_selected_skills": [
+        "project-analysis-prompt-engineering",
+        "backend-architecture",
+        "database-architecture",
+        "software-testing",
+        "qa-debugging",
+        "fullstack-final-review"
+      ],
+      "tasks": [
+        {
+          "task_id": "B-task-1",
+          "db_task_id": "d493bed3-b60b-41be-8e3a-6b00d9e37811",
+          "role": "project_manager",
+          "selected_skills": [
+            "project-analysis-prompt-engineering"
+          ],
+          "references_loaded": {
+            "project-analysis-prompt-engineering": [
+              "domain-integration-template.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "project-analysis-prompt-engineering"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "project-analysis-prompt-engineering",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "B-task-1",
+            "agent_id": "project_manager-agent",
+            "role": "project_manager",
+            "skill_ids": [
+              "project-analysis-prompt-engineering"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "project-analysis-prompt-engineering"
+              ],
+              "references_loaded": {
+                "project-analysis-prompt-engineering": [
+                  "domain-integration-template.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "B-task-2",
+          "db_task_id": "f53be09c-6e9f-468c-9826-4723a80b238d",
+          "role": "backend",
+          "selected_skills": [
+            "backend-architecture",
+            "database-architecture"
+          ],
+          "references_loaded": {
+            "backend-architecture": [
+              "01-stage-contract-and-intake.md"
+            ],
+            "database-architecture": [
+              "data-lifecycle.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "backend-architecture",
+            "database-architecture"
+          ],
+          "tools_allowed": [
+            "backend_test",
+            "database_inspection",
+            "evidence_write",
+            "list_files",
+            "migration_test",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "backend-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "database-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "B-task-2",
+            "agent_id": "backend-agent",
+            "role": "backend",
+            "skill_ids": [
+              "backend-architecture",
+              "database-architecture"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "backend-architecture",
+                "database-architecture"
+              ],
+              "references_loaded": {
+                "backend-architecture": [
+                  "01-stage-contract-and-intake.md"
+                ],
+                "database-architecture": [
+                  "data-lifecycle.md"
+                ]
+              },
+              "tools_allowed": [
+                "backend_test",
+                "database_inspection",
+                "evidence_write",
+                "list_files",
+                "migration_test",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "B-task-3",
+          "db_task_id": "cf29558b-9444-4597-9466-c66466a24021",
+          "role": "tester",
+          "selected_skills": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "B-task-3",
+            "agent_id": "tester-agent",
+            "role": "tester",
+            "skill_ids": [
+              "software-testing",
+              "qa-debugging"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "qa-debugging"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "B-task-4",
+          "db_task_id": "d3fc91ad-ba03-4811-b441-9e1a79166d2a",
+          "role": "debugger",
+          "selected_skills": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "references_loaded": {
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ],
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "B-task-4",
+            "agent_id": "debugger-agent",
+            "role": "debugger",
+            "skill_ids": [
+              "qa-debugging",
+              "software-testing"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "qa-debugging",
+                "software-testing"
+              ],
+              "references_loaded": {
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ],
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "B-task-5",
+          "db_task_id": "55e8c826-32de-4b65-a978-55c8d9f040f4",
+          "role": "reviewer",
+          "selected_skills": [
+            "software-testing",
+            "fullstack-final-review"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "fullstack-final-review"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "release_manifest_read",
+            "safe_validation",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "B-task-5",
+            "agent_id": "reviewer-agent",
+            "role": "reviewer",
+            "skill_ids": [
+              "software-testing",
+              "fullstack-final-review"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "fullstack-final-review"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "release_manifest_read",
+                "safe_validation",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "C",
+      "objective": "Implement a frontend accessibility improvement with responsive tests.",
+      "project_type": "frontend-only",
+      "project_id": "190fbe70-eddb-44e6-bd1e-9041c5583807",
+      "project_selected_skills": [
+        "project-analysis-prompt-engineering",
+        "design-system-ui-architecture",
+        "frontend-architecture",
+        "software-testing",
+        "qa-debugging",
+        "fullstack-final-review"
+      ],
+      "tasks": [
+        {
+          "task_id": "C-task-1",
+          "db_task_id": "a52b200b-0c44-4983-9442-e46d0c87dc1d",
+          "role": "frontend",
+          "selected_skills": [
+            "design-system-ui-architecture",
+            "frontend-architecture"
+          ],
+          "references_loaded": {
+            "design-system-ui-architecture": [
+              "accessibility-contract.md"
+            ],
+            "frontend-architecture": [
+              "00-stage-contract.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "design-system-ui-architecture",
+            "frontend-architecture"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "frontend_build",
+            "frontend_test",
+            "list_files",
+            "read_file",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "design-system-ui-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "frontend-architecture",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "C-task-1",
+            "agent_id": "frontend-agent",
+            "role": "frontend",
+            "skill_ids": [
+              "design-system-ui-architecture",
+              "frontend-architecture"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "design-system-ui-architecture",
+                "frontend-architecture"
+              ],
+              "references_loaded": {
+                "design-system-ui-architecture": [
+                  "accessibility-contract.md"
+                ],
+                "frontend-architecture": [
+                  "00-stage-contract.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "frontend_build",
+                "frontend_test",
+                "list_files",
+                "read_file",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "C-task-2",
+          "db_task_id": "13662f38-5f27-4fe7-bbd6-c2ecd070f790",
+          "role": "tester",
+          "selected_skills": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "C-task-2",
+            "agent_id": "tester-agent",
+            "role": "tester",
+            "skill_ids": [
+              "software-testing",
+              "qa-debugging"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "qa-debugging"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "D",
+      "objective": "Fix an authentication authorization security issue with tests and debugging.",
+      "project_type": "security-fix",
+      "project_id": "6d06ca9d-9e56-4a40-a124-c4f970577f0f",
+      "project_selected_skills": [
+        "project-analysis-prompt-engineering",
+        "authentication-authorization",
+        "application-security",
+        "software-testing",
+        "qa-debugging",
+        "fullstack-final-review"
+      ],
+      "tasks": [
+        {
+          "task_id": "D-task-1",
+          "db_task_id": "f19d2b79-dd9a-42c5-900e-3741fa1775c9",
+          "role": "security",
+          "selected_skills": [
+            "authentication-authorization",
+            "application-security"
+          ],
+          "references_loaded": {
+            "authentication-authorization": [
+              "00-standards-and-principles.md"
+            ],
+            "application-security": [
+              "ai-llm-security.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "authentication-authorization",
+            "application-security"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "list_files",
+            "read_file",
+            "search",
+            "security_scan",
+            "security_test"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "authentication-authorization",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "application-security",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "D-task-1",
+            "agent_id": "security-agent",
+            "role": "security",
+            "skill_ids": [
+              "authentication-authorization",
+              "application-security"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "authentication-authorization",
+                "application-security"
+              ],
+              "references_loaded": {
+                "authentication-authorization": [
+                  "00-standards-and-principles.md"
+                ],
+                "application-security": [
+                  "ai-llm-security.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "list_files",
+                "read_file",
+                "search",
+                "security_scan",
+                "security_test"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "D-task-2",
+          "db_task_id": "426037c7-a4e9-4f99-adb7-14756c4f3c5a",
+          "role": "tester",
+          "selected_skills": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "D-task-2",
+            "agent_id": "tester-agent",
+            "role": "tester",
+            "skill_ids": [
+              "software-testing",
+              "qa-debugging"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "qa-debugging"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "D-task-3",
+          "db_task_id": "6546539c-93e0-487b-9514-4db2aeb1d9fb",
+          "role": "debugger",
+          "selected_skills": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "references_loaded": {
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ],
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "D-task-3",
+            "agent_id": "debugger-agent",
+            "role": "debugger",
+            "skill_ids": [
+              "qa-debugging",
+              "software-testing"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "qa-debugging",
+                "software-testing"
+              ],
+              "references_loaded": {
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ],
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "D-task-4",
+          "db_task_id": "05e5727a-c360-4d07-b84b-c151f86ddb4a",
+          "role": "reviewer",
+          "selected_skills": [
+            "software-testing",
+            "fullstack-final-review",
+            "application-security"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ],
+            "application-security": [
+              "ai-llm-security.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "fullstack-final-review",
+            "application-security"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "release_manifest_read",
+            "safe_validation",
+            "search",
+            "security_scan",
+            "security_test",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "D-task-4",
+            "agent_id": "reviewer-agent",
+            "role": "reviewer",
+            "skill_ids": [
+              "software-testing",
+              "fullstack-final-review",
+              "application-security"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "fullstack-final-review",
+                "application-security"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ],
+                "application-security": [
+                  "ai-llm-security.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "release_manifest_read",
+                "safe_validation",
+                "search",
+                "security_scan",
+                "security_test",
+                "test_runner"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "scenario": "E",
+      "objective": "Prepare a release with regression tests, QA, deployment health checks, and final review.",
+      "project_type": "release",
+      "project_id": "07a5528a-bcea-4627-aff9-283311d74734",
+      "project_selected_skills": [
+        "project-analysis-prompt-engineering",
+        "software-testing",
+        "qa-debugging",
+        "deployment-production",
+        "fullstack-final-review"
+      ],
+      "tasks": [
+        {
+          "task_id": "E-task-1",
+          "db_task_id": "05f3c13d-a974-4a3e-9fb6-3697271cc7f6",
+          "role": "tester",
+          "selected_skills": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "qa-debugging"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "E-task-1",
+            "agent_id": "tester-agent",
+            "role": "tester",
+            "skill_ids": [
+              "software-testing",
+              "qa-debugging"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "qa-debugging"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "E-task-2",
+          "db_task_id": "1e41f882-0ba4-4aa0-9e41-4aeb5de6dfe6",
+          "role": "debugger",
+          "selected_skills": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "references_loaded": {
+            "qa-debugging": [
+              "api-data-integrity.md"
+            ],
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "qa-debugging",
+            "software-testing"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "safe_runtime_check",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "qa-debugging",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "E-task-2",
+            "agent_id": "debugger-agent",
+            "role": "debugger",
+            "skill_ids": [
+              "qa-debugging",
+              "software-testing"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "qa-debugging",
+                "software-testing"
+              ],
+              "references_loaded": {
+                "qa-debugging": [
+                  "api-data-integrity.md"
+                ],
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "safe_runtime_check",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "E-task-3",
+          "db_task_id": "13e2695e-5a09-4635-896c-03af11aab30b",
+          "role": "devops",
+          "selected_skills": [
+            "deployment-production"
+          ],
+          "references_loaded": {
+            "deployment-production": [
+              "artifact-contracts.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "deployment-production"
+          ],
+          "tools_allowed": [
+            "evidence_write",
+            "health_check",
+            "list_files",
+            "read_file",
+            "release_artifact_write",
+            "safe_build",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "deployment-production",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "E-task-3",
+            "agent_id": "devops-agent",
+            "role": "devops",
+            "skill_ids": [
+              "deployment-production"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "deployment-production"
+              ],
+              "references_loaded": {
+                "deployment-production": [
+                  "artifact-contracts.md"
+                ]
+              },
+              "tools_allowed": [
+                "evidence_write",
+                "health_check",
+                "list_files",
+                "read_file",
+                "release_artifact_write",
+                "safe_build",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "E-task-4",
+          "db_task_id": "e20eefa6-24b4-4c9d-86d6-5b639eb67b8b",
+          "role": "release_verifier",
+          "selected_skills": [
+            "fullstack-final-review",
+            "deployment-production"
+          ],
+          "references_loaded": {
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ],
+            "deployment-production": [
+              "artifact-contracts.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "fullstack-final-review",
+            "deployment-production"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "health_check",
+            "list_files",
+            "read_file",
+            "release_artifact_write",
+            "release_manifest_read",
+            "safe_build",
+            "safe_validation",
+            "search"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "E-task-4",
+            "agent_id": "release_verifier-agent",
+            "role": "release_verifier",
+            "skill_ids": [
+              "fullstack-final-review",
+              "deployment-production"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "fullstack-final-review",
+                "deployment-production"
+              ],
+              "references_loaded": {
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ],
+                "deployment-production": [
+                  "artifact-contracts.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "health_check",
+                "list_files",
+                "read_file",
+                "release_artifact_write",
+                "release_manifest_read",
+                "safe_build",
+                "safe_validation",
+                "search"
+              ]
+            }
+          }
+        },
+        {
+          "task_id": "E-task-5",
+          "db_task_id": "c5c09b6f-922b-4a21-8f04-39120f94f775",
+          "role": "reviewer",
+          "selected_skills": [
+            "software-testing",
+            "fullstack-final-review"
+          ],
+          "references_loaded": {
+            "software-testing": [
+              "01-preflight-discovery.md"
+            ],
+            "fullstack-final-review": [
+              "data-migrations.md"
+            ]
+          },
+          "skill_documents_loaded": [
+            "software-testing",
+            "fullstack-final-review"
+          ],
+          "tools_allowed": [
+            "diff",
+            "evidence_write",
+            "fixture_write",
+            "list_files",
+            "read_file",
+            "release_manifest_read",
+            "safe_validation",
+            "search",
+            "test_runner"
+          ],
+          "skill_artifacts": [],
+          "gate_status": "passed",
+          "gates": [
+            {
+              "skill_id": "software-testing",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            },
+            {
+              "skill_id": "fullstack-final-review",
+              "status": "passed",
+              "reason": "Required objective evidence is present."
+            }
+          ],
+          "trace_event": {
+            "event": "skill_route",
+            "task_id": "E-task-5",
+            "agent_id": "reviewer-agent",
+            "role": "reviewer",
+            "skill_ids": [
+              "software-testing",
+              "fullstack-final-review"
+            ],
+            "worker_context": {
+              "skill_documents_loaded": [
+                "software-testing",
+                "fullstack-final-review"
+              ],
+              "references_loaded": {
+                "software-testing": [
+                  "01-preflight-discovery.md"
+                ],
+                "fullstack-final-review": [
+                  "data-migrations.md"
+                ]
+              },
+              "tools_allowed": [
+                "diff",
+                "evidence_write",
+                "fixture_write",
+                "list_files",
+                "read_file",
+                "release_manifest_read",
+                "safe_validation",
+                "search",
+                "test_runner"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

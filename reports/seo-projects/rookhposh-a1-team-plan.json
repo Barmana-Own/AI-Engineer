@@ -1,0 +1,22 @@
+{
+  "project_id": "04469407-8792-4ef9-b514-bbd6b91fc4b5",
+  "site_id": "d1711216-6c46-4b70-8920-a0411ded9e0a",
+  "generated_at": "2026-09-26T16:44:34+03:30",
+  "plan_status": "proposed_before_remediation",
+  "execution_started": false,
+  "selected_roles": [
+    {"role": "seo_manager", "reason": "Own SEO strategy, prioritization, delegation, and evidence-based completion."},
+    {"role": "seo_specialist", "reason": "Perform the evidence-backed audit and verify any later implementation."},
+    {"role": "frontend", "reason": "Primary findings include canonical, metadata, headings, and image-alt changes in the Next.js templates."},
+    {"role": "devops", "reason": "robots.txt and sitemap.xml are HTTP-level crawlability findings requiring deployment/configuration ownership."},
+    {"role": "tester", "reason": "Required to verify HTML, crawlability, and regression acceptance after remediation."},
+    {"role": "reviewer", "reason": "Independent review is required before accepting SEO changes."}
+  ],
+  "excluded_roles": [
+    {"role": "backend", "reason": "No backend/API/data finding is evidenced; Next.js/Node presence alone is not sufficient."},
+    {"role": "security", "reason": "No security-sensitive SEO finding was observed in the baseline."},
+    {"role": "docs", "reason": "No documentation deliverable is required before remediation is authorized."},
+    {"role": "ux_designer", "reason": "No UX redesign is part of A1."}
+  ],
+  "related_property_policy": "blog and dashboard remain separate properties; their implementation teams must be selected independently if remediation is approved"
+}

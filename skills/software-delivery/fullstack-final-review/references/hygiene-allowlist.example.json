@@ -1,0 +1,9 @@
+{
+  "allowlist": [
+    {
+      "rule_id": "GENERIC_SECRET_ASSIGNMENT",
+      "path": "tests/fixtures/fake-credentials.json",
+      "reason": "Synthetic test-only credential fixture; value is intentionally non-secret and never used by production code."
+    }
+  ]
+}

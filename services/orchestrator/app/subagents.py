@@ -187,6 +187,24 @@ SUBAGENT_ROLES: tuple[SubagentRole, ...] = (
         section="integration",
         capabilities=("read", "validate", "health", "handoff"),
     ),
+    SubagentRole(
+        key="seo_manager",
+        title="SEO Manager",
+        objective="Own SEO strategy, prioritization, delegation, acceptance criteria, and evidence-based verification without modifying production code.",
+        read_only=True,
+        validation_required=True,
+        section="seo",
+        capabilities=("read", "seo_strategy", "prioritize", "delegate", "verify", "handoff"),
+    ),
+    SubagentRole(
+        key="seo_specialist",
+        title="SEO Specialist",
+        objective="Perform evidence-based technical and on-page SEO analysis, keyword mapping, and implementation verification.",
+        read_only=True,
+        validation_required=True,
+        section="seo",
+        capabilities=("read", "seo_audit", "crawl", "keywords", "findings", "verify", "handoff"),
+    ),
 )
 
 _ROLE_BY_KEY = {role.key: role for role in SUBAGENT_ROLES}

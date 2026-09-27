@@ -2,9 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
-WORKSPACE_ROOT = Path(r"F:\AI-Engineer\workspaces").resolve()
+
+def project_root() -> Path:
+    configured = os.getenv("AI_ENGINE_PROJECT_ROOT") or os.getenv("PROJECT_ROOT")
+    if configured and configured.strip():
+        return Path(configured).expanduser().resolve()
+
+    current = Path(__file__).resolve()
+    for parent in (current.parent, *current.parents):
+        if (parent / "services").is_dir() and (parent / "apps").is_dir():
+            return parent
+    return current.parents[1]
+
+
+PROJECT_ROOT = project_root()
+WORKSPACE_ROOT = (PROJECT_ROOT / "workspaces").resolve()
 
 
 def write_text(path: Path, content: str) -> None:
@@ -18,9 +33,7 @@ def validate_target(raw_target: str) -> Path:
     try:
         target.relative_to(WORKSPACE_ROOT)
     except ValueError as exc:
-        raise SystemExit(
-            "Target must be inside F:\\AI-Engineer\\workspaces."
-        ) from exc
+        raise SystemExit(f"Target must be inside {WORKSPACE_ROOT}.") from exc
 
     target.mkdir(parents=True, exist_ok=True)
     return target

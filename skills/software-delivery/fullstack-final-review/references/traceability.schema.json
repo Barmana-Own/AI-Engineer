@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage 12 Requirement Traceability",
+  "type": "object",
+  "required": ["requirements"],
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "core", "status"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "title": {"type": "string", "minLength": 1},
+          "core": {"type": "boolean"},
+          "approved_source": {"type": ["string", "null"]},
+          "status": {
+            "enum": ["VERIFIED", "IMPLEMENTED_UNVERIFIED", "PARTIAL", "MISSING", "BROKEN", "EXCLUDED_APPROVED", "NOT_APPLICABLE"]
+          },
+          "implementation": {"type": "array", "items": {"type": "string"}},
+          "interfaces": {"type": "array", "items": {"type": "string"}},
+          "data": {"type": "array", "items": {"type": "string"}},
+          "tests": {"type": "array", "items": {"type": "string"}},
+          "evidence": {"type": "array", "items": {"type": "string"}},
+          "notes": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "orphans": {"type": "array"},
+    "summary": {"type": "object"}
+  },
+  "additionalProperties": true
+}

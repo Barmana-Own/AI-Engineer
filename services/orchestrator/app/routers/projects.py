@@ -5,14 +5,15 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.config import settings
 from app.db import create_project, get_project, list_projects
 from app.schemas import ProjectCreateRequest, ProjectResponse
 
 router = APIRouter(prefix="/v1/projects", tags=["projects"])
 
-WORKSPACE_ROOT = Path("F:/AI-Engineer/workspaces").resolve()
-SELF_WORKSPACE_NAME = "ai-engineer"
-SELF_WORKSPACE_ROOT = Path("F:/AI-Engineer").resolve()
+WORKSPACE_ROOT = Path(settings.workspace_root).expanduser().resolve()
+SELF_WORKSPACE_NAME = settings.self_workspace_name
+SELF_WORKSPACE_ROOT = Path(settings.self_workspace_root).expanduser().resolve()
 
 
 def slugify(value: str) -> str:
@@ -37,7 +38,7 @@ def normalize_workspace(value: str) -> str:
     if supplied.is_absolute():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workspace must be relative to F:/AI-Engineer/workspaces.",
+            detail="Workspace must be relative to the configured workspace root.",
         )
 
     resolved = (WORKSPACE_ROOT / supplied).resolve()

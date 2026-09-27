@@ -5,14 +5,24 @@
 | Project | AI Engineer |
 | Report type | Technical report |
 | Language | English |
-| Jalali date | 1405/06/08 |
-| Gregorian date | 30 August 2026 |
-| Latest observed revision | `e872ace` — 30 August 2026 |
-| Delivery status | Locally runnable; not ready for a final Production release |
+| Jalali date | 1405/07/01 |
+| Gregorian date | 23 September 2026 |
+| Repository revision at report time | `1e3839e` (working tree contains uncommitted changes) |
+| Delivery status | Locally runnable, but not a final Production release |
+
+**Historical-content note:** Sections before the current SEO Engine Integration Addendum preserve earlier phase observations and test counts. The addendum below is the authoritative status for this report date.
 
 ## Scope and evidence basis
 
-This report is based on the repository state, service startup, available test execution, health checks, and Git history observed on 30 August 2026. Relative to baseline revision `32a7c69` on 15 August, 47 files changed with 1,349 additions and 255 deletions. Branch `main` and the working tree were clean before these report files were added. The repository currently lacks `project-state.json` and `project-integrity-manifest.md`; therefore the formal twelve-stage statuses are not yet tracked as auditable gates.
+This report is based on direct server inspection, service startup, available test execution, health checks, and Git history observed on 16 September 2026. The earlier local snapshot from 30 August is retained separately in this report. On the server, relative to the commit before the 24-hour window (`57c9b67`), 63 files changed with 2,595 additions and 287 deletions. The repository lacks `project-state.json` and `project-integrity-manifest.md`; therefore the formal twelve-stage statuses are not yet tracked as auditable gates.
+
+## Direct Windows Server Evidence — Last 24 Hours
+
+The located server path is `C:\\Services\\AI-Engineer\\current`. The server snapshot time was 15 September 2026, 23:21:15 with offset `-07:00`. The `AI Engineer Server` task was present in `Ready` state, runs as `aieng`, and reported a previous result of `0`; its trigger is startup-based and its NextRun value is blank.
+
+Git recorded 17 commits during the 24-hour window (16 recovery checkpoints and one merge from `origin/main`). The autonomy endpoint returned 100 recent runs: 41 `completed`, 58 `failed`, and one `running`, across 14 backlog keys. The oldest run in this snapshot was `2026-09-15T16:41:42Z` and the newest was `2026-09-16T06:16:08Z`. Most keys had a latest status of failed; only `control-center-observability`, `gateway-routing`, and `local-agent-policy` had a latest status of completed, while `security-boundary` was running at the snapshot.
+
+Ports 8010, 8011, 8012, and 11434 (Ollama) were listening; 8020 (Provider Router) and 5175 (Control Center runtime) were down. Model Gateway logs recorded `chat/completions` requests returning 200 through approximately 23:20:54, and Local Agent logs recorded `POST /git/checkpoint` requests returning 200. No mutation, restart, or file deletion was performed during this inspection.
 
 ## Current architecture
 
@@ -34,7 +44,7 @@ This report is based on the repository state, service startup, available test ex
 - Recent history includes controls for managed-process argument length, aligned orchestrator health versioning, recovery coverage, and role/requirements contracts.
 - Existing progress documentation describes the local-first core as active, while explicitly stating that full Codex parity and the general-purpose project lifecycle are not complete.
 
-## Autonomy execution evidence
+## Autonomy execution evidence — local snapshot, 30 August
 
 At review time, `/v1/agent/autonomy/runs?limit=100` returned 100 recent runs: 94 `completed`, 6 `failed`, 0 active, and 14 unique backlog keys. The observed range was 26–30 August. The latest status for `control-center-observability`, `desktop-health`, `gateway-routing`, `local-agent-policy`, `memory-safety`, `operations-docs`, `role-contracts`, `supervisor-resume`, `task-observability`, and `test-coverage` was successful; the latest status for `integration-health`, `recovery-coverage`, `requirements-contract`, and `security-boundary` was failed.
 
@@ -111,3 +121,133 @@ A reliable time estimate is not possible before these steps execute. The current
 ## Technical conclusion
 
 The current system is a local-first core with orchestration, a local agent, model gateway, provider router, buildable UIs, and an autonomous supervisor backed by real execution evidence. Reaching the requested behavior of accepting an arbitrary project and returning a final tested result still requires the P0/P1 work above: failure stabilization, isolated intake, a complete change/test/debug loop, security, an operational UI, and a final release gate.
+
+## Phase 10A Addendum — Software-Engineering Skill Import
+
+**Dates:** Gregorian 2026-09-22; Jalali 1405-06-31
+
+The repository now contains 12 preserved engineering playbooks under `skills/software-delivery/` with a validated manifest, router-only activation policy, compatibility metadata, and deterministic registry tests. The imported package's external implicit-invocation metadata is not authoritative. Thirty-six bundled Python scripts compile successfully without execution. Orchestrator validation after the import: **57 passed**. No live-agent routing or global sequential stage enforcement was added.
+### Phase 10A Validation Detail
+
+| Check | Result |
+| --- | --- |
+| Orchestrator pytest | PASS — 57 passed; 10 subtests passed |
+| Skill registry tests | PASS — 9 passed (included in the 57 Orchestrator tests) |
+| Model Gateway pytest | PASS — 25 passed |
+| Local Agent static compile | PASS — 15 Python modules compiled; no project test suite is present |
+| Imported skill helper compile | PASS — 36 Python scripts compiled without execution or bytecode output |
+| Package preservation | PASS — all 12 source inventories match; 224 package files preserved plus four registry/report metadata files |
+| Secret-pattern scan | PASS — no credential value detected; only a generic scanner regex matched |
+## Phase 10B — Role-to-Skill Routing (2026-09-22 / 1405-06-31)
+
+Implemented `skills/software-delivery/role-skill-map.json` and `services/orchestrator/app/skill_routing.py` as the canonical routing layer over the Phase 10A `SkillRegistry`. Added conditional role selection, project-level contextual stage dependencies, scoped lazy context loading, structured skill evidence, objective quality gates, and least-privilege tool intersection. Added idempotent `agent_tasks.skill_selections_json` and `agent_tasks.skill_trace_json` migration fields, repository persistence, optional task API routing inputs, and response fields.
+
+Validation: `py -3.11 -m pytest -q tests/test_skill_routing.py` — 16 passed; full Orchestrator — 73 passed, 10 subtests passed; Phase 10A registry/state regression — 9 passed; changed Python modules compile successfully. No live worker activation or global stage enforcement was added.
+## Phase 10C Addendum — Script Security Hardening
+
+**Dates:** Gregorian 2026-09-22; Jalali 1405-06-31
+
+### Scope and implementation
+
+- Added `app/skill_script_gateway.py` as the single execution-policy boundary.
+- Added manifest-constrained script lookup to `SkillRegistry`.
+- Enforced Worker → Tool Policy → Local Agent chain and role/task/global capability intersection.
+- Enforced exact repository-declared command plans, trusted executable categories, workspace/path validation, bounded timeout/output, and explicit safe artifact roots.
+- Added network target validation, metadata/private-target blocking, sensitive URL rejection, and undeclared redirect evidence rejection.
+- Added compatibility-adapter-only handling for `project-state.json` views.
+- Added server-side approval verifier/action-hash hooks; client `approved` metadata is non-authoritative.
+- Added recursive evidence/header/stdout/stderr redaction.
+- Added deterministic tests for every requested security boundary.
+
+### Validation
+
+| Command/check | Result |
+| --- | --- |
+| `py -3.11 -m pytest -q tests/test_skill_script_gateway.py` | PASS — 20 passed |
+| `py -3.11 -m pytest -q` (Orchestrator) | PASS — 93 passed, 10 subtests passed |
+| `py -3.11 -m pytest -q -rA` (Model Gateway) | PASS — 25 passed |
+| Local Agent `py_compile` | PASS — 15 modules |
+| Changed Python `py_compile` | PASS |
+| `git diff --check` | PASS — no whitespace errors |
+
+### Security and integration status
+
+The gateway fails closed on missing policy chain, untrusted script paths, command mismatch, scope escape, arbitrary network targets, invalid redirects, missing/incorrect approval, and output/timeout violations. It does not execute subprocesses or network calls itself. A dedicated live Worker Runtime is not present in the current source tree, so production integration must still connect this gateway to the real worker and persisted ApprovalRequest implementation. Existing downstream Local Agent boolean compatibility remains non-authoritative at this boundary.
+### Task-plan authorization
+
+`task_plan_authorized` is now required for command/test runners; caller-supplied command declarations alone do not authorize execution.
+## Phase 10D — Skill-aware execution validation
+
+| Field | Value |
+| --- | --- |
+| Jalali date | 1405/07/01 |
+| Gregorian date | 23 September 2026 |
+| Scope | Contextual routing, lazy loading, permission intersection, evidence gates, persisted trace |
+| Artifact | `reports/phase10d-skill-execution-trace.json` |
+| Verdict | Contract validated; live worker integration not ready |
+
+The new deterministic scenario suite exercises real `SkillRouter`, `SkillContextLoader`, effective permissions, quality gates, and SQLite task trace persistence. It covers five project types and 25 task records. Full regression evidence: Orchestrator 97 passed/10 subtests, Model Gateway 25 passed, Local Agent 15 Python modules compiled, Control Center build PASS, Desktop build PASS. No production Agent Worker module is present to call the Model Gateway or Local Agent, so live execution remains NOT_RUN and `SKILL_INTEGRATION_READY` is NO.
+Focused imported-skill regression subset (registry, routing, state, script gateway, and scenarios): **49 passed**.
+
+---
+# Current SEO Engine Integration Technical Addendum
+
+| Field | Value |
+|---|---|
+| Report date | 2026-09-23 (Gregorian) / 1405-07-01 (Jalali) |
+| Repository | F:\AI-Engineer |
+| Scope | SEO Content Automation Phase 10 integration |
+| Delivery status | Implemented capability; live execution gates remain open |
+
+## Implemented surface
+
+- `services/orchestrator/app/seo_engine/` contains models, URL/SSRF safety, HTML evidence extraction, platform detection, bounded crawling, codebase inspection, keyword/intent planning, provider adapters, persistence and the engine facade.
+- `services/orchestrator/app/routers/seo.py` exposes site registration, platform detection, audits, findings, keyword plans, delegation and verification under `/v1/seo`.
+- `services/orchestrator/app/seo_schemas.py` defines request/response contracts.
+- `services/orchestrator/app/db.py` adds idempotent SEO tables and a `schema_migrations` record while preserving existing tables/data.
+- `services/orchestrator/app/subagents.py` exposes `seo_manager` and `seo_specialist` using existing role/profile infrastructure.
+- `skills/software-delivery/role-skill-map.json` maps the SEO roles to the existing skill registry.
+
+## Data model
+
+The current migration creates `seo_sites`, `seo_audit_snapshots`, `seo_pages`, `seo_findings`, `seo_keyword_clusters` and `seo_keyword_maps` plus indexes. Every persisted record is scoped by `project_id` and/or `site_id`; SQLite remains the source of truth. Findings carry severity, provenance, evidence, acceptance criteria, verification method and status. A verified finding requires an explicit verification request; a model assertion alone is not sufficient.
+
+## Safety and provider behavior
+
+`SafeHttpClient` rejects credentials/fragments, unsupported protocols, private or loopback targets unless explicitly allowed, cross-host redirects and oversized responses. `BoundedCrawler` limits pages/depth, follows only same-host links, records status/content hashes and checks robots/sitemap resources. WordPress credentials are constructor-injected server-side, status query values are allowlisted, draft creation/update is supported, and direct publishing always raises a permission error. Search Console adapters expose real/mock/no-data modes without inventing metrics. Rank Math and live Search Console calls were not wired or executed.
+
+## Existing company workflow integration
+
+SEO findings can create the existing `agent_tasks` records and route skills through the existing Skill Router. The API does not introduce another task/message/memory system. However, the repository does not yet contain the verified real Agent Worker runtime requested by earlier phases; therefore delegation is persistence plus legacy task invocation, not evidence of a live specialized worker completing code changes, tests and re-audits.
+
+## Validation matrix
+
+| Check | Result | Evidence |
+|---|---|---|
+| Changed Python compile | PASS | `python -m py_compile` for all changed Orchestrator/SEO modules |
+| Orchestrator suite | PASS | 110 tests passed, 0 failed, 0 skipped (`unittest`) |
+| Model Gateway suite | PASS | 25 tests passed, 0 failed (`pytest`) |
+| Local Agent compile | PASS | `python -m compileall -q app` |
+| Local Agent tests | NOT_RUN | No test files are present; venv pytest is unavailable |
+| Control Center build | PASS | `npm run build` |
+| Desktop build | PASS | `npm run build` |
+| Diff whitespace check | PASS | `git diff --check` |
+| Live WordPress/Search Console | NOT_RUN | No authorized external credentials/target supplied |
+| Real worker-driven SEO repair | NOT_RUN | Agent Worker → Local Agent runtime is not available |
+
+## Final flags
+
+- `SEO_ENGINE_INTEGRATED = YES`
+- `REACT_NODE_SEO_READY = NO`
+- `WORDPRESS_SEO_READY = NO`
+- `READY_FOR_REAL_SEO_PROJECT = NO`
+
+## Remaining technical work
+
+1. Implement and verify the real Agent Worker runtime and have SEO delegation use it for a deterministic React/Node fixture.
+2. Add browser-rendered capture through the existing Local Agent boundary and preserve raw/rendered comparisons.
+3. Add authorized live Search Console and WordPress/Rank Math integration tests with redacted secrets and draft-only policy.
+4. Add an explicit SEO quality gate to project completion once worker/re-audit evidence exists.
+5. Add Local Agent tests or install its test tooling in a controlled development environment.
+
+No remote deployment or Git push was performed in this phase.

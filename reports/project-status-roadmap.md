@@ -3,12 +3,18 @@
 | فیلد / Field | مقدار / Value |
 |---|---|
 | پروژه / Project | AI Engineer |
-| تاریخ شمسی / Jalali date | ۱۴۰۵/۰۶/۰۸ / 1405/06/08 |
-| تاریخ میلادی / Gregorian date | ۳۰ اوت ۲۰۲۶ / 30 August 2026 |
-| آخرین revision مشاهده‌شده / Latest observed revision | `e872ace` — ۳۰ اوت ۲۰۲۶ / 30 August 2026 |
+| تاریخ شمسی / Jalali date | ۱۴۰۵/۰۶/۲۵ / 1405/06/25 |
+| تاریخ میلادی / Gregorian date | ۱۶ سپتامبر ۲۰۲۶ / 16 September 2026 |
+| آخرین revision مشاهده‌شده / Latest observed revision | `d208a77` — ۱۵ سپتامبر ۲۰۲۶، ۲۳:۰۵ (`-07:00`) / 15 September 2026, 23:05 (`-07:00`) |
 | وضعیت تحویل / Delivery status | قابل اجرای محلی؛ آمادهٔ Production نهایی نیست / Locally runnable; not ready for final Production |
 
 ## بخش فارسی
+
+### بررسی مستقیم سرور Windows
+
+در snapshot مستقیم سرور با مسیر `C:\\Services\\AI-Engineer\\current`، پاسخ سؤال اصلی **بله، فعال و در حال توسعهٔ خودکار بوده است**؛ اما نرخ شکست بالا است. در ۲۴ ساعت گذشته ۱۷ commit (۱۶ checkpoint و یک merge)، تغییر ۶۳ فایل با ۲۵۹۵ خط افزوده و ۲۸۷ خط حذف‌شده، و ۱۰۰ autonomy run ثبت شد. وضعیت runها ۴۱ `completed`، ۵۸ `failed` و یک `running` بود و ۱۴ کلید backlog دیده شد. پورت‌های ۸۰۱۰، ۸۰۱۱، ۸۰۱۲ و Ollama (۱۱۴۳۴) فعال بودند؛ Provider Router روی ۸۰۲۰ و Control Center روی ۵۱۷۵ خاموش بودند. گزارش جزئیات در [گزارش وضعیت سرور](remote-server-status.fa.md) آمده است.
+
+این داده‌ها از SSH/PowerShell فقط‌خواندنی در ۱۶ سپتامبر ۲۰۲۶ به‌دست آمدند و هیچ mutation، restart یا حذف فایلی روی سرور انجام نشد.
 
 ### ۱. خلاصه وضعیت فعلی پروژه
 
@@ -101,6 +107,12 @@ AI Engineer اکنون یک هستهٔ local-first قابل اجرای محلی 
 پروژه از مرحلهٔ هستهٔ فنی قابل اجرا عبور کرده، اما هنوز محصول نهاییِ قابل اتکا برای دریافت هر پروژه و تحویل نتیجهٔ تست‌شده نیست. مسیر باقی‌مانده مشخص است و با بستن دو blocker اصلی (پایداری اجرا و intake/چرخهٔ کامل) می‌توان به ارزیابی release نزدیک شد؛ تعداد runهای supervisor معیار تکمیل نیست.
 
 ## English section
+
+### Direct Windows Server Verification
+
+The direct snapshot of `C:\\Services\\AI-Engineer\\current` answers the main question **yes: it was active and performing autonomous development**, but with a high failure rate. In the last 24 hours, 17 commits (16 checkpoints and one merge), 63 changed files with 2,595 additions and 287 deletions, and 100 autonomy runs were recorded. Run status was 41 `completed`, 58 `failed`, and one `running`, across 14 backlog keys. Ports 8010, 8011, 8012, and Ollama (11434) were listening; Provider Router on 8020 and Control Center on 5175 were down. Details are in the [remote server status report](remote-server-status.en.md).
+
+This evidence was collected read-only over SSH/PowerShell on 16 September 2026; no server mutation, restart, or file deletion was performed.
 
 ### 1. Current Project Status
 

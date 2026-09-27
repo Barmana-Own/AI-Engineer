@@ -4,17 +4,40 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _project_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
 class Settings(BaseSettings):
     app_name: str = Field(default="AI Engineer Local Agent", min_length=1, max_length=200)
     environment: str = Field(default="development", min_length=1, max_length=32)
     host: str = Field(default="127.0.0.1", min_length=1, max_length=255)
     port: int = Field(default=8011, ge=1, le=65535)
-    workspace_root: str = Field(default="F:/AI-Engineer/workspaces", min_length=1, max_length=500)
+    workspace_root: str = Field(
+        default_factory=lambda: str(_project_root() / "workspaces"),
+        min_length=1,
+        max_length=500,
+    )
     # The platform can supervise its own repository through a named alias.
     # The alias is resolved explicitly and never by accepting arbitrary
     # absolute paths from a client.
     self_workspace_name: str = Field(default="ai-engineer", min_length=1, max_length=100)
-    self_workspace_root: str = Field(default="F:/AI-Engineer", min_length=1, max_length=500)
+    self_workspace_root: str = Field(
+        default_factory=lambda: str(_project_root()),
+        min_length=1,
+        max_length=500,
+    )
+
+    managed_process_registry_path: str = Field(
+        default_factory=lambda: str(_project_root() / "data" / "local-agent" / "processes.json"),
+        min_length=1,
+        max_length=500,
+    )
+    managed_process_log_root: str = Field(
+        default_factory=lambda: str(_project_root() / "logs" / "managed-processes"),
+        min_length=1,
+        max_length=500,
+    )
 
     command_timeout_seconds: int = Field(default=60, ge=1, le=600)
     max_command_timeout_seconds: int = Field(default=300, ge=1, le=3600)

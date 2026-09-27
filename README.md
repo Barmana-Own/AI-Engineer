@@ -142,3 +142,8 @@ GET /capabilities
 - نمونه `curl` بدون کلید واقعی
 - Endpoint فهرست مدل‌ها
 - Endpoint درخواست Chat یا Completion
+
+
+## SEO Engine
+
+The orchestrator exposes bounded, evidence-backed SEO analysis through `/v1/seo`. See [docs/seo-engine.md](docs/seo-engine.md) and the source import audit for platform detection, crawl safety, keyword planning, WordPress draft-first operations, and existing-task delegation.

@@ -1,0 +1,34 @@
+{
+  "policy_version": "1.1",
+  "activation": {
+    "default": "router_only",
+    "required_inputs": ["task", "assigned_role", "project", "team_plan", "router_decision", "tool_policy"],
+    "external_allow_implicit_invocation": "ignored",
+    "live_agent_connection": false
+  },
+  "state": {
+    "authoritative_store": "orchestrator_database",
+    "project_state_json": "compatibility_view_only",
+    "skills_must_not_create_execution_state": true
+  },
+  "script_execution": {
+    "gateway": ["agent_worker", "tool_policy", "local_agent"],
+    "direct_model_execution": false,
+    "command_policy_required": true,
+    "task_plan_authorization_required": true,
+    "workspace_boundary_required": true,
+    "network_policy_required": true,
+    "approval_policy_required": true,
+    "timeouts_and_output_limits_required": true,
+    "gateway_module": "services/orchestrator/app/skill_script_gateway.py",
+    "direct_subprocess": false,
+    "direct_network": false,
+    "safe_artifact_roots": ["docs", "artifacts", "reports"],
+    "project_state_route": "compatibility_adapter_only",
+    "redirect_policy": "reject_undeclared_response_targets",
+    "secret_redaction_required": true
+  },
+  "outer_package_normalization": {
+    "12-ullstack-final-review": "12-fullstack-final-review"
+  }
+}

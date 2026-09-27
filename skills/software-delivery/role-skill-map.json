@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "description": "Canonical role-to-skill routing rules for AI-Engineer.",
+  "roles": {
+    "company_director": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "Scope and risk must be explicit before a company project is formed."}
+    ],
+    "requirements": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "Requirements work needs traceable scope, assumptions, and acceptance criteria."}
+    ],
+    "project_manager": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "Project planning must preserve scope, risks, and delivery traceability."}
+    ],
+    "ux_designer": [
+      {"skill_id": "design-system-ui-architecture", "mode": "required", "condition": "always", "reason": "UX work is governed by the design-system and interaction contracts."}
+    ],
+    "architect": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "Architecture decisions must remain traceable to validated requirements."},
+      {"skill_id": "backend-architecture", "mode": "required", "condition": "backend_or_service", "reason": "Service and backend boundaries require backend architecture evidence."},
+      {"skill_id": "api-integration", "mode": "required", "condition": "interface_or_api", "reason": "Architectural interfaces need explicit integration contracts."},
+      {"skill_id": "frontend-architecture", "mode": "optional", "condition": "frontend_or_ui", "reason": "User-facing architecture requires frontend boundary decisions."},
+      {"skill_id": "database-architecture", "mode": "optional", "condition": "database_or_data", "reason": "Persistent data work requires an explicit data architecture review."}
+    ],
+    "backend": [
+      {"skill_id": "backend-architecture", "mode": "required", "condition": "always", "reason": "Backend implementation must follow service, validation, and error-boundary standards."},
+      {"skill_id": "database-architecture", "mode": "required", "condition": "database_or_data", "reason": "Database changes require schema, migration, and transaction guidance."},
+      {"skill_id": "api-integration", "mode": "optional", "condition": "interface_or_api", "reason": "API-facing backend work needs a shared contract and integration checks."},
+      {"skill_id": "authentication-authorization", "mode": "required", "condition": "security_or_auth", "reason": "Authentication and authorization changes require the dedicated access-control playbook."}
+    ],
+    "frontend": [
+      {"skill_id": "design-system-ui-architecture", "mode": "required", "condition": "always", "reason": "Frontend changes must implement the approved interaction and design contracts."},
+      {"skill_id": "frontend-architecture", "mode": "required", "condition": "always", "reason": "Frontend implementation needs explicit routing, state, and component boundaries."},
+      {"skill_id": "api-integration", "mode": "optional", "condition": "interface_or_api", "reason": "Frontend/backend boundaries require typed integration evidence when an API is involved."}
+    ],
+    "implementer": [
+      {"skill_id": "backend-architecture", "mode": "optional", "condition": "backend_or_service", "reason": "Generic implementation tasks touching services need backend boundaries."},
+      {"skill_id": "frontend-architecture", "mode": "optional", "condition": "frontend_or_ui", "reason": "Generic implementation tasks touching UI need frontend boundaries."},
+      {"skill_id": "database-architecture", "mode": "optional", "condition": "database_or_data", "reason": "Generic implementation tasks changing persistence need migration guidance."},
+      {"skill_id": "api-integration", "mode": "optional", "condition": "interface_or_api", "reason": "Generic implementation tasks crossing boundaries need contract evidence."}
+    ],
+    "integration": [
+      {"skill_id": "api-integration", "mode": "required", "condition": "always", "reason": "Integration work verifies contracts across independently changing components."}
+    ],
+    "security": [
+      {"skill_id": "authentication-authorization", "mode": "required", "condition": "security_or_auth", "reason": "Identity and access changes need the authentication authorization contract."},
+      {"skill_id": "application-security", "mode": "required", "condition": "always", "reason": "Security review requires threat modeling and defensive application checks."}
+    ],
+    "tester": [
+      {"skill_id": "software-testing", "mode": "required", "condition": "always", "reason": "Test planning and execution require the testing playbook."},
+      {"skill_id": "qa-debugging", "mode": "required", "condition": "always", "reason": "Independent QA requires reproducible defect and regression handling."}
+    ],
+    "debugger": [
+      {"skill_id": "qa-debugging", "mode": "required", "condition": "always", "reason": "Debugging must capture reproduction, root cause, and a bounded repair."},
+      {"skill_id": "software-testing", "mode": "required", "condition": "always", "reason": "Repairs require regression protection and verification."}
+    ],
+    "devops": [
+      {"skill_id": "deployment-production", "mode": "required", "condition": "always", "reason": "Operational changes must follow deployment, health, and rollback controls."}
+    ],
+    "reviewer": [
+      {"skill_id": "software-testing", "mode": "required", "condition": "always", "reason": "Reviews must inspect test evidence rather than trust status labels."},
+      {"skill_id": "fullstack-final-review", "mode": "required", "condition": "always", "reason": "Independent release review needs a complete cross-layer checklist."},
+      {"skill_id": "application-security", "mode": "optional", "condition": "security_or_auth", "reason": "Security-sensitive diffs require an application-security review."}
+    ],
+    "release_verifier": [
+      {"skill_id": "fullstack-final-review", "mode": "required", "condition": "always", "reason": "Release readiness requires independent evidence across requirements and quality gates."},
+      {"skill_id": "deployment-production", "mode": "optional", "condition": "deployment", "reason": "Deployment readiness is relevant only when delivery includes operational changes."}
+    ],
+    "engineering_manager": [],
+    "docs": [],
+    "seo_manager": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "SEO strategy must preserve explicit business scope and evidence."}
+    ],
+    "seo_specialist": [
+      {"skill_id": "project-analysis-prompt-engineering", "mode": "required", "condition": "always", "reason": "SEO analysis must preserve evidence, assumptions, and acceptance criteria."},
+      {"skill_id": "software-testing", "mode": "optional", "condition": "testing", "reason": "SEO verification uses the testing playbook when implementation is in scope."}
+    ],
+    "sales": []
+  }
+}

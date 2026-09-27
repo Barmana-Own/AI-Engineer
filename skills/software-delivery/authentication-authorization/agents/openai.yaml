@@ -1,0 +1,12 @@
+interface:
+  display_name: 07 Authentication & Authorization
+  short_description: Implement and verify production identity and access controls
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

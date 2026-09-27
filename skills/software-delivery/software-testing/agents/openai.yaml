@@ -1,0 +1,13 @@
+interface:
+  display_name: 09 Software Testing
+  short_description: Risk-based automated verification and strict Stage 09 quality
+    gate
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

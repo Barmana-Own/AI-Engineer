@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage 12 Release Manifest",
+  "type": "object",
+  "required": ["schema_version", "project", "final_stage", "validation", "artifacts", "package"],
+  "properties": {
+    "schema_version": {"type": "integer"},
+    "project": {"type": "object"},
+    "final_stage": {
+      "type": "object",
+      "required": ["id", "status"],
+      "properties": {
+        "id": {"const": 12},
+        "status": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "runtime": {"type": "object"},
+    "components": {"type": "array"},
+    "commands": {"type": "object"},
+    "validation": {"type": "object"},
+    "known_non_blocking_issues": {"type": "array"},
+    "artifacts": {"type": "array"},
+    "package": {"type": "object"}
+  },
+  "additionalProperties": true
+}

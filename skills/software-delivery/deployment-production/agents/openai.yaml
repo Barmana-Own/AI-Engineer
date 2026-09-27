@@ -1,0 +1,13 @@
+interface:
+  display_name: 11 Deployment & Production
+  short_description: Evidence-driven production readiness, deployment hardening, release
+    validation, and operational handoff.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -12,14 +12,15 @@ from uuid import uuid4
 
 from fastapi import HTTPException, status
 
+from app.config import settings
 from app.services.files import (
     assert_no_symlink_escape,
     resolve_workspace_path,
     to_relative_path,
 )
 
-REGISTRY_PATH = Path("F:/AI-Engineer/data/local-agent/processes.json")
-LOG_ROOT = Path("F:/AI-Engineer/logs/managed-processes")
+REGISTRY_PATH = Path(settings.managed_process_registry_path).expanduser()
+LOG_ROOT = Path(settings.managed_process_log_root).expanduser()
 MAX_MANAGED_PROCESSES = 256
 MAX_REGISTRY_BYTES = 4 * 1024 * 1024
 LOCK = threading.Lock()

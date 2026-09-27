@@ -1,6 +1,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   approveAgentTask,
+  getSession,
+  isForbidden,
+  isUnauthorized,
+  login,
+  logout,
   createAgentTask,
   createProject,
   getAgentTask,
@@ -14,7 +19,9 @@ import {
   listSectionSubagents,
   listSubagents,
   startSelfImprove,
+  ApiError,
   type AgentTask,
+  type BrowserSession,
   type AutonomyRun,
   type CapabilitiesResponse,
   type HealthResponse,
@@ -35,6 +42,14 @@ const capabilities = [
   ["Memory", "reuse successful and failed cycle evidence"],
   ["Supervision", "roles, retries, reconciliation, and monitoring"],
 ];
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Your session has expired. Sign in again.";
+    if (error.status === 403) return "This action is not allowed for the current session.";
+    return error.detail;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -56,6 +71,11 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [session, setSession] = useState<BrowserSession | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId),
@@ -99,6 +119,18 @@ function App() {
         listProjects(),
       ]);
 
+    const results = [healthResult, capabilitiesResult, modelsResult, rolesResult, sectionRolesResult, projectsResult];
+    for (const result of results) {
+      if (result.status === "rejected") {
+        if (isUnauthorized(result.reason)) {
+          setSession(null);
+          setAuthMessage("Your session has expired. Sign in again.");
+          return;
+        }
+        if (isForbidden(result.reason)) setMessage("Access denied for the current session.");
+      }
+    }
+
     if (healthResult.status === "fulfilled") setHealth(healthResult.value);
     if (capabilitiesResult.status === "fulfilled") setCapabilitiesState(capabilitiesResult.value);
     if (modelsResult.status === "fulfilled") setModels(modelsResult.value);
@@ -115,10 +147,28 @@ function App() {
   }, [selectedProjectId]);
 
   useEffect(() => {
+    let active = true;
+    void getSession()
+      .then((nextSession) => {
+        if (active) setSession(nextSession);
+      })
+      .catch((error: unknown) => {
+        if (active) setAuthMessage(errorMessage(error));
+      })
+      .finally(() => {
+        if (active) setAuthLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
     void refreshAll();
     const timer = window.setInterval(() => void refreshAll(), 5000);
     return () => window.clearInterval(timer);
-  }, [refreshAll]);
+  }, [refreshAll, session?.authenticated]);
 
   useEffect(() => {
     void refreshProjectData(selectedProjectId);
@@ -127,6 +177,34 @@ function App() {
   useEffect(() => {
     if (selectedProjectId) void refreshProjectData(selectedProjectId);
   }, [activeTask?.status, refreshProjectData, selectedProjectId]);
+
+  async function handleLogin(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setAuthMessage("");
+    try {
+      const nextSession = await login(loginUsername, loginPassword);
+      setSession(nextSession);
+      setLoginPassword("");
+    } catch (error: unknown) {
+      setAuthMessage(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLogout() {
+    setBusy(true);
+    try {
+      await logout();
+      setSession(null);
+      setMessage("");
+    } catch (error: unknown) {
+      setMessage(`Error: ${errorMessage(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function handleCreateProject(event: FormEvent) {
     event.preventDefault();
@@ -140,7 +218,7 @@ function App() {
       setMessage("Project created.");
       await refreshAll();
     } catch (error) {
-      setMessage(`Error: ${String(error)}`);
+      setMessage(`Error: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -160,7 +238,7 @@ function App() {
       setMessage("Interactive task started.");
       await refreshProjectData(selectedProjectId);
     } catch (error) {
-      setMessage(`Error: ${String(error)}`);
+      setMessage(`Error: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -178,7 +256,7 @@ function App() {
       setMessage(`Autonomous run ${run.id.slice(0, 8)} started.`);
       await refreshProjectData(selectedProjectId);
     } catch (error) {
-      setMessage(`Error: ${String(error)}`);
+      setMessage(`Error: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -192,7 +270,7 @@ function App() {
       setActiveTask(next);
       setMessage(approved ? "Operation approved." : "Task cancelled.");
     } catch (error) {
-      setMessage(`Error: ${String(error)}`);
+      setMessage(`Error: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }
@@ -202,8 +280,34 @@ function App() {
     try {
       setActiveTask(await getAgentTask(task.id));
     } catch (error) {
-      setMessage(`Error: ${String(error)}`);
+      setMessage(`Error: ${errorMessage(error)}`);
     }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="app-shell auth-shell">
+        <section className="panel auth-panel"><p className="panel-label">CONTROL CENTER</p><h1>Checking session</h1><p className="muted">Verifying the secure browser session.</p></section>
+      </main>
+    );
+  }
+
+  if (!session?.authenticated) {
+    return (
+      <main className="app-shell auth-shell">
+        <section className="panel auth-panel">
+          <p className="panel-label">CONTROL CENTER</p>
+          <h1>Sign in</h1>
+          <p className="muted">Use an authorized operator or owner account. Service tokens never belong in the browser.</p>
+          <form className="stack-form" onSubmit={handleLogin}>
+            <label><span className="sr-only">Username</span><input autoComplete="username" placeholder="Username" value={loginUsername} onChange={(event) => setLoginUsername(event.target.value)} required /></label>
+            <label><span className="sr-only">Password</span><input className="ltr" type="password" autoComplete="current-password" placeholder="Password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} required /></label>
+            <button className="primary-button" disabled={busy}>Sign in</button>
+          </form>
+          {authMessage ? <p className="message">{authMessage}</p> : null}
+        </section>
+      </main>
+    );
   }
 
   const ready = health?.status === "ok";
@@ -224,7 +328,9 @@ function App() {
           <span className="refresh-label">
             {lastRefresh ? `Synced ${lastRefresh.toLocaleTimeString()}` : "Connecting..."}
           </span>
-        </div>
+                  <span className="desktop-badge">{session.role}</span>
+          <button type="button" className="secondary-button" disabled={busy} onClick={() => void handleLogout()}>Sign out</button>
+</div>
       </header>
 
       <section className="status-grid">

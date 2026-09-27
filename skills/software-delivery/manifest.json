@@ -1,0 +1,1081 @@
+{
+  "schema_version": "1.0",
+  "registry_id": "ai-engineer-software-delivery",
+  "state_authority": "orchestrator_database",
+  "activation_policy": "router_only",
+  "script_execution_boundary": "agent_worker -> tool_policy -> local_agent",
+  "skills": [
+    {
+      "skill_id": "project-analysis-prompt-engineering",
+      "display_name": "01 Project Analysis & Requirements Engineering",
+      "version": null,
+      "purpose": "Turn a software idea or existing brief into validated, traceable product requirements and a Stage 02 handoff.",
+      "recommended_roles": [
+        "requirements",
+        "project_manager",
+        "company_director"
+      ],
+      "task_categories": [
+        "discovery",
+        "requirements",
+        "scope",
+        "risk-analysis"
+      ],
+      "required_context": [
+        "objective",
+        "actors",
+        "journeys",
+        "constraints",
+        "existing-repository"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "evidence_write"
+      ],
+      "risk_class": "medium",
+      "scripts": [
+        {
+          "name": "bootstrap_stage01.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "update_project_state.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_stage01.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "domain-integration-template.md",
+        "domain-lenses.md",
+        "execution-playbook.md",
+        "project-brief-template.md",
+        "project-state-contract.md",
+        "project-state.schema.json",
+        "quality-attribute-catalog.md",
+        "quality-gates.md",
+        "readiness-review-template.md",
+        "requirements-contract.md",
+        "research-evidence-contract.md",
+        "risk-register-template.md",
+        "source-map-template.md",
+        "specialist-operating-model.md",
+        "stage-02-handoff-template.md",
+        "traceability-change-control.md",
+        "traceability-template.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [],
+      "outputs": [
+        "project brief",
+        "requirements specification",
+        "scope baseline",
+        "risk register",
+        "stage handoff"
+      ],
+      "source_outer_package": "1-project-analysis-prompt-engineering",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "design-system-ui-architecture",
+      "display_name": "02 Design System & UI Architecture",
+      "version": null,
+      "purpose": "Convert validated requirements into traceable UI architecture, design-system contracts, responsive rules, and accessibility requirements.",
+      "recommended_roles": [
+        "ux_designer",
+        "architect",
+        "project_manager"
+      ],
+      "task_categories": [
+        "ui-architecture",
+        "design-system",
+        "accessibility",
+        "responsive-design"
+      ],
+      "required_context": [
+        "requirements",
+        "user-journeys",
+        "roles",
+        "localization",
+        "brand-constraints"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "evidence_write"
+      ],
+      "risk_class": "medium",
+      "scripts": [
+        {
+          "name": "bootstrap_stage02.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "update_project_state.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_stage02.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "accessibility-contract.md",
+        "component-contract.md",
+        "design-system-contract.md",
+        "design-system-template.md",
+        "design-token-contract.md",
+        "design-tokens.schema.json",
+        "interaction-state-contract.md",
+        "project-state-contract.md",
+        "responsive-contract.md",
+        "rtl-localization-contract.md",
+        "stage-03-handoff-template.md",
+        "stage02-validation-contract.md",
+        "traceability-contract.md",
+        "ui-architecture-contract.md",
+        "ui-architecture-template.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "project-analysis-prompt-engineering"
+      ],
+      "outputs": [
+        "UI architecture",
+        "design tokens",
+        "screen inventory",
+        "state matrix",
+        "accessibility rules"
+      ],
+      "source_outer_package": "2-design-system-ui-architecture",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "frontend-architecture",
+      "display_name": "03 Frontend Architecture",
+      "version": null,
+      "purpose": "Implement and verify a maintainable production frontend against an approved UI architecture and typed API boundary.",
+      "recommended_roles": [
+        "frontend",
+        "ux_designer",
+        "architect"
+      ],
+      "task_categories": [
+        "frontend",
+        "react",
+        "routing",
+        "forms",
+        "accessibility"
+      ],
+      "required_context": [
+        "requirements",
+        "ui-architecture",
+        "design-tokens",
+        "api-contracts",
+        "frontend-conventions"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "frontend_test",
+        "frontend_build",
+        "evidence_write"
+      ],
+      "risk_class": "medium",
+      "scripts": [
+        {
+          "name": "frontend_quality_gate.py",
+          "classification": [
+            "COMMAND_RUNNER",
+            "TEST_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        }
+      ],
+      "references": [
+        "00-stage-contract.md",
+        "01-execution-workflow.md",
+        "02-implementation-standards.md",
+        "03-quality-gates.md",
+        "04-project-state-schema.md",
+        "05-handoff-report-template.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "design-system-ui-architecture"
+      ],
+      "outputs": [
+        "frontend source",
+        "typed client boundary",
+        "frontend tests",
+        "build evidence"
+      ],
+      "source_outer_package": "3-frontend-architecture",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "backend-architecture",
+      "display_name": "04 Backend Architecture",
+      "version": null,
+      "purpose": "Build and verify production-grade backend boundaries, validation, error handling, and application services.",
+      "recommended_roles": [
+        "backend",
+        "architect",
+        "engineering_manager"
+      ],
+      "task_categories": [
+        "backend",
+        "api",
+        "domain-logic",
+        "validation",
+        "observability"
+      ],
+      "required_context": [
+        "requirements",
+        "frontend-expectations",
+        "domain-boundaries",
+        "configuration",
+        "persistence-ports"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "backend_test",
+        "evidence_write"
+      ],
+      "risk_class": "high",
+      "scripts": [
+        {
+          "name": "validate_stage04.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "01-stage-contract-and-intake.md",
+        "02-repository-reconnaissance.md",
+        "03-requirements-traceability.md",
+        "04-architecture-and-module-design.md",
+        "05-application-and-ports.md",
+        "06-transport-validation-errors.md",
+        "07-security-and-authorization.md",
+        "08-config-observability-reliability.md",
+        "09-testing-and-quality-gate.md",
+        "10-artifacts-and-stage05-handoff.md",
+        "11-project-state-schema.md",
+        "12-special-cases.md",
+        "13-api-contract-and-compatibility.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "frontend-architecture"
+      ],
+      "outputs": [
+        "backend modules",
+        "application services",
+        "validation model",
+        "unit tests",
+        "configuration contract"
+      ],
+      "source_outer_package": "4-backend-architecture",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "database-architecture",
+      "display_name": "05 Database Architecture",
+      "version": null,
+      "purpose": "Design durable relational persistence, safe migrations, constraints, indexes, and repository adapters.",
+      "recommended_roles": [
+        "backend",
+        "architect",
+        "engineering_manager"
+      ],
+      "task_categories": [
+        "database",
+        "schema",
+        "migration",
+        "persistence",
+        "data-integrity"
+      ],
+      "required_context": [
+        "domain-model",
+        "business-invariants",
+        "repository-ports",
+        "query-patterns",
+        "retention-policy"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "migration_test",
+        "database_inspection",
+        "evidence_write"
+      ],
+      "risk_class": "critical",
+      "scripts": [
+        {
+          "name": "migration_risk_scan.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "validate_project_state.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_stage_artifacts.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "data-lifecycle.md",
+        "indexing-performance.md",
+        "migration-safety.md",
+        "modeling-integrity.md",
+        "persistence-adapters.md",
+        "preflight.md",
+        "project-state-contract.md",
+        "transactions-concurrency.md",
+        "validation-gate.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "backend-architecture"
+      ],
+      "outputs": [
+        "schema",
+        "migrations",
+        "constraints",
+        "indexes",
+        "repository adapters",
+        "migration evidence"
+      ],
+      "source_outer_package": "5-database-architecture",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "api-integration",
+      "display_name": "06 API Design & Integration",
+      "version": null,
+      "purpose": "Define stable API contracts and connect real frontend, backend, persistence, and error flows.",
+      "recommended_roles": [
+        "integration",
+        "backend",
+        "frontend",
+        "architect"
+      ],
+      "task_categories": [
+        "api",
+        "contracts",
+        "integration",
+        "openapi",
+        "end-to-end"
+      ],
+      "required_context": [
+        "requirements",
+        "frontend-types",
+        "backend-use-cases",
+        "database-behavior",
+        "auth-hooks"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "api_test",
+        "contract_test",
+        "evidence_write"
+      ],
+      "risk_class": "high",
+      "scripts": [
+        {
+          "name": "scan_production_mocks.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "validate_project_state.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_stage06_artifacts.py",
+          "classification": [
+            "COMMAND_RUNNER",
+            "PURE_VALIDATOR"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        }
+      ],
+      "references": [
+        "api-contract-standards.md",
+        "artifact-template.md",
+        "error-reliability-standards.md",
+        "execution-workflow.md",
+        "frontend-integration-standards.md",
+        "performance-operability-standards.md",
+        "project-state-contract.md",
+        "testing-quality-gate.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "backend-architecture",
+        "database-architecture"
+      ],
+      "outputs": [
+        "API contract",
+        "OpenAPI document",
+        "integration adapters",
+        "contract tests",
+        "smoke evidence"
+      ],
+      "source_outer_package": "6-api-integration",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "authentication-authorization",
+      "display_name": "07 Authentication & Authorization",
+      "version": null,
+      "purpose": "Implement and verify identity, sessions, RBAC/ABAC, ownership isolation, and abuse controls.",
+      "recommended_roles": [
+        "security",
+        "backend",
+        "architect"
+      ],
+      "task_categories": [
+        "authentication",
+        "authorization",
+        "sessions",
+        "rbac",
+        "ownership"
+      ],
+      "required_context": [
+        "roles",
+        "resource-ownership",
+        "api-contracts",
+        "security-requirements",
+        "session-model"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "security_test",
+        "evidence_write"
+      ],
+      "risk_class": "critical",
+      "scripts": [
+        {
+          "name": "auth_security_audit.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "validate_stage07_evidence.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "00-standards-and-principles.md",
+        "01-intake-threat-model.md",
+        "02-identity-account-lifecycle.md",
+        "03-passwords-recovery.md",
+        "04-sessions-tokens-cookies.md",
+        "05-federation-oauth-oidc.md",
+        "06-mfa-step-up.md",
+        "07-authorization-rbac-abac.md",
+        "08-multitenancy-ownership.md",
+        "09-abuse-audit-observability.md",
+        "10-frontend-auth.md",
+        "11-testing-evidence-gate.md",
+        "12-project-state-handoff.md",
+        "13-framework-adapters.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "api-integration"
+      ],
+      "outputs": [
+        "auth implementation",
+        "authorization matrix",
+        "session lifecycle",
+        "negative tests",
+        "audit evidence"
+      ],
+      "source_outer_package": "7-authentication-authorization",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "application-security",
+      "display_name": "08 Application Security",
+      "version": null,
+      "purpose": "Perform defensive threat modeling, vulnerability review, hardening, and security regression verification.",
+      "recommended_roles": [
+        "security",
+        "reviewer",
+        "engineering_manager"
+      ],
+      "task_categories": [
+        "appsec",
+        "threat-model",
+        "hardening",
+        "dependency-security",
+        "security-review"
+      ],
+      "required_context": [
+        "trust-boundaries",
+        "entry-points",
+        "auth-controls",
+        "sensitive-data",
+        "deployment-model"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "security_scan",
+        "security_test",
+        "evidence_write"
+      ],
+      "risk_class": "critical",
+      "scripts": [
+        {
+          "name": "security_pattern_scan.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "security_preflight.py",
+          "classification": [
+            "COMMAND_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "update_project_state.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_security_artifacts.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "ai-llm-security.md",
+        "api-and-business-logic.md",
+        "auth-and-access-control.md",
+        "data-crypto-secrets.md",
+        "dependency-supply-chain.md",
+        "evidence-and-severity.md",
+        "execution-workflow.md",
+        "framework-playbooks.md",
+        "input-browser-injection.md",
+        "logging-errors-observability.md",
+        "project-state-schema.md",
+        "quality-gate.md",
+        "report-template.md",
+        "runtime-container-infra.md",
+        "scope-and-safe-testing.md",
+        "security-baseline.md",
+        "ssrf-files-parsers.md",
+        "testing-and-verification.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "authentication-authorization"
+      ],
+      "outputs": [
+        "threat model",
+        "findings",
+        "hardening changes",
+        "security tests",
+        "residual risk register"
+      ],
+      "source_outer_package": "8-application-security",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "software-testing",
+      "display_name": "09 Software Testing",
+      "version": null,
+      "purpose": "Create risk-based automated verification across unit, integration, contract, authorization, frontend, and end-to-end boundaries.",
+      "recommended_roles": [
+        "tester",
+        "debugger",
+        "reviewer"
+      ],
+      "task_categories": [
+        "testing",
+        "regression",
+        "coverage",
+        "test-strategy",
+        "contract-testing"
+      ],
+      "required_context": [
+        "requirements",
+        "api-contracts",
+        "auth-matrix",
+        "security-findings",
+        "existing-test-stack"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "test_runner",
+        "fixture_write",
+        "evidence_write"
+      ],
+      "risk_class": "high",
+      "scripts": [
+        {
+          "name": "detect_test_stack.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "validate_stage09_evidence.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "01-preflight-discovery.md",
+        "02-risk-traceability.md",
+        "03-test-design.md",
+        "04-backend-api-data.md",
+        "05-security-regression.md",
+        "06-frontend-e2e-accessibility.md",
+        "07-execution-flakiness-debug.md",
+        "08-evidence-quality-gate.md",
+        "09-framework-command-catalog.md",
+        "10-change-impact-advanced-confidence.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "application-security"
+      ],
+      "outputs": [
+        "test plan",
+        "automated tests",
+        "fixtures",
+        "test results",
+        "coverage gaps"
+      ],
+      "source_outer_package": "9-software-testing",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "qa-debugging",
+      "display_name": "10 QA & Debugging",
+      "version": null,
+      "purpose": "Exercise release candidates, reproduce defects, perform root-cause analysis, and verify regression fixes.",
+      "recommended_roles": [
+        "tester",
+        "debugger",
+        "reviewer"
+      ],
+      "task_categories": [
+        "qa",
+        "debugging",
+        "exploratory-testing",
+        "root-cause-analysis",
+        "release-readiness"
+      ],
+      "required_context": [
+        "requirements",
+        "user-journeys",
+        "test-results",
+        "known-risks",
+        "runtime-environment"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "test_runner",
+        "safe_runtime_check",
+        "fixture_write",
+        "evidence_write"
+      ],
+      "risk_class": "high",
+      "scripts": [
+        {
+          "name": "update_project_state.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "compatibility-adapter-only"
+        },
+        {
+          "name": "validate_stage10_artifacts.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "api-data-integrity.md",
+        "auth-security-regression.md",
+        "defect-rca-fix-loop.md",
+        "evidence-reporting.md",
+        "functional-exploratory.md",
+        "observability-audit.md",
+        "performance-reliability.md",
+        "project-state-contract.md",
+        "qa-matrix.md",
+        "quality-gates.md",
+        "ui-responsive-accessibility.md",
+        "workflow-execution.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "software-testing"
+      ],
+      "outputs": [
+        "QA checklist",
+        "defect reports",
+        "root-cause records",
+        "regression evidence",
+        "known-issues report"
+      ],
+      "source_outer_package": "10-qa-debugging",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "deployment-production",
+      "display_name": "11 Deployment & Production",
+      "version": null,
+      "purpose": "Prepare production builds, configuration, health checks, migration rollout, operations, and rollback evidence.",
+      "recommended_roles": [
+        "devops",
+        "operations",
+        "release_verifier"
+      ],
+      "task_categories": [
+        "deployment",
+        "release",
+        "operations",
+        "health-checks",
+        "rollback"
+      ],
+      "required_context": [
+        "validated-build",
+        "runtime-config",
+        "migration-plan",
+        "deployment-target",
+        "secrets-policy"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "safe_build",
+        "health_check",
+        "release_artifact_write",
+        "evidence_write"
+      ],
+      "risk_class": "critical",
+      "scripts": [
+        {
+          "name": "release_manifest.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "COMMAND_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "self_test.py",
+          "classification": [
+            "TEST_RUNNER",
+            "COMMAND_RUNNER",
+            "NETWORK_CHECK",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "smoke_http.py",
+          "classification": [
+            "NETWORK_CHECK",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "network-policy-and-local-agent"
+        },
+        {
+          "name": "stage11_preflight.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "COMMAND_RUNNER",
+            "TEST_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "validate_evidence.py",
+          "classification": [
+            "PURE_VALIDATOR"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "artifact-contracts.md",
+        "database-rollout.md",
+        "execution-workflow.md",
+        "observability-operations.md",
+        "quality-gates.md",
+        "recovery-release-strategy.md",
+        "security-release.md"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "qa-debugging"
+      ],
+      "outputs": [
+        "production build",
+        "deployment configuration",
+        "health evidence",
+        "operations runbook",
+        "rollback plan"
+      ],
+      "source_outer_package": "11-deployment-production",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    },
+    {
+      "skill_id": "fullstack-final-review",
+      "display_name": "12 Full-Stack Final Review",
+      "version": null,
+      "purpose": "Perform an independent final release audit, repair gate, traceability review, and release hygiene validation.",
+      "recommended_roles": [
+        "release_verifier",
+        "reviewer",
+        "engineering_manager"
+      ],
+      "task_categories": [
+        "final-review",
+        "release-gate",
+        "traceability",
+        "hygiene",
+        "readiness"
+      ],
+      "required_context": [
+        "requirements",
+        "source-tree",
+        "test-results",
+        "security-status",
+        "deployment-status",
+        "release-manifest"
+      ],
+      "allowed_tools": [
+        "read_file",
+        "list_files",
+        "search",
+        "diff",
+        "safe_validation",
+        "release_manifest_read",
+        "evidence_write"
+      ],
+      "risk_class": "critical",
+      "scripts": [
+        {
+          "name": "build_release_manifest.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "discover_project.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "COMMAND_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "package_release.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "review_state.py",
+          "classification": [
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        },
+        {
+          "name": "run_check.py",
+          "classification": [
+            "COMMAND_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "scan_release_hygiene.py",
+          "classification": [
+            "READ_ONLY_INSPECTOR",
+            "COMMAND_RUNNER",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "tool-policy-and-local-agent"
+        },
+        {
+          "name": "validate_final_gate.py",
+          "classification": [
+            "PURE_VALIDATOR",
+            "ARTIFACT_WRITER"
+          ],
+          "execution": "local-agent-policy"
+        }
+      ],
+      "references": [
+        "data-migrations.md",
+        "evidence-contract.md",
+        "execution-playbook.md",
+        "frontend-backend-api-review.md",
+        "gate-matrix.md",
+        "hygiene-allowlist.example.json",
+        "nonfunctional-review.md",
+        "output-contracts.md",
+        "packaging-policy.md",
+        "production-ops-readiness.md",
+        "project-state-contract.md",
+        "release-manifest.schema.json",
+        "repair-loop.md",
+        "review-state.schema.json",
+        "security-review.md",
+        "severity-and-findings.md",
+        "test-execution.md",
+        "traceability-contract.md",
+        "traceability.schema.json"
+      ],
+      "activation_policy": "router_only",
+      "stage_dependencies": [
+        "deployment-production"
+      ],
+      "outputs": [
+        "final review",
+        "traceability matrix",
+        "release manifest",
+        "hygiene evidence",
+        "release verdict"
+      ],
+      "source_outer_package": "12-ullstack-final-review",
+      "normalized_outer_package": "12-fullstack-final-review",
+      "external_metadata": {
+        "allow_implicit_invocation": true,
+        "honored": false
+      }
+    }
+  ]
+}

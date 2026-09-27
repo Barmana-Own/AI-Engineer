@@ -12,6 +12,7 @@ from app.routers.agent import router as agent_router
 from app.routers.developer import router as developer_router
 from app.routers.health import router as health_router
 from app.routers.projects import router as projects_router
+from app.routers.seo import router as seo_router
 from app.routers.tasks import router as tasks_router
 
 initialize_database()
@@ -74,6 +75,7 @@ app.include_router(tasks_router)
 app.include_router(projects_router)
 app.include_router(agent_router)
 app.include_router(developer_router)
+app.include_router(seo_router)
 
 
 @app.get("/")

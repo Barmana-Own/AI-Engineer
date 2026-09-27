@@ -1,0 +1,12 @@
+interface:
+  display_name: 02 Design System & UI Architecture
+  short_description: Convert validated requirements into traceable, implementation-ready UI architecture and design-system contracts.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -1,0 +1,13 @@
+interface:
+  display_name: 01 Project Analysis & Requirements Engineering
+  short_description: Turn software ideas into validated, traceable product requirements
+    and a Stage 02 handoff.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

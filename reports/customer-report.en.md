@@ -5,10 +5,18 @@
 | Project | AI Engineer |
 | Report type | Customer report |
 | Language | English |
-| Jalali date | 1405/06/08 |
-| Gregorian date | 30 August 2026 |
-| Latest observed revision | `e872ace` — 30 August 2026 |
+| Jalali date | 1405/07/01 |
+| Gregorian date | 23 September 2026 |
+| Repository revision at report time | `1e3839e` (working tree contains uncommitted changes) |
 | Delivery status | Locally runnable, but not a final Production release |
+
+**Historical-content note:** Sections before the current SEO Engine Integration Addendum preserve earlier phase observations and test counts. The addendum below is the authoritative status for this report date.
+
+## Direct Windows Server Verification
+
+A read-only inspection of `C:\\Services\\AI-Engineer\\current` confirmed that **yes, the server was active and performing autonomous development during the last 24 hours**. The interval contained 17 commits (16 checkpoints and one merge), 63 changed files with 2,595 additions and 287 deletions, and 100 autonomy runs. Of those runs, 41 completed, 58 failed, and one was still running at the snapshot.
+
+The `AI Engineer Server` startup task was present in `Ready` state with a zero previous result, and backend and Ollama processes were active. Ports 8010, 8011, 8012, and 11434 were listening; Provider Router on 8020 and the UI runtime on 5175 were down. This report was produced through read-only SSH/PowerShell; no server change, restart, or file deletion was performed.
 
 ## Executive summary
 
@@ -73,3 +81,46 @@ Between the 15 August baseline revision and the current revision, 47 files acros
 ## Short management summary
 
 The execution and safety core exists and is usable for local development now. The requested capability—accepting any project, implementing it completely, and issuing a trustworthy final test result—remains a separate, unfinished delivery track. Final completion must be measured against explicit MVP acceptance criteria, not by the number of automatic checkpoints.
+
+## Phase 10A Addendum — Software-Engineering Skill Import
+
+**Dates:** Gregorian 2026-09-22; Jalali 1405-06-31
+
+The repository now contains 12 preserved engineering playbooks under `skills/software-delivery/` with a validated manifest, router-only activation policy, compatibility metadata, and deterministic registry tests. The imported package's external implicit-invocation metadata is not authoritative. Thirty-six bundled Python scripts compile successfully without execution. Orchestrator validation after the import: **57 passed**. No live-agent routing or global sequential stage enforcement was added.
+## Phase 10B Addendum — 2026-09-22 / 1405-06-31
+
+Role-specific engineering playbook routing is now available through the existing task system. Tasks can receive only the relevant skills for their role and objective, documentation-only work avoids unrelated engineering stages, and selected skill decisions are persisted with the task trace. Context loading is bounded and quality evidence is required for testing, security, deployment, and final review gates.
+
+Validation: 16 targeted routing tests passed; the complete Orchestrator suite passed with 73 tests and 10 subtests. Live Agent Worker skill execution remains outside this phase.
+## Phase 10C Addendum — Skill Script Execution Security
+
+**Dates:** Gregorian 2026-09-22; Jalali 1405-06-31
+
+Imported skill helpers now have a dedicated policy gateway. Scripts cannot run directly from model output, access arbitrary paths, call arbitrary network destinations, or bypass Local Agent controls. Exact command plans, workspace boundaries, declared health targets, approval hooks, bounded time/output, and secret redaction are enforced.
+
+Validation completed: **20** dedicated gateway tests, **93** Orchestrator tests plus **10** subtests, **25** Model Gateway tests, and static compilation of **15** Local Agent modules. No Node build was required for this phase. The gateway is ready for controlled integration, but live Agent Worker wiring and the persisted approval store remain required before enabling autonomous production execution.
+## Phase 10D addendum — skill-aware execution validation
+
+**Jalali date:** 1405-06-31
+**Gregorian date:** 2026-09-22
+
+The twelve engineering playbooks were validated through the existing routing, scoped-context, permission, evidence-gate, and SQLite trace layers. Five deterministic scenarios covered a full-stack authentication project, a backend migration defect, frontend accessibility, an authentication/security repair, and release validation. Twenty-five task traces confirmed that unrelated skills were not loaded. The Orchestrator suite completed with 97 passed tests and 10 passed subtests; the Model Gateway suite completed with 25 passed tests; the Control Center and Desktop builds passed.
+
+This phase does not claim live model execution. A dedicated production Agent Worker binding to the Model Gateway/Local Agent is still required before skill-aware live execution can be marked ready.
+
+---
+## Current SEO Engine Integration Addendum
+
+| Field | Value |
+|---|---|
+| Report date | 2026-09-23 (Gregorian) / 1405-07-01 (Jalali) |
+| Scope | SEO content and technical-audit capability integrated into AI-Engineer |
+| Delivery status | Implemented with explicit readiness limitations |
+
+The project now contains a platform-neutral SEO capability inside the existing FastAPI Orchestrator. It can register isolated site profiles, detect React/Vite, Next.js, Express, WordPress, static and generic sites, run bounded same-host audits, preserve raw/rendered evidence, generate findings, cluster qualitative keywords, produce content briefs, map keyword intent to pages, and route findings into existing project tasks.
+
+The capability preserves the existing Company Director/Supervisor, task DAG, message/handoff, memory, permission and SQLite boundaries. WordPress automation is draft-first and server-side; direct publishing remains disabled. Search Console results are explicitly labelled real, mock or no-data, and no traffic, ranking, volume or Core Web Vitals values are fabricated.
+
+Validation completed for this slice: 110 Orchestrator tests passed; 25 Model Gateway tests passed; Control Center and Desktop production builds passed; all changed Python modules compiled. The Local Agent application compiled, but no runnable Local Agent test suite is present and its virtual environment does not contain pytest.
+
+The feature is not yet ready for a real unattended SEO project because the repository still lacks the verified Agent Worker → Model Gateway → Local Agent execution chain, live Search Console verification, browser-rendered capture, and credentialed WordPress/Rank Math verification. No remote deployment or Git push was performed.

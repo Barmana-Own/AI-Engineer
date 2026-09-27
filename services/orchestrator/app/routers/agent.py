@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from app.agent_service import run_agent_task
+from app.skill_routing import SkillRouteRequest, SkillRouter, SkillRoutingError
 from app.autonomy import run_autonomous_cycles
 from app.subagents import list_section_subagents, list_subagent_roles
 from app.db import (
@@ -86,10 +87,40 @@ def task_create(
             f"{validation_command}"
         )
 
+    skill_selections: list[dict[str, object]] = []
+    skill_trace: list[dict[str, object]] = []
+    if request.assigned_role:
+        try:
+            route = SkillRouter().route(SkillRouteRequest(
+                task_objective=instruction,
+                assigned_role=request.assigned_role,
+                project_type=request.project_type,
+                requirements=request.requirements,
+                risk=request.risk,
+                technologies=request.technologies,
+                project_phase=request.project_phase,
+                project_id=request.project_id,
+            ))
+        except SkillRoutingError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(exc),
+            ) from exc
+        skill_selections = [selection.as_dict() for selection in route.selections]
+        skill_trace = [{
+            "event": "skill_route",
+            "role": route.role,
+            "skill_ids": list(route.skill_ids),
+            "stage_dependencies": [item.as_dict() for item in route.stage_dependencies],
+            "project_skill_ids": list(route.project_skill_ids),
+        }]
+
     task = create_task(
         project_id=request.project_id,
         instruction=instruction,
         mode=request.mode,
+        skill_selections=skill_selections,
+        skill_trace=skill_trace,
     )
     background_tasks.add_task(run_agent_task, task["id"])
     return AgentTaskResponse(**task)

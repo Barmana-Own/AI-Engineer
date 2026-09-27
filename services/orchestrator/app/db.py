@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-DATABASE_PATH = Path("F:/AI-Engineer/data/orchestrator/orchestrator.db")
+_DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[3] / "data" / "orchestrator" / "orchestrator.db"
+DATABASE_PATH = Path(
+    os.getenv("ORCHESTRATOR_DB_PATH", str(_DEFAULT_DATABASE_PATH))
+).expanduser()
 MEMORY_INSTRUCTION_LIMIT = 4_000
 MEMORY_ITEM_LIMIT = 1_000
 MEMORY_JSON_MAX_BYTES = 4 * 1024 * 1024
+SEO_SCHEMA_VERSION = "1.0"
 
 
 def _bounded_memory_values(
@@ -68,6 +73,8 @@ def initialize_database() -> None:
                 current_step INTEGER NOT NULL DEFAULT 0,
                 results_json TEXT NOT NULL DEFAULT '[]',
                 approved_steps_json TEXT NOT NULL DEFAULT '[]',
+                skill_selections_json TEXT NOT NULL DEFAULT '[]',
+                skill_trace_json TEXT NOT NULL DEFAULT '[]',
                 pending_json TEXT,
                 final_output TEXT,
                 error TEXT,
@@ -141,8 +148,136 @@ def initialize_database() -> None:
 
             CREATE INDEX IF NOT EXISTS idx_subagent_handoffs_project
                 ON subagent_handoffs(project_id, updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS seo_sites (
+                id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                base_url TEXT,
+                platform TEXT NOT NULL DEFAULT 'unknown',
+                source_mode TEXT NOT NULL,
+                workspace TEXT,
+                language TEXT,
+                region TEXT,
+                canonical_host TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                crawl_policy_json TEXT NOT NULL DEFAULT '{}',
+                rendering_mode TEXT NOT NULL DEFAULT 'raw',
+                credential_refs_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_sites_project ON seo_sites(project_id, updated_at DESC);
+
+            CREATE TABLE IF NOT EXISTS seo_audit_snapshots (
+                id TEXT PRIMARY KEY,
+                site_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                baseline INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL,
+                platform_json TEXT NOT NULL DEFAULT '{}',
+                crawl_scope_json TEXT NOT NULL DEFAULT '{}',
+                pages_analyzed INTEGER NOT NULL DEFAULT 0,
+                findings_json TEXT NOT NULL DEFAULT '[]',
+                build_state_json TEXT NOT NULL DEFAULT '{}',
+                provider_state_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(site_id) REFERENCES seo_sites(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_snapshots_site ON seo_audit_snapshots(site_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS seo_pages (
+                id TEXT PRIMARY KEY,
+                audit_id TEXT NOT NULL,
+                site_id TEXT NOT NULL,
+                url TEXT NOT NULL,
+                final_url TEXT,
+                status_code INTEGER,
+                content_type TEXT,
+                headers_json TEXT NOT NULL DEFAULT '{}',
+                evidence_json TEXT NOT NULL DEFAULT '{}',
+                raw_html_hash TEXT,
+                rendered_html_hash TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(audit_id) REFERENCES seo_audit_snapshots(id),
+                FOREIGN KEY(site_id) REFERENCES seo_sites(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_pages_audit ON seo_pages(audit_id, url);
+
+            CREATE TABLE IF NOT EXISTS seo_findings (
+                id TEXT PRIMARY KEY,
+                site_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                audit_id TEXT,
+                category TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                confidence REAL NOT NULL DEFAULT 0.5,
+                url_resource TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                evidence_json TEXT NOT NULL DEFAULT '[]',
+                provenance TEXT NOT NULL,
+                impact TEXT NOT NULL DEFAULT '',
+                recommended_action TEXT NOT NULL DEFAULT '',
+                responsible_role TEXT NOT NULL DEFAULT 'seo_specialist',
+                acceptance_criteria TEXT NOT NULL DEFAULT '',
+                verification_method TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'open',
+                source_task_id TEXT,
+                assigned_task_id TEXT,
+                created_at TEXT NOT NULL,
+                verified_at TEXT,
+                FOREIGN KEY(site_id) REFERENCES seo_sites(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(audit_id) REFERENCES seo_audit_snapshots(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_findings_site ON seo_findings(site_id, status, severity);
+            CREATE INDEX IF NOT EXISTS idx_seo_findings_project ON seo_findings(project_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS seo_keyword_clusters (
+                id TEXT PRIMARY KEY,
+                site_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                primary_keyword TEXT NOT NULL,
+                terms_json TEXT NOT NULL DEFAULT '[]',
+                intent TEXT NOT NULL,
+                language TEXT,
+                region TEXT,
+                evidence_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(site_id) REFERENCES seo_sites(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_keywords_site ON seo_keyword_clusters(site_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS seo_keyword_maps (
+                id TEXT PRIMARY KEY,
+                site_id TEXT NOT NULL,
+                project_id TEXT NOT NULL,
+                cluster_id TEXT NOT NULL,
+                target_page TEXT,
+                current_page TEXT,
+                intent TEXT NOT NULL,
+                page_type TEXT NOT NULL,
+                conflict TEXT,
+                priority TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(site_id) REFERENCES seo_sites(id),
+                FOREIGN KEY(project_id) REFERENCES projects(id),
+                FOREIGN KEY(cluster_id) REFERENCES seo_keyword_clusters(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_seo_keyword_maps_site ON seo_keyword_maps(site_id, created_at DESC);
             """
         )
+
+        database.execute("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)", (SEO_SCHEMA_VERSION, utc_now()))
 
         task_columns = {
             str(row[1])
@@ -151,6 +286,14 @@ def initialize_database() -> None:
         if "mode" not in task_columns:
             database.execute(
                 "ALTER TABLE agent_tasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'interactive'"
+            )
+        if "skill_selections_json" not in task_columns:
+            database.execute(
+                "ALTER TABLE agent_tasks ADD COLUMN skill_selections_json TEXT NOT NULL DEFAULT '[]'"
+            )
+        if "skill_trace_json" not in task_columns:
+            database.execute(
+                "ALTER TABLE agent_tasks ADD COLUMN skill_trace_json TEXT NOT NULL DEFAULT '[]'"
             )
 
 
@@ -165,6 +308,14 @@ def _row_to_project(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
+    def decode_list(column: str) -> list[Any]:
+        raw = row[column] if column in row.keys() else "[]"
+        try:
+            value = json.loads(raw or "[]")
+        except (TypeError, json.JSONDecodeError):
+            return []
+        return value if isinstance(value, list) else []
+
     return {
         "id": row["id"],
         "project_id": row["project_id"],
@@ -175,6 +326,8 @@ def _row_to_task(row: sqlite3.Row) -> dict[str, Any]:
         "current_step": row["current_step"],
         "results": json.loads(row["results_json"] or "[]"),
         "approved_steps": json.loads(row["approved_steps_json"] or "[]"),
+        "skill_selections": decode_list("skill_selections_json"),
+        "skill_trace": decode_list("skill_trace_json"),
         "pending": json.loads(row["pending_json"]) if row["pending_json"] else None,
         "final_output": row["final_output"],
         "error": row["error"],
@@ -228,6 +381,8 @@ def create_task(
     instruction: str,
     *,
     mode: str = "interactive",
+    skill_selections: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+    skill_trace: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
 ) -> dict[str, Any]:
     if mode not in {"interactive", "autonomous"}:
         raise ValueError(f"Unsupported task mode: {mode}")
@@ -240,11 +395,21 @@ def create_task(
             """
             INSERT INTO agent_tasks(
                 id, project_id, instruction, mode, status,
+                skill_selections_json, skill_trace_json,
                 created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, 'queued', ?, ?)
+            VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?)
             """,
-            (task_id, project_id, instruction, mode, now, now),
+            (
+                task_id,
+                project_id,
+                instruction,
+                mode,
+                json.dumps(list(skill_selections)[:32], ensure_ascii=False),
+                json.dumps(list(skill_trace)[:40], ensure_ascii=False),
+                now,
+                now,
+            ),
         )
 
         row = database.execute(
@@ -291,6 +456,8 @@ def update_task(task_id: str, **changes: Any) -> dict[str, Any]:
         "current_step",
         "results",
         "approved_steps",
+        "skill_selections",
+        "skill_trace",
         "pending",
         "final_output",
         "error",
@@ -307,11 +474,13 @@ def update_task(task_id: str, **changes: Any) -> dict[str, Any]:
             "plan": "plan_json",
             "results": "results_json",
             "approved_steps": "approved_steps_json",
+            "skill_selections": "skill_selections_json",
+            "skill_trace": "skill_trace_json",
             "pending": "pending_json",
         }.get(key, key)
 
-        if key in {"plan", "results", "approved_steps"}:
-            value = json.dumps(value, ensure_ascii=False)
+        if key in {"plan", "results", "approved_steps", "skill_selections", "skill_trace"}:
+            value = json.dumps(list(value or [])[:40], ensure_ascii=False)
         elif key == "pending":
             value = (
                 json.dumps(value, ensure_ascii=False)
@@ -348,6 +517,35 @@ def update_task(task_id: str, **changes: Any) -> dict[str, Any]:
         raise KeyError(task_id)
 
     return _row_to_task(row)
+
+
+def set_task_skill_route(
+    task_id: str,
+    selections: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    *,
+    trace: list[dict[str, Any]] | tuple[dict[str, Any], ...] = (),
+) -> dict[str, Any]:
+    """Persist one router decision on the existing agent task trace."""
+
+    return update_task(
+        task_id,
+        skill_selections=list(selections)[:32],
+        skill_trace=list(trace)[:40],
+    )
+
+
+def append_task_skill_evidence(
+    task_id: str,
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
+    """Append bounded skill evidence to the existing task trace."""
+
+    task = get_task(task_id)
+    if not task:
+        raise KeyError(task_id)
+    trace = list(task.get("skill_trace") or [])
+    trace.append({"event": "skill_evidence", "evidence": dict(evidence)})
+    return update_task(task_id, skill_trace=trace[-40:])
 
 
 def _remember_terminal_task(database: sqlite3.Connection, row: sqlite3.Row) -> None:

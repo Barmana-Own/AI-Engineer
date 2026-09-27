@@ -1,0 +1,18 @@
+{
+  "stage_id": 10,
+  "stage_name": "qa-debugging",
+  "status": "PASS",
+  "artifacts": [
+    "docs/10-qa-matrix.md",
+    "docs/10-qa-report.md",
+    "docs/10-known-issues.md"
+  ],
+  "summary": "",
+  "decisions": [],
+  "assumptions": [],
+  "risks": [],
+  "known_issues": [],
+  "blockers": [],
+  "verification": [],
+  "next_stage": "11-deployment-production"
+}

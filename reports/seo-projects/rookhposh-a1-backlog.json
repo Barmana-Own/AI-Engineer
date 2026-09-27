@@ -1,0 +1,90 @@
+{
+  "project_id": "04469407-8792-4ef9-b514-bbd6b91fc4b5",
+  "generated_at": "2026-09-26T16:44:34+03:30",
+  "execution_status": "planning_only",
+  "business_intent_decision": {
+    "status": "owner_confirmation_required",
+    "options": [
+      "consumer_virtual_try_on",
+      "b2b_clothing_store_service",
+      "both_with_separate_landing_architecture"
+    ],
+    "observed_evidence": [
+      "Primary hero addresses consumers trying a virtual fitting before purchase.",
+      "The public page exposes plans and links to related blog/dashboard hosts.",
+      "No reliable public evidence establishes a separate B2B acquisition proposition."
+    ]
+  },
+  "tasks": [
+    {
+      "id": "ROOKHPOSH-SEO-001",
+      "priority": "MEDIUM",
+      "problem": "Canonical link was not observed on the primary homepage.",
+      "evidence": {"snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220", "resource": "https://rookhposh.ir/", "signal": "canonical=missing"},
+      "affected": "Next.js metadata/template",
+      "responsible_role": "frontend",
+      "acceptance_criteria": "The emitted canonical resolves to the approved primary URL and is verified in raw and rendered HTML.",
+      "verification_method": "SEO specialist HTML inspection plus tester regression check."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-002",
+      "priority": "MEDIUM",
+      "problem": "robots.txt returned HTTP 404.",
+      "evidence": {"snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220", "resource": "https://rookhposh.ir/robots.txt", "signal": "status_code=404"},
+      "affected": "Next.js route/deployment behavior",
+      "responsible_role": "devops",
+      "acceptance_criteria": "An intentional robots policy is served at the approved URL and does not block required public routes.",
+      "verification_method": "Bounded HTTP check and source/runtime inspection."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-003",
+      "priority": "MEDIUM",
+      "problem": "sitemap.xml returned HTTP 404.",
+      "evidence": {"snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220", "resource": "https://rookhposh.ir/sitemap.xml", "signal": "status_code=404"},
+      "affected": "Next.js route/deployment behavior",
+      "responsible_role": "devops",
+      "acceptance_criteria": "A valid sitemap is served when approved by the owner and contains only intended canonical URLs.",
+      "verification_method": "Bounded HTTP/XML check and source/runtime inspection."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-004",
+      "priority": "MEDIUM",
+      "problem": "Primary page title is flagged by the configured heuristic (length 27).",
+      "evidence": {"snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220", "resource": "https://rookhposh.ir/", "signal": "title_length=27"},
+      "affected": "Next.js metadata copy",
+      "responsible_role": "frontend",
+      "acceptance_criteria": "Title is approved against the selected business/search intent; heuristic exceptions are documented when intentional.",
+      "verification_method": "SEO specialist review of emitted metadata."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-005",
+      "priority": "LOW",
+      "problem": "Two primary-page images were observed without alt attributes.",
+      "evidence": {"snapshot_id": "3fa35322-4251-4ae9-8954-9ef143dd4220", "resource": "homepage images", "signal": "images_without_alt=2"},
+      "affected": "Next.js image markup",
+      "responsible_role": "frontend",
+      "acceptance_criteria": "Non-decorative images have meaningful alt text and decorative images are explicitly handled.",
+      "verification_method": "Rendered and raw HTML inspection."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-006",
+      "priority": "MEDIUM",
+      "problem": "Dashboard related property has missing meta description, canonical, and H1 plus a short title.",
+      "evidence": {"snapshot_id": "7ae1ce39-c49d-4ea2-afd2-6e5be7658f91", "resource": "https://dash.rookhposh.ir/", "signal": "four observed metadata/on-page findings"},
+      "affected": "Dashboard property; repository ownership not yet established",
+      "responsible_role": "seo_manager",
+      "acceptance_criteria": "Confirm repository ownership and SEO intent before assigning implementation work.",
+      "verification_method": "Owner confirmation and separate property audit."
+    },
+    {
+      "id": "ROOKHPOSH-SEO-007",
+      "priority": "BLOCKED",
+      "problem": "Blog related property could not be resolved by DNS during baseline.",
+      "evidence": {"resource": "https://blog.rookhposh.ir/", "signal": "getaddrinfo failed"},
+      "affected": "Related property availability",
+      "responsible_role": "devops",
+      "acceptance_criteria": "Host resolves and is confirmed as an in-scope property before SEO conclusions are drawn.",
+      "verification_method": "Repeat bounded DNS/HTTPS check."
+    }
+  ]
+}

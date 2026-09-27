@@ -57,6 +57,12 @@ class AgentTaskCreateRequest(BaseModel):
     instruction: str = Field(min_length=3, max_length=8000)
     validation_command: str | None = Field(default=None, min_length=1, max_length=1000)
     mode: Literal["interactive", "autonomous"] = "interactive"
+    assigned_role: str | None = Field(default=None, max_length=80)
+    project_type: str = Field(default="", max_length=120)
+    requirements: list[str] = Field(default_factory=list, max_length=40)
+    risk: str = Field(default="", max_length=200)
+    technologies: list[str] = Field(default_factory=list, max_length=40)
+    project_phase: str = Field(default="", max_length=80)
 
 
 class AgentTaskResponse(BaseModel):
@@ -69,6 +75,8 @@ class AgentTaskResponse(BaseModel):
     current_step: int
     results: list[dict[str, Any]]
     approved_steps: list[int]
+    skill_selections: list[dict[str, Any]] = Field(default_factory=list)
+    skill_trace: list[dict[str, Any]] = Field(default_factory=list)
     pending: dict[str, Any] | None
     final_output: str | None
     error: str | None
